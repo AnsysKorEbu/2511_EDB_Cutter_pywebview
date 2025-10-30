@@ -1,0 +1,306 @@
+/* Reset and base styles */
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+}
+
+body {
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    background-color: #1a1a1a;
+    color: #e0e0e0;
+    overflow: hidden;
+}
+
+/* App container */
+#app {
+    display: flex;
+    flex-direction: column;
+    height: 100vh;
+    width: 100vw;
+}
+
+/* Toolbar */
+#toolbar {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 10px 20px;
+    background-color: #2d2d2d;
+    border-bottom: 1px solid #444;
+    box-shadow: 0 2px 5px rgba(0, 0, 0, 0.3);
+}
+
+.toolbar-group {
+    display: flex;
+    gap: 8px;
+}
+
+.toolbar-title h1 {
+    font-size: 18px;
+    font-weight: 600;
+    color: #fff;
+    margin: 0;
+}
+
+.toolbar-spacer {
+    flex: 1;
+}
+
+/* Buttons */
+.btn {
+    padding: 8px 16px;
+    border: none;
+    border-radius: 4px;
+    font-size: 14px;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 0.2s;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+}
+
+.btn:hover:not(:disabled) {
+    transform: translateY(-1px);
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+}
+
+.btn:active:not(:disabled) {
+    transform: translateY(0);
+}
+
+.btn:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+}
+
+.btn-primary {
+    background-color: #4CAF50;
+    color: white;
+}
+
+.btn-primary:hover:not(:disabled) {
+    background-color: #45a049;
+}
+
+.btn-secondary {
+    background-color: #555;
+    color: white;
+}
+
+.btn-secondary:hover:not(:disabled) {
+    background-color: #666;
+}
+
+.btn-success {
+    background-color: #2196F3;
+    color: white;
+}
+
+.btn-success:hover:not(:disabled) {
+    background-color: #0b7dda;
+}
+
+.btn-large {
+    width: 100%;
+    padding: 12px 20px;
+    font-size: 16px;
+    font-weight: 600;
+}
+
+/* Main container */
+#main-container {
+    display: flex;
+    flex: 1;
+    overflow: hidden;
+}
+
+/* Canvas container */
+#canvas-container {
+    flex: 1;
+    background-color: #1a1a1a;
+    position: relative;
+    overflow: hidden;
+}
+
+#canvas-container canvas {
+    display: block;
+}
+
+/* Side panel */
+#side-panel {
+    width: 320px;
+    background-color: #2d2d2d;
+    border-left: 1px solid #444;
+    display: flex;
+    flex-direction: column;
+    overflow-y: auto;
+}
+
+.panel-section {
+    padding: 20px;
+    border-bottom: 1px solid #444;
+}
+
+.panel-section h3 {
+    font-size: 16px;
+    font-weight: 600;
+    margin-bottom: 15px;
+    color: #fff;
+}
+
+.panel-section h4 {
+    font-size: 14px;
+    font-weight: 600;
+    margin-bottom: 10px;
+    color: #ccc;
+}
+
+/* Coordinates list */
+.coordinates-list {
+    max-height: 400px;
+    overflow-y: auto;
+    background-color: #1a1a1a;
+    border-radius: 4px;
+    padding: 10px;
+}
+
+.coordinates-list .hint {
+    color: #888;
+    font-style: italic;
+    text-align: center;
+    padding: 20px;
+}
+
+.coord-item {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    padding: 10px;
+    margin-bottom: 8px;
+    background-color: #2d2d2d;
+    border-radius: 4px;
+    border-left: 3px solid #4CAF50;
+}
+
+.coord-index {
+    font-weight: 600;
+    color: #4CAF50;
+    font-size: 13px;
+}
+
+.coord-value {
+    font-family: 'Consolas', 'Courier New', monospace;
+    font-size: 12px;
+    color: #e0e0e0;
+}
+
+/* Help list */
+.help-list {
+    list-style: none;
+    padding: 0;
+}
+
+.help-list li {
+    padding: 6px 0;
+    font-size: 13px;
+    color: #aaa;
+    border-bottom: 1px solid #333;
+}
+
+.help-list li:last-child {
+    border-bottom: none;
+}
+
+.help-list li:before {
+    content: "▸ ";
+    color: #4CAF50;
+    font-weight: bold;
+    margin-right: 6px;
+}
+
+/* Status bar */
+#status-bar {
+    display: flex;
+    align-items: center;
+    gap: 20px;
+    padding: 8px 20px;
+    background-color: #2d2d2d;
+    border-top: 1px solid #444;
+    font-size: 13px;
+    font-family: 'Consolas', 'Courier New', monospace;
+}
+
+#status-bar span {
+    color: #ccc;
+}
+
+#mouse-coords {
+    min-width: 250px;
+    color: #4CAF50;
+    font-weight: 500;
+}
+
+#zoom-level {
+    color: #2196F3;
+}
+
+/* Messages */
+.message {
+    padding: 4px 12px;
+    border-radius: 4px;
+    font-size: 12px;
+    font-weight: 500;
+    animation: fadeIn 0.3s;
+}
+
+.message-info {
+    background-color: #2196F3;
+    color: white;
+}
+
+.message-success {
+    background-color: #4CAF50;
+    color: white;
+}
+
+.message-warning {
+    background-color: #ff9800;
+    color: white;
+}
+
+.message-error {
+    background-color: #f44336;
+    color: white;
+}
+
+@keyframes fadeIn {
+    from {
+        opacity: 0;
+        transform: translateY(-10px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+/* Scrollbar styling */
+::-webkit-scrollbar {
+    width: 8px;
+    height: 8px;
+}
+
+::-webkit-scrollbar-track {
+    background: #1a1a1a;
+}
+
+::-webkit-scrollbar-thumb {
+    background: #555;
+    border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+    background: #666;
+}
