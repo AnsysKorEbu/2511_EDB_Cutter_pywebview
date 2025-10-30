@@ -1,3 +1,6 @@
+# IMPORTANT: Import webview FIRST to avoid pythonnet conflicts
+import webview
+
 from gui import start_gui
 
 # EDB file path (modify this to your .aedb path)

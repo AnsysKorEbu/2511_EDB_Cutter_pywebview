@@ -196,7 +196,7 @@ class PolygonSelector {
         this.uiController.showMessage('커팅 중...', 'info');
 
         try {
-            const result = await eel.cut_region(coordsUM)();
+            const result = await pywebview.api.cut_region(coordsUM);
 
             if (result.success) {
                 this.uiController.showMessage(result.message, 'success');

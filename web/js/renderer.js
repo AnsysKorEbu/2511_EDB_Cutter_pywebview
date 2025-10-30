@@ -140,18 +140,18 @@ class EDBRenderer {
         try {
             console.log('Loading EDB data...');
 
-            // Get configuration using Eel
-            const config = await eel.get_config()();
+            // Get configuration using pywebview
+            const config = await pywebview.api.get_config();
             CONFIG.scale = config.scale;
             CONFIG.inputUnit = config.inputUnit;
             console.log(`Unit configuration: ${config.inputUnit} -> ${CONFIG.outputUnit} (scale: ${CONFIG.scale})`);
 
-            // Get data using Eel
+            // Get data using pywebview
             const [planes, traces, components, bounds] = await Promise.all([
-                eel.get_planes()(),
-                eel.get_traces()(),
-                eel.get_components()(),
-                eel.get_bounds()()
+                pywebview.api.get_planes(),
+                pywebview.api.get_traces(),
+                pywebview.api.get_components(),
+                pywebview.api.get_bounds()
             ]);
 
             console.log(`Loaded: ${planes.length} planes, ${traces.length} traces, ${Object.keys(components).length} components`);

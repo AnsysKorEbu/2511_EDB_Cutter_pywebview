@@ -1,16 +1,42 @@
 /**
- * Main application initialization for Eel
+ * Main application initialization for pywebview
  */
 
 let renderer;
 let uiController;
 let polygonSelector;
 
-// Wait for DOM and Eel to be ready
+// Wait for pywebview to be ready
+window.addEventListener('pywebviewready', () => {
+    console.log('pywebview ready, initializing application...');
+    initializeApp();
+});
+
+// Fallback: if pywebviewready doesn't fire, wait for DOMContentLoaded + delay
 document.addEventListener('DOMContentLoaded', () => {
-    console.log('DOM ready, initializing application...');
-    // Give Eel a moment to initialize
-    setTimeout(() => initializeApp(), 100);
+    console.log('DOM ready');
+
+    // Check if pywebview is already available
+    if (typeof pywebview !== 'undefined' && typeof pywebview.api !== 'undefined') {
+        console.log('pywebview already available, initializing...');
+        initializeApp();
+    } else {
+        // Wait a bit longer for pywebview to be ready
+        console.log('Waiting for pywebview...');
+        let attempts = 0;
+        const checkInterval = setInterval(() => {
+            attempts++;
+            if (typeof pywebview !== 'undefined' && typeof pywebview.api !== 'undefined') {
+                console.log('pywebview now available, initializing...');
+                clearInterval(checkInterval);
+                initializeApp();
+            } else if (attempts > 50) {
+                console.error('pywebview not available after 5 seconds');
+                clearInterval(checkInterval);
+                alert('Failed to initialize pywebview API');
+            }
+        }, 100);
+    }
 });
 
 async function initializeApp() {

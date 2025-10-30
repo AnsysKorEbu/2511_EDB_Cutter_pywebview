@@ -11,13 +11,22 @@ def extract_component_positions(edb=None):
 def extract_plane_positions(edb=None):
     planes_data = []
     for polygon in edb.modeler.polygons:
+        # polygon.points() returns tuple of two lists: ([x_coords], [y_coords])
+        # Convert to [[x1,y1], [x2,y2], ...] format for JavaScript
+        points_tuple = polygon.points()  # Call method, not property!
+        if points_tuple and len(points_tuple) == 2:
+            x_coords, y_coords = points_tuple
+            points_list = [[x, y] for x, y in zip(x_coords, y_coords)]
+        else:
+            points_list = []
+
         plane_info = {
             'name': polygon.aedt_name,
             'layer': polygon.layer_name,
             'net': polygon.net_name,
-            'points': polygon.points,  # 폴리곤의 꼭짓점 좌표들
-            'center': polygon.center,  # 중심점 [x, y]
-            'bbox': polygon.bbox,  # 바운딩 박스 [x_min, y_min, x_max, y_max]
+            'points': points_list,  # [[x, y], ...] format
+            'center': polygon.center,  # [x, y]
+            'bbox': polygon.bbox,  # [x_min, y_min, x_max, y_max]
         }
         planes_data.append(plane_info)
 
