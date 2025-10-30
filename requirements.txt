@@ -1,0 +1,3 @@
+pyedb
+colorama
+pywebview
