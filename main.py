@@ -63,7 +63,8 @@ def main():
     print(f"EDB Path: {EDB_PATH}\n")
 
     # Step 1: Extract data using subprocess
-    extract_edb_data()
+    if False:
+        extract_edb_data()
 
     # Step 2: Start GUI
     print("=" * 70)
