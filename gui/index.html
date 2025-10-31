@@ -1106,6 +1106,11 @@
 
         // Mouse event handlers
         canvas.addEventListener('mousedown', (e) => {
+            // Ignore right-click (button 2)
+            if (e.button === 2) {
+                return;
+            }
+
             if (cutMode.enabled && cutMode.panMode) {
                 // Pan mode in cut mode
                 viewState.isDragging = true;
