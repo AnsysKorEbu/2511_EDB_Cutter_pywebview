@@ -25,3 +25,4 @@ uv_run.bat
 Results/
 *.log
 *.bak
+*test*
