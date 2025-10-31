@@ -33,21 +33,13 @@ def extract_edb_data():
         sys.exit(1)
 
     # Run edb_interface.py as subprocess
+    # capture_output=False allows real-time output to console
     try:
         result = subprocess.run(
             [str(python_exe), "-m", "edb.edb_interface"],
-            capture_output=True,
-            text=True,
             cwd=Path.cwd(),
             timeout=300  # 5 minutes timeout
         )
-
-        # Print output
-        if result.stdout:
-            print(result.stdout)
-
-        if result.stderr:
-            print("[STDERR]", result.stderr)
 
         if result.returncode != 0:
             print(f"\n[ERROR] Data extraction failed with code {result.returncode}")

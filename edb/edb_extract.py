@@ -24,9 +24,7 @@ def extract_plane_positions(edb=None):
             'name': polygon.aedt_name,
             'layer': polygon.layer_name,
             'net': polygon.net_name,
-            'points': points_list,  # [[x, y], ...] format
-            'center': polygon.center,  # [x, y]
-            'bbox': polygon.bbox,  # [x_min, y_min, x_max, y_max]
+            'points': points_list  # [[x, y], ...] format
         }
         planes_data.append(plane_info)
 
