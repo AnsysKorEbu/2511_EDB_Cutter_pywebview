@@ -33,6 +33,19 @@ class Api:
             print(f"Error loading data: {e}")
             return {'error': str(e)}
 
+    def get_planes_data(self):
+        """Get planes data for rendering"""
+        try:
+            if self.data is None or self.data.get('planes') is None:
+                from edb.edb_saver import load_all_edb_data
+                print("Loading EDB data from source folder...")
+                self.data = load_all_edb_data()
+
+            return self.data.get('planes', [])
+        except Exception as e:
+            print(f"Error getting planes data: {e}")
+            return []
+
 
 def start_gui(edb_path):
     """Start the pywebview GUI"""
@@ -43,11 +56,11 @@ def start_gui(edb_path):
 
     # Create window
     window = webview.create_window(
-        'EDB Cutter',
+        'EDB Cutter - 2D Viewer',
         html_file.as_uri(),
         js_api=api,
-        width=800,
-        height=600,
+        width=1200,
+        height=800,
         resizable=True
     )
 
