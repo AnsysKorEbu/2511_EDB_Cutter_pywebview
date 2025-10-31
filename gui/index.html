@@ -228,6 +228,101 @@
         .btn-reload:hover {
             background: #1177bb;
         }
+
+        /* Cut Mode Styles */
+        .btn-cut-mode {
+            background: #3e3e42;
+            margin-top: 10px;
+        }
+
+        .btn-cut-mode.active {
+            background: #ff6b35;
+        }
+
+        .btn-cut-mode.active:hover {
+            background: #ff8555;
+        }
+
+        .cut-tools {
+            margin-top: 15px;
+            padding: 15px;
+            background: #1e1e1e;
+            border-radius: 4px;
+        }
+
+        .cut-tool-btn {
+            width: 100%;
+            margin: 5px 0;
+            padding: 10px;
+            background: #3e3e42;
+            text-align: left;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .cut-tool-btn.active {
+            background: #0e639c;
+        }
+
+        .cut-tool-btn:hover {
+            background: #4e4e52;
+        }
+
+        .cut-tool-btn.active:hover {
+            background: #1177bb;
+        }
+
+        .cut-list {
+            margin-top: 15px;
+            padding: 15px;
+            background: #1e1e1e;
+            border-radius: 4px;
+            max-height: 200px;
+            overflow-y: auto;
+        }
+
+        .cut-list-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 8px;
+            margin: 5px 0;
+            background: #252526;
+            border-radius: 4px;
+            font-size: 12px;
+        }
+
+        .cut-list-item:hover {
+            background: #2d2d30;
+        }
+
+        .cut-delete-btn {
+            padding: 4px 8px;
+            background: #c72b2b;
+            font-size: 11px;
+            min-width: auto;
+        }
+
+        .cut-delete-btn:hover {
+            background: #e03e3e;
+        }
+
+        .cut-actions {
+            display: flex;
+            gap: 5px;
+            margin-top: 10px;
+        }
+
+        .cut-actions button {
+            flex: 1;
+            font-size: 11px;
+            padding: 6px;
+        }
+
+        canvas.cut-mode {
+            cursor: crosshair;
+        }
     </style>
 </head>
 <body>
@@ -261,6 +356,41 @@
             </div>
 
             <button class="btn-reload" onclick="reloadData()" id="reloadBtn">Reload Data</button>
+
+            <button class="btn-cut-mode" onclick="toggleCutMode()" id="cutModeBtn">✂️ Cut Mode</button>
+
+            <div id="cutTools" class="cut-tools hidden">
+                <h3 style="font-size: 14px; margin-bottom: 10px; color: #9cdcfe;">Cut Tools</h3>
+                <button class="cut-tool-btn" onclick="selectCutTool('line')" data-tool="line">
+                    <span>📏</span> Line Cut
+                </button>
+                <button class="cut-tool-btn" onclick="selectCutTool('rectangle')" data-tool="rectangle">
+                    <span>▭</span> Rectangle
+                </button>
+                <button class="cut-tool-btn" onclick="selectCutTool('polyline')" data-tool="polyline">
+                    <span>📐</span> Polyline
+                </button>
+                <div style="margin-top: 10px; padding: 8px; background: #252526; border-radius: 4px; font-size: 11px; color: #858585;">
+                    <div id="cutHint">Select a tool to start</div>
+                </div>
+                <button id="finishCutBtn" class="hidden" onclick="finishCurrentCut()" style="margin-top: 10px; background: #10a37f; width: 100%;">
+                    ✓ Finish & Save Cut
+                </button>
+                <button id="panModeBtn" onclick="togglePanMode()" style="margin-top: 10px; background: #3e3e42; width: 100%;">
+                    🤚 Pan Mode (Space)
+                </button>
+            </div>
+
+            <div id="cutList" class="cut-list hidden">
+                <h3 style="font-size: 14px; margin-bottom: 10px; color: #9cdcfe;">Saved Cuts (<span id="cutCount">0</span>)</h3>
+                <div id="cutListItems">
+                    <div style="color: #858585; font-size: 11px; text-align: center;">No cuts saved</div>
+                </div>
+                <div class="cut-actions">
+                    <button onclick="refreshCutList()">Refresh</button>
+                    <button onclick="clearAllCuts()">Clear All</button>
+                </div>
+            </div>
         </div>
 
         <div class="main-view">
@@ -323,6 +453,16 @@
             '#FF6B6B', '#4ECDC4', '#45B7D1', '#FFA07A', '#98D8C8',
             '#F7DC6F', '#BB8FCE', '#85C1E2', '#F8B739', '#52B788'
         ];
+
+        // Cut mode state
+        let cutMode = {
+            enabled: false,
+            activeTool: null,
+            currentCut: [],
+            isDrawing: false,
+            savedCuts: [],
+            panMode: false  // Temporary pan mode in cut mode
+        };
 
         // Initialize canvas size
         function resizeCanvas() {
@@ -518,6 +658,15 @@
                     drawPlane(plane);
                 });
             });
+
+            // Draw saved cuts
+            if (cutMode.enabled) {
+                drawSavedCuts();
+                // Draw current cut being drawn
+                if (cutMode.isDrawing && cutMode.currentCut.length > 0) {
+                    drawCurrentCut();
+                }
+            }
         }
 
         // Draw grid
@@ -587,11 +736,388 @@
             document.getElementById('zoomLevel').textContent = zoomPercent + '%';
         }
 
+        // ========== Cut Mode Functions ==========
+
+        function toggleCutMode() {
+            cutMode.enabled = !cutMode.enabled;
+            const btn = document.getElementById('cutModeBtn');
+            const cutTools = document.getElementById('cutTools');
+            const cutList = document.getElementById('cutList');
+
+            if (cutMode.enabled) {
+                btn.classList.add('active');
+                cutTools.classList.remove('hidden');
+                cutList.classList.remove('hidden');
+                canvas.classList.add('cut-mode');
+                refreshCutList();
+                document.getElementById('statusText').textContent = 'Cut Mode Active - Select a tool to start cutting';
+            } else {
+                btn.classList.remove('active');
+                cutTools.classList.add('hidden');
+                cutList.classList.add('hidden');
+                canvas.classList.remove('cut-mode');
+                cutMode.activeTool = null;
+                cutMode.currentCut = [];
+                cutMode.isDrawing = false;
+                cutMode.panMode = false;
+                document.querySelectorAll('.cut-tool-btn').forEach(b => b.classList.remove('active'));
+                document.getElementById('finishCutBtn').classList.add('hidden');
+                document.getElementById('statusText').textContent = 'Cut Mode Disabled';
+                canvas.style.cursor = 'grab';
+            }
+
+            render();
+        }
+
+        function selectCutTool(tool) {
+            if (!cutMode.enabled) return;
+
+            // Reset current drawing
+            cutMode.currentCut = [];
+            cutMode.isDrawing = false;
+
+            // Set active tool
+            cutMode.activeTool = tool;
+
+            // Update UI
+            document.querySelectorAll('.cut-tool-btn').forEach(btn => {
+                btn.classList.remove('active');
+            });
+            document.querySelector(`[data-tool="${tool}"]`).classList.add('active');
+
+            // Update hint
+            const hints = {
+                'line': 'Click two points to draw a line',
+                'rectangle': 'Click two opposite corners to draw a rectangle',
+                'polyline': 'Click points, then click "Finish & Save Cut" or right-click'
+            };
+            document.getElementById('cutHint').textContent = hints[tool];
+            document.getElementById('statusText').textContent = `${tool.toUpperCase()} tool selected - ${hints[tool]}`;
+
+            // Show finish button for polyline
+            document.getElementById('finishCutBtn').classList.add('hidden');
+
+            render();
+        }
+
+        function togglePanMode() {
+            if (!cutMode.enabled) return;
+
+            cutMode.panMode = !cutMode.panMode;
+            const panBtn = document.getElementById('panModeBtn');
+
+            if (cutMode.panMode) {
+                panBtn.style.background = '#10a37f';
+                panBtn.textContent = '✋ Pan Active (Space)';
+                canvas.style.cursor = 'grab';
+                document.getElementById('statusText').textContent = 'Pan Mode - Click and drag to move view';
+            } else {
+                panBtn.style.background = '#3e3e42';
+                panBtn.textContent = '🤚 Pan Mode (Space)';
+                canvas.style.cursor = 'crosshair';
+                document.getElementById('statusText').textContent = 'Cut Mode - Select a tool to continue';
+            }
+        }
+
+        function finishCurrentCut() {
+            if (cutMode.currentCut.length >= 2) {
+                cutMode.isDrawing = false;
+                saveCut();
+                document.getElementById('finishCutBtn').classList.add('hidden');
+            } else {
+                alert('Need at least 2 points to save a cut');
+            }
+        }
+
+        function drawSavedCuts() {
+            cutMode.savedCuts.forEach(cut => {
+                ctx.strokeStyle = '#ff6b35';
+                ctx.lineWidth = 2;
+                ctx.setLineDash([5, 5]);
+
+                if (cut.points && cut.points.length > 0) {
+                    ctx.beginPath();
+                    const first = worldToScreen(cut.points[0][0], cut.points[0][1]);
+                    ctx.moveTo(first.x, first.y);
+
+                    for (let i = 1; i < cut.points.length; i++) {
+                        const pt = worldToScreen(cut.points[i][0], cut.points[i][1]);
+                        ctx.lineTo(pt.x, pt.y);
+                    }
+
+                    if (cut.type === 'rectangle') {
+                        ctx.closePath();
+                    }
+
+                    ctx.stroke();
+                }
+
+                ctx.setLineDash([]);
+            });
+        }
+
+        function drawCurrentCut() {
+            if (cutMode.currentCut.length === 0) return;
+
+            ctx.strokeStyle = '#ff3333';
+            ctx.lineWidth = 2;
+            ctx.setLineDash([5, 5]);
+
+            ctx.beginPath();
+            const first = worldToScreen(cutMode.currentCut[0][0], cutMode.currentCut[0][1]);
+            ctx.moveTo(first.x, first.y);
+
+            for (let i = 1; i < cutMode.currentCut.length; i++) {
+                const pt = worldToScreen(cutMode.currentCut[i][0], cutMode.currentCut[i][1]);
+                ctx.lineTo(pt.x, pt.y);
+            }
+
+            if (cutMode.activeTool === 'rectangle' && cutMode.currentCut.length === 2) {
+                // Complete rectangle
+                const pt1 = worldToScreen(cutMode.currentCut[0][0], cutMode.currentCut[0][1]);
+                const pt2 = worldToScreen(cutMode.currentCut[1][0], cutMode.currentCut[1][1]);
+                ctx.clearRect(0, 0, 0, 0);
+                ctx.beginPath();
+                ctx.rect(pt1.x, pt1.y, pt2.x - pt1.x, pt2.y - pt1.y);
+            }
+
+            ctx.stroke();
+            ctx.setLineDash([]);
+        }
+
+        async function saveCut() {
+            if (cutMode.currentCut.length === 0) {
+                alert('No cut to save');
+                return;
+            }
+
+            const cutData = {
+                type: cutMode.activeTool,
+                points: cutMode.currentCut
+            };
+
+            try {
+                const result = await window.pywebview.api.save_cut_data(cutData);
+                if (result.success) {
+                    console.log('Cut saved:', result.id);
+                    cutMode.currentCut = [];
+                    cutMode.isDrawing = false;
+                    await refreshCutList();
+                    render();
+                    document.getElementById('statusText').textContent = `Cut saved: ${result.id}`;
+                } else {
+                    alert('Error saving cut: ' + result.error);
+                }
+            } catch (error) {
+                console.error('Error saving cut:', error);
+                alert('Error saving cut: ' + error.message);
+            }
+        }
+
+        async function refreshCutList() {
+            try {
+                const cuts = await window.pywebview.api.get_cut_list();
+                cutMode.savedCuts = [];
+
+                // Load full cut data for rendering
+                for (const cut of cuts) {
+                    const fullData = await window.pywebview.api.get_cut_data(cut.id);
+                    if (fullData) {
+                        cutMode.savedCuts.push(fullData);
+                    }
+                }
+
+                const cutListItems = document.getElementById('cutListItems');
+                const cutCount = document.getElementById('cutCount');
+                cutCount.textContent = cuts.length;
+
+                if (cuts.length === 0) {
+                    cutListItems.innerHTML = '<div style="color: #858585; font-size: 11px; text-align: center;">No cuts saved</div>';
+                } else {
+                    cutListItems.innerHTML = cuts.map(cut => `
+                        <div class="cut-list-item">
+                            <div>
+                                <div style="color: #9cdcfe;">${cut.id}</div>
+                                <div style="color: #858585; font-size: 10px;">${cut.type}</div>
+                            </div>
+                            <button class="cut-delete-btn" onclick="deleteCut('${cut.id}')">Delete</button>
+                        </div>
+                    `).join('');
+                }
+
+                render();
+            } catch (error) {
+                console.error('Error refreshing cut list:', error);
+            }
+        }
+
+        async function deleteCut(cutId) {
+            try {
+                const result = await window.pywebview.api.delete_cut(cutId);
+                if (result.success) {
+                    await refreshCutList();
+                    document.getElementById('statusText').textContent = `Deleted: ${cutId}`;
+                } else {
+                    alert('Error deleting cut: ' + result.error);
+                }
+            } catch (error) {
+                console.error('Error deleting cut:', error);
+                alert('Error deleting cut: ' + error.message);
+            }
+        }
+
+        async function clearAllCuts() {
+            if (!confirm('Delete all cuts?')) return;
+
+            try {
+                const cuts = await window.pywebview.api.get_cut_list();
+                for (const cut of cuts) {
+                    await window.pywebview.api.delete_cut(cut.id);
+                }
+                await refreshCutList();
+                document.getElementById('statusText').textContent = 'All cuts deleted';
+            } catch (error) {
+                console.error('Error clearing cuts:', error);
+                alert('Error clearing cuts: ' + error.message);
+            }
+        }
+
+        // ========== Cut Drawing Handlers ==========
+
+        function handleCutMouseDown(e) {
+            const worldPos = screenToWorld(e.offsetX, e.offsetY);
+
+            switch (cutMode.activeTool) {
+                case 'line':
+                    if (!cutMode.isDrawing) {
+                        // Start line
+                        cutMode.isDrawing = true;
+                        cutMode.currentCut = [[worldPos.x, worldPos.y]];
+                        document.getElementById('statusText').textContent = 'Click end point';
+                    } else {
+                        // Finish line
+                        cutMode.currentCut.push([worldPos.x, worldPos.y]);
+                        cutMode.isDrawing = false;
+                        saveCut();
+                    }
+                    break;
+
+                case 'rectangle':
+                    if (!cutMode.isDrawing) {
+                        // Start rectangle - first corner
+                        cutMode.isDrawing = true;
+                        cutMode.currentCut = [[worldPos.x, worldPos.y]];
+                        document.getElementById('statusText').textContent = 'Click opposite corner';
+                    } else {
+                        // Finish rectangle - second corner
+                        const [x1, y1] = cutMode.currentCut[0];
+                        cutMode.currentCut = [
+                            [x1, y1],
+                            [worldPos.x, y1],
+                            [worldPos.x, worldPos.y],
+                            [x1, worldPos.y]
+                        ];
+                        cutMode.isDrawing = false;
+                        saveCut();
+                    }
+                    break;
+
+                case 'polyline':
+                    if (!cutMode.isDrawing) {
+                        cutMode.isDrawing = true;
+                        cutMode.currentCut = [[worldPos.x, worldPos.y]];
+                        document.getElementById('finishCutBtn').classList.remove('hidden');
+                        document.getElementById('statusText').textContent = 'Click points, then click "Finish & Save Cut" or right-click';
+                    } else {
+                        cutMode.currentCut.push([worldPos.x, worldPos.y]);
+                        document.getElementById('statusText').textContent = `${cutMode.currentCut.length} points - Click to add more`;
+                    }
+                    render();
+                    break;
+            }
+
+            render();
+        }
+
+        function handleCutMouseMove(e) {
+            const worldPos = screenToWorld(e.offsetX, e.offsetY);
+
+            switch (cutMode.activeTool) {
+                case 'line':
+                    if (cutMode.isDrawing && cutMode.currentCut.length === 1) {
+                        // Show preview of line
+                        cutMode.currentCut[1] = [worldPos.x, worldPos.y];
+                        render();
+                    }
+                    break;
+
+                case 'rectangle':
+                    if (cutMode.isDrawing && cutMode.currentCut.length === 1) {
+                        // Show preview rectangle
+                        const [x1, y1] = cutMode.currentCut[0];
+                        const tempRect = [
+                            [x1, y1],
+                            [worldPos.x, y1],
+                            [worldPos.x, worldPos.y],
+                            [x1, worldPos.y]
+                        ];
+
+                        // Draw preview
+                        render();
+                        ctx.strokeStyle = '#ff3333';
+                        ctx.lineWidth = 2;
+                        ctx.setLineDash([5, 5]);
+                        ctx.beginPath();
+                        const pt1 = worldToScreen(tempRect[0][0], tempRect[0][1]);
+                        ctx.moveTo(pt1.x, pt1.y);
+                        for (let i = 1; i < tempRect.length; i++) {
+                            const pt = worldToScreen(tempRect[i][0], tempRect[i][1]);
+                            ctx.lineTo(pt.x, pt.y);
+                        }
+                        ctx.closePath();
+                        ctx.stroke();
+                        ctx.setLineDash([]);
+                    }
+                    break;
+
+                case 'polyline':
+                    // Show preview line to cursor
+                    render();
+                    if (cutMode.isDrawing && cutMode.currentCut.length > 0) {
+                        const last = cutMode.currentCut[cutMode.currentCut.length - 1];
+                        const lastScreen = worldToScreen(last[0], last[1]);
+
+                        ctx.strokeStyle = '#ff3333';
+                        ctx.lineWidth = 1;
+                        ctx.setLineDash([3, 3]);
+                        ctx.beginPath();
+                        ctx.moveTo(lastScreen.x, lastScreen.y);
+                        ctx.lineTo(e.offsetX, e.offsetY);
+                        ctx.stroke();
+                        ctx.setLineDash([]);
+                    }
+                    break;
+            }
+        }
+
+        function handleCutMouseUp(e) {
+            // No longer needed for rectangle since it's now click-based
+        }
+
         // Mouse event handlers
         canvas.addEventListener('mousedown', (e) => {
-            viewState.isDragging = true;
-            viewState.lastX = e.clientX;
-            viewState.lastY = e.clientY;
+            if (cutMode.enabled && cutMode.panMode) {
+                // Pan mode in cut mode
+                viewState.isDragging = true;
+                viewState.lastX = e.clientX;
+                viewState.lastY = e.clientY;
+            } else if (cutMode.enabled && cutMode.activeTool) {
+                handleCutMouseDown(e);
+            } else {
+                viewState.isDragging = true;
+                viewState.lastX = e.clientX;
+                viewState.lastY = e.clientY;
+            }
         });
 
         canvas.addEventListener('mousemove', (e) => {
@@ -600,8 +1126,12 @@
             document.getElementById('mousePos').textContent =
                 `X: ${worldPos.x.toFixed(6)}, Y: ${worldPos.y.toFixed(6)}`;
 
+            // Handle cut mode drawing
+            if (cutMode.enabled && cutMode.isDrawing) {
+                handleCutMouseMove(e);
+            }
             // Handle dragging
-            if (viewState.isDragging) {
+            else if (viewState.isDragging) {
                 const dx = e.clientX - viewState.lastX;
                 const dy = e.clientY - viewState.lastY;
 
@@ -615,12 +1145,44 @@
             }
         });
 
-        canvas.addEventListener('mouseup', () => {
-            viewState.isDragging = false;
+        canvas.addEventListener('mouseup', (e) => {
+            if (cutMode.enabled && cutMode.isDrawing) {
+                handleCutMouseUp(e);
+            } else {
+                viewState.isDragging = false;
+            }
         });
 
         canvas.addEventListener('mouseleave', () => {
             viewState.isDragging = false;
+        });
+
+        // Right-click to finish polyline
+        canvas.addEventListener('contextmenu', (e) => {
+            if (cutMode.enabled && cutMode.activeTool === 'polyline' && cutMode.isDrawing && cutMode.currentCut.length >= 2) {
+                e.preventDefault();
+                finishCurrentCut();
+            } else if (cutMode.enabled) {
+                e.preventDefault(); // Prevent context menu in cut mode
+            }
+        });
+
+        // Keyboard shortcuts for Cut Mode
+        document.addEventListener('keydown', (e) => {
+            if (!cutMode.enabled) return;
+
+            if (e.key === 'Escape') {
+                // Cancel current cut
+                cutMode.currentCut = [];
+                cutMode.isDrawing = false;
+                document.getElementById('finishCutBtn').classList.add('hidden');
+                render();
+                document.getElementById('statusText').textContent = 'Cut cancelled';
+            } else if (e.key === ' ') {
+                // Toggle pan mode with Space
+                e.preventDefault();
+                togglePanMode();
+            }
         });
 
         // Zoom with mouse wheel
