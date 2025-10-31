@@ -1,0 +1,215 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>EDB Cutter</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            padding: 20px;
+        }
+
+        .container {
+            background: white;
+            border-radius: 20px;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+            padding: 40px;
+            max-width: 600px;
+            width: 100%;
+        }
+
+        h1 {
+            color: #333;
+            text-align: center;
+            margin-bottom: 10px;
+            font-size: 2em;
+        }
+
+        .subtitle {
+            text-align: center;
+            color: #666;
+            margin-bottom: 30px;
+            font-size: 0.9em;
+        }
+
+        .info-box {
+            background: #f8f9fa;
+            border-left: 4px solid #667eea;
+            padding: 15px;
+            margin-bottom: 20px;
+            border-radius: 5px;
+        }
+
+        .info-box h3 {
+            color: #667eea;
+            margin-bottom: 10px;
+            font-size: 1.1em;
+        }
+
+        .info-box p {
+            color: #555;
+            line-height: 1.6;
+            font-size: 0.9em;
+        }
+
+        .status {
+            background: #e8f5e9;
+            border: 1px solid #4caf50;
+            padding: 15px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+            display: none;
+        }
+
+        .status.show {
+            display: block;
+        }
+
+        .status p {
+            color: #2e7d32;
+            margin: 5px 0;
+            font-size: 0.9em;
+        }
+
+        .button-group {
+            display: flex;
+            gap: 15px;
+            margin-top: 20px;
+        }
+
+        button {
+            flex: 1;
+            padding: 15px 30px;
+            font-size: 1.1em;
+            font-weight: 600;
+            border: none;
+            border-radius: 10px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.2);
+        }
+
+        button:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 20px rgba(0, 0, 0, 0.3);
+        }
+
+        button:active {
+            transform: translateY(0);
+        }
+
+        .btn-test {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+        }
+
+        .btn-load {
+            background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+            color: white;
+        }
+
+        .btn-test:hover {
+            background: linear-gradient(135deg, #5568d3 0%, #653a8b 100%);
+        }
+
+        .btn-load:hover {
+            background: linear-gradient(135deg, #df82ea 0%, #e4465b 100%);
+        }
+
+        .footer {
+            text-align: center;
+            margin-top: 20px;
+            color: #999;
+            font-size: 0.8em;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>EDB Cutter</h1>
+        <p class="subtitle">EDB Data Extraction & Visualization Tool</p>
+
+        <div class="info-box">
+            <h3>Data Information</h3>
+            <p id="dataInfo">Waiting for data extraction...</p>
+        </div>
+
+        <div class="status" id="status">
+            <p><strong>Status:</strong> <span id="statusText">Ready</span></p>
+        </div>
+
+        <div class="button-group">
+            <button class="btn-test" onclick="testButton()">Test Button</button>
+            <button class="btn-load" onclick="loadData()">Load Data</button>
+        </div>
+
+        <div class="footer">
+            <p>EDB Cutter v1.0 | PyWebView + pyedb</p>
+        </div>
+    </div>
+
+    <script>
+        function testButton() {
+            const statusDiv = document.getElementById('status');
+            const statusText = document.getElementById('statusText');
+
+            statusDiv.classList.add('show');
+            statusText.textContent = 'Test button clicked!';
+
+            console.log('Test button clicked!');
+            alert('Test button works!');
+
+            // Call Python function if available
+            if (window.pywebview) {
+                window.pywebview.api.test_function().then(result => {
+                    console.log('Python response:', result);
+                    statusText.textContent = result;
+                });
+            }
+        }
+
+        function loadData() {
+            const statusDiv = document.getElementById('status');
+            const statusText = document.getElementById('statusText');
+            const dataInfo = document.getElementById('dataInfo');
+
+            statusDiv.classList.add('show');
+            statusText.textContent = 'Loading data...';
+
+            if (window.pywebview) {
+                window.pywebview.api.load_edb_data().then(result => {
+                    console.log('Data loaded:', result);
+                    dataInfo.innerHTML = `
+                        <strong>Planes:</strong> ${result.planes || 0} items<br>
+                        <strong>Traces:</strong> ${result.traces || 0} items<br>
+                        <strong>Components:</strong> ${result.components || 0} items
+                    `;
+                    statusText.textContent = 'Data loaded successfully!';
+                }).catch(error => {
+                    console.error('Error loading data:', error);
+                    statusText.textContent = 'Error loading data: ' + error;
+                });
+            } else {
+                alert('PyWebView API not available');
+            }
+        }
+
+        // Initialize on load
+        window.addEventListener('pywebviewready', function() {
+            console.log('PyWebView ready!');
+        });
+    </script>
+</body>
+</html>
