@@ -1111,6 +1111,15 @@
                 return;
             }
 
+            // Shift + Drag = Pan mode (AEDT style)
+            if (e.shiftKey) {
+                viewState.isDragging = true;
+                viewState.lastX = e.clientX;
+                viewState.lastY = e.clientY;
+                canvas.style.cursor = 'grabbing';
+                return;
+            }
+
             if (cutMode.enabled && cutMode.panMode) {
                 // Pan mode in cut mode
                 viewState.isDragging = true;
@@ -1130,6 +1139,13 @@
             const worldPos = screenToWorld(e.offsetX, e.offsetY);
             document.getElementById('mousePos').textContent =
                 `X: ${worldPos.x.toFixed(6)}, Y: ${worldPos.y.toFixed(6)}`;
+
+            // Update cursor based on Shift key (AEDT style)
+            if (e.shiftKey && !viewState.isDragging && !cutMode.enabled) {
+                canvas.style.cursor = 'grab';
+            } else if (!viewState.isDragging && !cutMode.enabled) {
+                canvas.style.cursor = 'grab';
+            }
 
             // Handle cut mode drawing
             if (cutMode.enabled && cutMode.isDrawing) {
@@ -1155,6 +1171,12 @@
                 handleCutMouseUp(e);
             } else {
                 viewState.isDragging = false;
+                // Restore cursor after dragging
+                if (cutMode.enabled) {
+                    canvas.style.cursor = 'crosshair';
+                } else {
+                    canvas.style.cursor = 'grab';
+                }
             }
         });
 
@@ -1180,8 +1202,17 @@
             }
         });
 
-        // Keyboard shortcuts for Cut Mode
+        // Global keyboard shortcuts
         document.addEventListener('keydown', (e) => {
+            // Ctrl + D = Fit to View (Reset View)
+            if (e.ctrlKey && e.key === 'd') {
+                e.preventDefault();
+                resetView();
+                document.getElementById('statusText').textContent = 'View reset to fit all data';
+                return;
+            }
+
+            // Cut mode specific shortcuts
             if (!cutMode.enabled) return;
 
             if (e.key === 'Escape') {
