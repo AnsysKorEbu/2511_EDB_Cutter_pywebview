@@ -13,6 +13,9 @@ wheels/
 # Offline packages
 packages/
 
+# EDB extracted data (JSON cache)
+source/
+
 .python-version
 pyproject.toml
 README.md
