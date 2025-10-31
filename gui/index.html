@@ -382,12 +382,14 @@
             let totalPoints = 0;
 
             planesData.forEach(plane => {
-                // Update bounds
-                if (plane.bbox) {
-                    dataBounds.minX = Math.min(dataBounds.minX, plane.bbox[0]);
-                    dataBounds.minY = Math.min(dataBounds.minY, plane.bbox[1]);
-                    dataBounds.maxX = Math.max(dataBounds.maxX, plane.bbox[2]);
-                    dataBounds.maxY = Math.max(dataBounds.maxY, plane.bbox[3]);
+                // Update bounds from points
+                if (plane.points && plane.points.length > 0) {
+                    plane.points.forEach(([x, y]) => {
+                        dataBounds.minX = Math.min(dataBounds.minX, x);
+                        dataBounds.minY = Math.min(dataBounds.minY, y);
+                        dataBounds.maxX = Math.max(dataBounds.maxX, x);
+                        dataBounds.maxY = Math.max(dataBounds.maxY, y);
+                    });
                 }
 
                 // Count points

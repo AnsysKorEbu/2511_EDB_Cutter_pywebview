@@ -32,11 +32,11 @@ def extract_edb_data():
         print("Please ensure virtual environment is set up correctly.")
         sys.exit(1)
 
-    # Run edb_interface.py as subprocess
+    # Run edb package as subprocess
     # capture_output=False allows real-time output to console
     try:
         result = subprocess.run(
-            [str(python_exe), "-m", "edb.edb_interface"],
+            [str(python_exe), "-m", "edb"],
             cwd=Path.cwd(),
             timeout=300  # 5 minutes timeout
         )
