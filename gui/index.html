@@ -995,8 +995,8 @@
                         cutMode.currentCut = [[worldPos.x, worldPos.y]];
                         document.getElementById('statusText').textContent = 'Click end point';
                     } else {
-                        // Finish line
-                        cutMode.currentCut.push([worldPos.x, worldPos.y]);
+                        // Finish line - replace preview point instead of pushing
+                        cutMode.currentCut[1] = [worldPos.x, worldPos.y];
                         cutMode.isDrawing = false;
                         saveCut();
                     }
@@ -1157,9 +1157,17 @@
             viewState.isDragging = false;
         });
 
-        // Right-click to finish polyline
+        // Right-click handlers
         canvas.addEventListener('contextmenu', (e) => {
-            if (cutMode.enabled && cutMode.activeTool === 'polyline' && cutMode.isDrawing && cutMode.currentCut.length >= 2) {
+            if (cutMode.enabled && cutMode.activeTool === 'line' && cutMode.isDrawing) {
+                // Cancel line drawing
+                e.preventDefault();
+                cutMode.currentCut = [];
+                cutMode.isDrawing = false;
+                render();
+                document.getElementById('statusText').textContent = 'Line drawing cancelled - Click to start new line';
+            } else if (cutMode.enabled && cutMode.activeTool === 'polyline' && cutMode.isDrawing && cutMode.currentCut.length >= 2) {
+                // Finish polyline
                 e.preventDefault();
                 finishCurrentCut();
             } else if (cutMode.enabled) {
