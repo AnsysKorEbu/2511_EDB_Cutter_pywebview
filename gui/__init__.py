@@ -12,17 +12,35 @@ class Api:
         self.edb_path = edb_path
         self.data = None
 
+        # Extract EDB folder name from path
+        if edb_path and edb_path != "test_path":
+            edb_path_obj = Path(edb_path)
+            # If path ends with edb.def, get parent folder name
+            if edb_path_obj.name == 'edb.def' or edb_path_obj.suffix == '.aedb':
+                if edb_path_obj.suffix == '.aedb':
+                    self.edb_folder_name = edb_path_obj.name
+                else:
+                    self.edb_folder_name = edb_path_obj.parent.name
+            else:
+                self.edb_folder_name = edb_path_obj.name
+
+            self._edb_data_dir = Path('source') / self.edb_folder_name
+        else:
+            # Test mode - use default source folder
+            self.edb_folder_name = "test_data"
+            self._edb_data_dir = Path('source')
+
     def test_function(self):
         """Test function called from JavaScript"""
-        return f"Hello from Python! EDB Path: {self.edb_path}"
+        return f"Hello from Python! EDB Path: {self.edb_path} (Folder: {self.edb_folder_name})"
 
     def load_edb_data(self):
         """Load EDB data from source folder"""
         try:
             from edb.edb_saver import load_all_edb_data
 
-            print("Loading EDB data from source folder...")
-            self.data = load_all_edb_data()
+            print(f"Loading EDB data from {self._edb_data_dir}...")
+            self.data = load_all_edb_data(str(self._edb_data_dir))
 
             return {
                 'planes': len(self.data['planes']) if self.data['planes'] else 0,
@@ -38,8 +56,8 @@ class Api:
         try:
             if self.data is None or self.data.get('planes') is None:
                 from edb.edb_saver import load_all_edb_data
-                print("Loading EDB data from source folder...")
-                self.data = load_all_edb_data()
+                print(f"Loading EDB data from {self._edb_data_dir}...")
+                self.data = load_all_edb_data(str(self._edb_data_dir))
 
             return self.data.get('planes', [])
         except Exception as e:
@@ -47,12 +65,12 @@ class Api:
             return []
 
     def save_cut_data(self, cut_data):
-        """Save cut geometry data to source/cut folder"""
+        """Save cut geometry data to EDB-specific cut folder"""
         import json
         from datetime import datetime
 
         try:
-            cut_dir = Path('source/cut')
+            cut_dir = self._edb_data_dir / 'cut'
             cut_dir.mkdir(parents=True, exist_ok=True)
 
             # Generate cut ID based on existing files
@@ -62,6 +80,7 @@ class Api:
             # Add metadata
             cut_data['id'] = cut_id
             cut_data['timestamp'] = datetime.now().isoformat()
+            cut_data['edb_folder'] = self.edb_folder_name
 
             # Save to JSON file
             cut_file = cut_dir / f"{cut_id}.json"
@@ -79,7 +98,7 @@ class Api:
         import json
 
         try:
-            cut_dir = Path('source/cut')
+            cut_dir = self._edb_data_dir / 'cut'
             if not cut_dir.exists():
                 return []
 
@@ -105,7 +124,7 @@ class Api:
     def delete_cut(self, cut_id):
         """Delete a cut file"""
         try:
-            cut_dir = Path('source/cut')
+            cut_dir = self._edb_data_dir / 'cut'
             cut_file = cut_dir / f"{cut_id}.json"
 
             if cut_file.exists():
@@ -123,7 +142,7 @@ class Api:
         import json
 
         try:
-            cut_dir = Path('source/cut')
+            cut_dir = self._edb_data_dir / 'cut'
             cut_file = cut_dir / f"{cut_id}.json"
 
             if cut_file.exists():

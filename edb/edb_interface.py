@@ -1,9 +1,11 @@
 import pyedb
+from pathlib import Path
 from edb import edb_extract, edb_saver
 
 
 def interface(
     edbpath=r"C:\Python_Code\FPCB_XSection_Map\source\B6_CTC_REV02_1208.aedb\edb.def",
+    # edbpath=r"C:\Python_Code\LG_Minerva_EDB\Source\SIwave_demo.aedb\edb.def",
     edbversion="2025.1",
     output_dir="source",
     save_data=True
@@ -20,10 +22,18 @@ def interface(
     Returns:
         Dictionary with extracted data: {'planes', 'traces', 'components'}
     """
+    # Extract EDB folder name from path
+    edb_folder_name = Path(edbpath).parent.name
+
+    # Create EDB-specific output directory
+    edb_output_dir = Path(output_dir) / edb_folder_name
+
     print("=" * 70)
     print("EDB Data Extraction")
     print("=" * 70)
     print(f"EDB Path: {edbpath}")
+    print(f"EDB Folder Name: {edb_folder_name}")
+    print(f"Output Directory: {edb_output_dir}")
     print(f"Version: {edbversion}\n")
 
     # Open EDB
@@ -49,9 +59,9 @@ def interface(
             planes_data=planes_data,
             traces_data=traces_data,
             components_data=components_data,
-            output_dir=output_dir
+            output_dir=str(edb_output_dir)
         )
-        print(f"\n[OK] All data saved to '{output_dir}/' directory")
+        print(f"\n[OK] All data saved to '{edb_output_dir}/' directory")
 
         # Print summary
         total_size = sum(r['size_mb'] for r in results.values())
