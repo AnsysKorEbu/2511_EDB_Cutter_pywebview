@@ -39,7 +39,7 @@ canvas.addEventListener('mousedown', (e) => {
         return;
     }
 
-    // Shift + Drag = Pan mode (AEDT style)
+    // Shift + Drag = Pan mode (AEDT style) - works in both normal and cut mode
     if (e.shiftKey) {
         viewState.isDragging = true;
         viewState.lastX = e.clientX;
@@ -95,9 +95,8 @@ canvas.addEventListener('mousemove', (e) => {
 });
 
 canvas.addEventListener('mouseup', (e) => {
-    if (cutMode.enabled && cutMode.isDrawing) {
-        // No action needed for mouse up in cut mode
-    } else {
+    // Always stop dragging on mouse up
+    if (viewState.isDragging) {
         viewState.isDragging = false;
         // Restore cursor after dragging
         if (cutMode.enabled) {

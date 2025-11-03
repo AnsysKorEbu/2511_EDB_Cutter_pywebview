@@ -61,7 +61,8 @@ function selectCutTool(tool) {
     const hints = {
         'line': 'Click two points to draw a line',
         'rectangle': 'Click two opposite corners to draw a rectangle',
-        'polyline': 'Click points, then click "Finish & Save Cut" or right-click'
+        'polyline': 'Click points, then click "Finish & Save Cut" or right-click',
+        'polygon': 'Click points to draw polygon, click near start point to close'
     };
     document.getElementById('cutHint').textContent = hints[tool];
     document.getElementById('statusText').textContent = `${tool.toUpperCase()} tool selected - ${hints[tool]}`;
@@ -313,6 +314,36 @@ function handleCutMouseDown(e) {
             }
             render();
             break;
+
+        case 'polygon':
+            if (!cutMode.isDrawing) {
+                cutMode.isDrawing = true;
+                cutMode.currentCut = [[worldPos.x, worldPos.y]];
+                document.getElementById('statusText').textContent = 'Click points to draw polygon, click near start to close';
+            } else {
+                // Check if clicking near the first point (snap distance: 15px in screen space)
+                if (cutMode.currentCut.length >= 3) {
+                    const firstPoint = worldToScreen(cutMode.currentCut[0][0], cutMode.currentCut[0][1]);
+                    const currentPoint = { x: e.offsetX, y: e.offsetY };
+                    const distance = Math.sqrt(
+                        Math.pow(firstPoint.x - currentPoint.x, 2) +
+                        Math.pow(firstPoint.y - currentPoint.y, 2)
+                    );
+
+                    if (distance < 15) {
+                        // Close the polygon by connecting to first point
+                        cutMode.isDrawing = false;
+                        saveCut();
+                        document.getElementById('statusText').textContent = 'Polygon closed and saved';
+                        break;
+                    }
+                }
+
+                cutMode.currentCut.push([worldPos.x, worldPos.y]);
+                document.getElementById('statusText').textContent = `${cutMode.currentCut.length} points - Click near start to close`;
+            }
+            render();
+            break;
     }
 
     render();
@@ -373,6 +404,49 @@ function handleCutMouseMove(e) {
                 ctx.beginPath();
                 ctx.moveTo(lastScreen.x, lastScreen.y);
                 ctx.lineTo(e.offsetX, e.offsetY);
+                ctx.stroke();
+                ctx.setLineDash([]);
+            }
+            break;
+
+        case 'polygon':
+            // Show preview line to cursor, snap to first point if close
+            render();
+            if (cutMode.isDrawing && cutMode.currentCut.length > 0) {
+                const last = cutMode.currentCut[cutMode.currentCut.length - 1];
+                const lastScreen = worldToScreen(last[0], last[1]);
+
+                let targetX = e.offsetX;
+                let targetY = e.offsetY;
+
+                // Check if near first point for snap preview
+                if (cutMode.currentCut.length >= 3) {
+                    const firstPoint = worldToScreen(cutMode.currentCut[0][0], cutMode.currentCut[0][1]);
+                    const distance = Math.sqrt(
+                        Math.pow(firstPoint.x - e.offsetX, 2) +
+                        Math.pow(firstPoint.y - e.offsetY, 2)
+                    );
+
+                    if (distance < 15) {
+                        targetX = firstPoint.x;
+                        targetY = firstPoint.y;
+
+                        // Draw highlight circle around first point
+                        ctx.strokeStyle = '#00ff00';
+                        ctx.lineWidth = 2;
+                        ctx.beginPath();
+                        ctx.arc(firstPoint.x, firstPoint.y, 8, 0, 2 * Math.PI);
+                        ctx.stroke();
+                    }
+                }
+
+                // Draw preview line
+                ctx.strokeStyle = '#ff3333';
+                ctx.lineWidth = 1;
+                ctx.setLineDash([3, 3]);
+                ctx.beginPath();
+                ctx.moveTo(lastScreen.x, lastScreen.y);
+                ctx.lineTo(targetX, targetY);
                 ctx.stroke();
                 ctx.setLineDash([]);
             }
