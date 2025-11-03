@@ -360,11 +360,7 @@ function handleCutMouseMove(e) {
 
     switch (cutMode.activeTool) {
         case 'line':
-            if (cutMode.isDrawing && cutMode.currentCut.length === 1) {
-                // Show preview of line
-                cutMode.currentCut[1] = [worldPos.x, worldPos.y];
-                render();
-            }
+            // No preview for line tool - click two points directly
             break;
 
         case 'rectangle':

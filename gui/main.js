@@ -68,13 +68,6 @@ canvas.addEventListener('mousemove', (e) => {
     document.getElementById('mousePos').textContent =
         `X: ${worldPos.x.toFixed(6)}, Y: ${worldPos.y.toFixed(6)}`;
 
-    // Update cursor based on Shift key (AEDT style)
-    if (e.shiftKey && !viewState.isDragging && !cutMode.enabled) {
-        canvas.style.cursor = 'grab';
-    } else if (!viewState.isDragging && !cutMode.enabled) {
-        canvas.style.cursor = 'grab';
-    }
-
     // Handle dragging (check this FIRST before cut mode drawing)
     if (viewState.isDragging) {
         const dx = e.clientX - viewState.lastX;
@@ -91,6 +84,17 @@ canvas.addEventListener('mousemove', (e) => {
     // Handle cut mode drawing
     else if (cutMode.enabled && cutMode.isDrawing) {
         handleCutMouseMove(e);
+    }
+
+    // Update cursor based on mode
+    if (!viewState.isDragging) {
+        if (cutMode.enabled && cutMode.activeTool) {
+            canvas.style.cursor = 'crosshair';
+        } else if (e.shiftKey) {
+            canvas.style.cursor = 'grab';
+        } else if (!cutMode.enabled) {
+            canvas.style.cursor = 'grab';
+        }
     }
 });
 
