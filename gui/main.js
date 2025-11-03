@@ -1,0 +1,190 @@
+// Reload data from Python API
+async function reloadData() {
+    const loading = document.getElementById('loading');
+    const statusText = document.getElementById('statusText');
+    const reloadBtn = document.getElementById('reloadBtn');
+
+    loading.classList.remove('hidden');
+    statusText.textContent = 'Loading data from source folder...';
+    reloadBtn.disabled = true;
+
+    try {
+        if (!window.pywebview) {
+            throw new Error('PyWebView API not available');
+        }
+
+        // Get planes data from Python
+        const data = await window.pywebview.api.get_planes_data();
+
+        if (data.length === 0) {
+            throw new Error('No planes data found in source folder');
+        }
+
+        loadData(data);
+        statusText.textContent = `Loaded ${data.length} planes successfully`;
+    } catch (error) {
+        console.error('Error loading data:', error);
+        statusText.textContent = 'Error: ' + error.message;
+        alert('Error loading data: ' + error.message);
+    } finally {
+        loading.classList.add('hidden');
+        reloadBtn.disabled = false;
+    }
+}
+
+// Mouse event handlers
+canvas.addEventListener('mousedown', (e) => {
+    // Ignore right-click (button 2)
+    if (e.button === 2) {
+        return;
+    }
+
+    // Shift + Drag = Pan mode (AEDT style)
+    if (e.shiftKey) {
+        viewState.isDragging = true;
+        viewState.lastX = e.clientX;
+        viewState.lastY = e.clientY;
+        canvas.style.cursor = 'grabbing';
+        return;
+    }
+
+    if (cutMode.enabled && cutMode.panMode) {
+        // Pan mode in cut mode
+        viewState.isDragging = true;
+        viewState.lastX = e.clientX;
+        viewState.lastY = e.clientY;
+    } else if (cutMode.enabled && cutMode.activeTool) {
+        handleCutMouseDown(e);
+    } else {
+        viewState.isDragging = true;
+        viewState.lastX = e.clientX;
+        viewState.lastY = e.clientY;
+    }
+});
+
+canvas.addEventListener('mousemove', (e) => {
+    // Update mouse position display
+    const worldPos = screenToWorld(e.offsetX, e.offsetY);
+    document.getElementById('mousePos').textContent =
+        `X: ${worldPos.x.toFixed(6)}, Y: ${worldPos.y.toFixed(6)}`;
+
+    // Update cursor based on Shift key (AEDT style)
+    if (e.shiftKey && !viewState.isDragging && !cutMode.enabled) {
+        canvas.style.cursor = 'grab';
+    } else if (!viewState.isDragging && !cutMode.enabled) {
+        canvas.style.cursor = 'grab';
+    }
+
+    // Handle cut mode drawing
+    if (cutMode.enabled && cutMode.isDrawing) {
+        handleCutMouseMove(e);
+    }
+    // Handle dragging
+    else if (viewState.isDragging) {
+        const dx = e.clientX - viewState.lastX;
+        const dy = e.clientY - viewState.lastY;
+
+        viewState.offsetX += dx;
+        viewState.offsetY += dy;
+
+        viewState.lastX = e.clientX;
+        viewState.lastY = e.clientY;
+
+        render();
+    }
+});
+
+canvas.addEventListener('mouseup', (e) => {
+    if (cutMode.enabled && cutMode.isDrawing) {
+        // No action needed for mouse up in cut mode
+    } else {
+        viewState.isDragging = false;
+        // Restore cursor after dragging
+        if (cutMode.enabled) {
+            canvas.style.cursor = 'crosshair';
+        } else {
+            canvas.style.cursor = 'grab';
+        }
+    }
+});
+
+canvas.addEventListener('mouseleave', () => {
+    viewState.isDragging = false;
+});
+
+// Right-click handlers
+canvas.addEventListener('contextmenu', (e) => {
+    if (cutMode.enabled && cutMode.activeTool === 'line' && cutMode.isDrawing) {
+        // Cancel line drawing
+        e.preventDefault();
+        cutMode.currentCut = [];
+        cutMode.isDrawing = false;
+        render();
+        document.getElementById('statusText').textContent = 'Line drawing cancelled - Click to start new line';
+    } else if (cutMode.enabled && cutMode.activeTool === 'polyline' && cutMode.isDrawing && cutMode.currentCut.length >= 2) {
+        // Finish polyline
+        e.preventDefault();
+        finishCurrentCut();
+    } else if (cutMode.enabled) {
+        e.preventDefault(); // Prevent context menu in cut mode
+    }
+});
+
+// Global keyboard shortcuts
+document.addEventListener('keydown', (e) => {
+    // Ctrl + D = Fit to View (Reset View)
+    if (e.ctrlKey && e.key === 'd') {
+        e.preventDefault();
+        resetView();
+        document.getElementById('statusText').textContent = 'View reset to fit all data';
+        return;
+    }
+
+    // Cut mode specific shortcuts
+    if (!cutMode.enabled) return;
+
+    if (e.key === 'Escape') {
+        // Cancel current cut
+        cutMode.currentCut = [];
+        cutMode.isDrawing = false;
+        document.getElementById('finishCutBtn').classList.add('hidden');
+        render();
+        document.getElementById('statusText').textContent = 'Cut cancelled';
+    } else if (e.key === ' ') {
+        // Toggle pan mode with Space
+        e.preventDefault();
+        togglePanMode();
+    }
+});
+
+// Zoom with mouse wheel
+canvas.addEventListener('wheel', (e) => {
+    e.preventDefault();
+
+    const mouseX = e.offsetX;
+    const mouseY = e.offsetY;
+
+    const worldBefore = screenToWorld(mouseX, mouseY);
+
+    const zoomFactor = e.deltaY > 0 ? 0.9 : 1.1;
+    viewState.scale *= zoomFactor;
+
+    const worldAfter = screenToWorld(mouseX, mouseY);
+
+    viewState.offsetX += (worldAfter.x - worldBefore.x) * viewState.scale;
+    viewState.offsetY += (worldAfter.y - worldBefore.y) * viewState.scale;
+
+    updateZoomLabel();
+    render();
+});
+
+// Initialize when pywebview is ready
+window.addEventListener('pywebviewready', function() {
+    console.log('PyWebView ready!');
+    resizeCanvas();
+    // Auto-load data on startup
+    setTimeout(reloadData, 500);
+});
+
+// Initialize canvas
+resizeCanvas();
