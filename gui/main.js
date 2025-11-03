@@ -75,12 +75,8 @@ canvas.addEventListener('mousemove', (e) => {
         canvas.style.cursor = 'grab';
     }
 
-    // Handle cut mode drawing
-    if (cutMode.enabled && cutMode.isDrawing) {
-        handleCutMouseMove(e);
-    }
-    // Handle dragging
-    else if (viewState.isDragging) {
+    // Handle dragging (check this FIRST before cut mode drawing)
+    if (viewState.isDragging) {
         const dx = e.clientX - viewState.lastX;
         const dy = e.clientY - viewState.lastY;
 
@@ -91,6 +87,10 @@ canvas.addEventListener('mousemove', (e) => {
         viewState.lastY = e.clientY;
 
         render();
+    }
+    // Handle cut mode drawing
+    else if (cutMode.enabled && cutMode.isDrawing) {
+        handleCutMouseMove(e);
     }
 });
 

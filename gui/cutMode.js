@@ -121,7 +121,7 @@ function drawSavedCuts() {
                 ctx.lineTo(pt.x, pt.y);
             }
 
-            if (cut.type === 'rectangle') {
+            if (cut.type === 'rectangle' || cut.type === 'polygon') {
                 ctx.closePath();
             }
 
@@ -156,6 +156,11 @@ function drawCurrentCut() {
         ctx.clearRect(0, 0, 0, 0);
         ctx.beginPath();
         ctx.rect(pt1.x, pt1.y, pt2.x - pt1.x, pt2.y - pt1.y);
+    }
+
+    // Close polygon path to show last line
+    if (cutMode.activeTool === 'polygon' && cutMode.currentCut.length >= 3) {
+        ctx.closePath();
     }
 
     ctx.stroke();
