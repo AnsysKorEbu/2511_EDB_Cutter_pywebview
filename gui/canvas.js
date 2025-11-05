@@ -231,14 +231,22 @@ function drawGrid() {
         ctx.stroke();
     }
 
-    // Horizontal lines
-    const startY = Math.floor((-viewState.offsetY / viewState.scale) / gridSize) * gridSize;
-    for (let y = startY; y * viewState.scale + viewState.offsetY < canvas.height; y += gridSize) {
+    // Horizontal lines (Y axis is flipped)
+    // Screen Y=0 corresponds to world Y = offsetY/scale
+    // Screen Y=height corresponds to world Y = (offsetY-height)/scale
+    const worldYTop = viewState.offsetY / viewState.scale;
+    const worldYBottom = (viewState.offsetY - canvas.height) / viewState.scale;
+    const startY = Math.floor(Math.min(worldYTop, worldYBottom) / gridSize) * gridSize;
+    const endY = Math.ceil(Math.max(worldYTop, worldYBottom) / gridSize) * gridSize;
+
+    for (let y = startY; y <= endY; y += gridSize) {
         const screenY = worldToScreen(0, y).y;
-        ctx.beginPath();
-        ctx.moveTo(0, screenY);
-        ctx.lineTo(canvas.width, screenY);
-        ctx.stroke();
+        if (screenY >= 0 && screenY <= canvas.height) {
+            ctx.beginPath();
+            ctx.moveTo(0, screenY);
+            ctx.lineTo(canvas.width, screenY);
+            ctx.stroke();
+        }
     }
 }
 

@@ -167,15 +167,15 @@ canvas.addEventListener('wheel', (e) => {
     const mouseX = e.offsetX;
     const mouseY = e.offsetY;
 
-    const worldBefore = screenToWorld(mouseX, mouseY);
-
     const zoomFactor = e.deltaY > 0 ? 0.9 : 1.1;
+    const oldScale = viewState.scale;
     viewState.scale *= zoomFactor;
 
-    const worldAfter = screenToWorld(mouseX, mouseY);
-
-    viewState.offsetX += (worldAfter.x - worldBefore.x) * viewState.scale;
-    viewState.offsetY += (worldAfter.y - worldBefore.y) * viewState.scale;
+    // Adjust offsets to keep mouse position fixed in world coordinates
+    // X axis: standard calculation
+    viewState.offsetX = mouseX - (mouseX - viewState.offsetX) * (viewState.scale / oldScale);
+    // Y axis: inverted because Y coordinate system is flipped
+    viewState.offsetY = mouseY + (viewState.offsetY - mouseY) * (viewState.scale / oldScale);
 
     updateZoomLabel();
     render();
