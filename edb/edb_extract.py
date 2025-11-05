@@ -11,6 +11,11 @@ def extract_component_positions(edb=None):
 def extract_plane_positions(edb=None):
     planes_data = []
     for polygon in edb.modeler.polygons:
+        # Filter by layer type: only "signal" or "dielectric"
+        layer_type = polygon.layer.type if hasattr(polygon.layer, 'type') else None
+        if layer_type not in ["signal", "dielectric"]:
+            continue
+
         # polygon.points() returns tuple of two lists: ([x_coords], [y_coords])
         # Convert to [[x1,y1], [x2,y2], ...] format for JavaScript
         points_tuple = polygon.points()  # Call method, not property!

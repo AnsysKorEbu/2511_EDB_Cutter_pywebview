@@ -139,7 +139,7 @@ function resetView() {
     const centerY = (dataBounds.minY + dataBounds.maxY) / 2;
 
     viewState.offsetX = canvas.width / 2 - centerX * viewState.scale;
-    viewState.offsetY = canvas.height / 2 - centerY * viewState.scale;
+    viewState.offsetY = canvas.height / 2 + centerY * viewState.scale;  // Y axis is flipped
 
     updateZoomLabel();
     render();
@@ -149,7 +149,7 @@ function resetView() {
 function worldToScreen(x, y) {
     return {
         x: x * viewState.scale + viewState.offsetX,
-        y: y * viewState.scale + viewState.offsetY
+        y: -y * viewState.scale + viewState.offsetY  // Flip Y axis for screen coordinates
     };
 }
 
@@ -157,7 +157,7 @@ function worldToScreen(x, y) {
 function screenToWorld(x, y) {
     return {
         x: (x - viewState.offsetX) / viewState.scale,
-        y: (y - viewState.offsetY) / viewState.scale
+        y: (viewState.offsetY - y) / viewState.scale  // Flip Y axis back to world coordinates
     };
 }
 
