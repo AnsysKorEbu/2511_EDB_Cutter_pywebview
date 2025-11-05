@@ -51,7 +51,10 @@ def interface(
     print(f"  [OK] Traces: {len(traces_data)} items")
 
     components_data = edb_extract.extract_component_positions(edb)
-    print(f"  [OK] Components: {len(components_data)} items\n")
+    print(f"  [OK] Components: {len(components_data)} items")
+
+    vias_data = edb_extract.extract_via_positions(edb)
+    print(f"  [OK] Vias: {len(vias_data)} items\n")
 
     # Save data if requested
     if save_data:
@@ -60,6 +63,7 @@ def interface(
             planes_data=planes_data,
             traces_data=traces_data,
             components_data=components_data,
+            vias_data=vias_data,
             output_dir=str(edb_output_dir)
         )
         print(f"\n[OK] All data saved to '{edb_output_dir}/' directory")
@@ -75,7 +79,8 @@ def interface(
     return {
         'planes': planes_data,
         'traces': traces_data,
-        'components': components_data
+        'components': components_data,
+        'vias': vias_data
     }
 
 

@@ -4,6 +4,7 @@ const ctx = canvas.getContext('2d');
 
 // Data storage
 let planesData = [];
+let viasData = [];
 let layersMap = new Map();
 
 // View state
@@ -73,12 +74,42 @@ function loadData(data) {
             layersMap.set(layer, {
                 name: layer,
                 planes: [],
+                vias: [],
                 visible: true,
                 color: layerColors[layersMap.size % layerColors.length]
             });
         }
         layersMap.get(layer).planes.push(plane);
     });
+
+    // Process vias and assign to layers
+    if (viasData && viasData.length > 0) {
+        viasData.forEach(via => {
+            // Update bounds from via position
+            if (via.position && via.position.length >= 2) {
+                dataBounds.minX = Math.min(dataBounds.minX, via.position[0]);
+                dataBounds.minY = Math.min(dataBounds.minY, via.position[1]);
+                dataBounds.maxX = Math.max(dataBounds.maxX, via.position[0]);
+                dataBounds.maxY = Math.max(dataBounds.maxY, via.position[1]);
+            }
+
+            // Add via to all layers in its range
+            if (via.layer_range_names && via.layer_range_names.length > 0) {
+                via.layer_range_names.forEach(layerName => {
+                    if (!layersMap.has(layerName)) {
+                        layersMap.set(layerName, {
+                            name: layerName,
+                            planes: [],
+                            vias: [],
+                            visible: true,
+                            color: layerColors[layersMap.size % layerColors.length]
+                        });
+                    }
+                    layersMap.get(layerName).vias.push(via);
+                });
+            }
+        });
+    }
 
     // Update UI
     document.getElementById('planeCount').textContent = planesData.length;
@@ -201,6 +232,17 @@ function render() {
         });
     });
 
+    // Step 3: Draw vias
+    layersMap.forEach((layer) => {
+        if (!layer.visible) return;
+
+        if (layer.vias && layer.vias.length > 0) {
+            layer.vias.forEach(via => {
+                drawVia(via, layer.color);
+            });
+        }
+    });
+
     // Draw saved cuts
     if (cutMode.enabled) {
         drawSavedCuts();
@@ -281,6 +323,30 @@ function drawPlaneStroke(plane) {
     }
 
     ctx.closePath();
+    ctx.stroke();
+}
+
+// Draw via as circle
+function drawVia(via, color) {
+    if (!via.position || via.position.length < 2) return;
+
+    const screenPos = worldToScreen(via.position[0], via.position[1]);
+
+    // Default via radius in meters (0.15mm = 0.00015m)
+    const viaRadius = 0.00015;
+    const screenRadius = viaRadius * viewState.scale;
+
+    // Draw via fill
+    ctx.fillStyle = color + 'CC'; // Semi-transparent
+    ctx.beginPath();
+    ctx.arc(screenPos.x, screenPos.y, screenRadius, 0, 2 * Math.PI);
+    ctx.fill();
+
+    // Draw via border
+    ctx.strokeStyle = '#000000';
+    ctx.lineWidth = 1;
+    ctx.beginPath();
+    ctx.arc(screenPos.x, screenPos.y, screenRadius, 0, 2 * Math.PI);
     ctx.stroke();
 }
 

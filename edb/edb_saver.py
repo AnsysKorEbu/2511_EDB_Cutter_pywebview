@@ -13,6 +13,7 @@ def save_edb_data(
     planes_data: List[Dict] = None,
     traces_data: List[Dict] = None,
     components_data: Dict = None,
+    vias_data: List[Dict] = None,
     output_dir: str = 'source'
 ) -> Dict[str, str]:
     """
@@ -22,6 +23,7 @@ def save_edb_data(
         planes_data: List of plane polygons data
         traces_data: List of trace paths data
         components_data: Dictionary of component positions
+        vias_data: List of via data
         output_dir: Output directory path (default: 'source')
 
     Returns:
@@ -36,7 +38,8 @@ def save_edb_data(
     datasets = {
         'planes.json.gz': planes_data,
         'traces.json.gz': traces_data,
-        'components.json.gz': components_data
+        'components.json.gz': components_data,
+        'vias.json.gz': vias_data
     }
 
     for filename, data in datasets.items():
@@ -100,14 +103,15 @@ def load_all_edb_data(source_dir: str = 'source') -> Dict[str, Any]:
         source_dir: Source directory path (default: 'source')
 
     Returns:
-        Dictionary with keys: 'planes', 'traces', 'components'
+        Dictionary with keys: 'planes', 'traces', 'components', 'vias'
     """
     result = {}
 
     files = {
         'planes': 'planes.json.gz',
         'traces': 'traces.json.gz',
-        'components': 'components.json.gz'
+        'components': 'components.json.gz',
+        'vias': 'vias.json.gz'
     }
 
     for key, filename in files.items():

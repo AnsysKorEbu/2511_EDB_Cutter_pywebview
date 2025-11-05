@@ -45,7 +45,8 @@ class Api:
             return {
                 'planes': len(self.data['planes']) if self.data['planes'] else 0,
                 'traces': len(self.data['traces']) if self.data['traces'] else 0,
-                'components': len(self.data['components']) if self.data['components'] else 0
+                'components': len(self.data['components']) if self.data['components'] else 0,
+                'vias': len(self.data['vias']) if self.data['vias'] else 0
             }
         except Exception as e:
             print(f"Error loading data: {e}")
@@ -62,6 +63,19 @@ class Api:
             return self.data.get('planes', [])
         except Exception as e:
             print(f"Error getting planes data: {e}")
+            return []
+
+    def get_vias_data(self):
+        """Get vias data for rendering"""
+        try:
+            if self.data is None or self.data.get('vias') is None:
+                from edb.edb_saver import load_all_edb_data
+                print(f"Loading EDB data from {self._edb_data_dir}...")
+                self.data = load_all_edb_data(str(self._edb_data_dir))
+
+            return self.data.get('vias', [])
+        except Exception as e:
+            print(f"Error getting vias data: {e}")
             return []
 
     def save_cut_data(self, cut_data):

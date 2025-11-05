@@ -14,14 +14,17 @@ async function reloadData() {
         }
 
         // Get planes data from Python
-        const data = await window.pywebview.api.get_planes_data();
+        const planesData = await window.pywebview.api.get_planes_data();
 
-        if (data.length === 0) {
+        if (planesData.length === 0) {
             throw new Error('No planes data found in source folder');
         }
 
-        loadData(data);
-        statusText.textContent = `Loaded ${data.length} planes successfully`;
+        // Get vias data from Python
+        viasData = await window.pywebview.api.get_vias_data();
+
+        loadData(planesData);
+        statusText.textContent = `Loaded ${planesData.length} planes and ${viasData.length} vias successfully`;
     } catch (error) {
         console.error('Error loading data:', error);
         statusText.textContent = 'Error: ' + error.message;

@@ -48,5 +48,21 @@ def extract_trace_positions(edb=None):
         traces_data.append(trace_info)
 
     return traces_data
+
+def extract_via_positions(edb=None):
+    vias_data = []
+    for via in edb.padstacks.vias.values():
+        via_info = {
+            'name': via.aedt_name,
+            'position': via.position,  # [x, y] 좌표 (미터 단위)
+            'net': via.net_name,
+            'start_layer': via.start_layer,
+            'stop_layer': via.stop_layer,
+            'layer_range_names': via.layer_range_names,  # start~stop 사이의 모든 레이어
+            'rotation': via.rotation,
+        }
+        vias_data.append(via_info)
+    return vias_data
+
 if __name__ == "__main__":
     extract_component_positions()
