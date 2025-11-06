@@ -84,8 +84,8 @@ canvas.addEventListener('mousemove', (e) => {
 
         render();
     }
-    // Handle cut mode drawing
-    else if (cutMode.enabled && cutMode.isDrawing) {
+    // Handle cut mode drawing and snapping (active when tool is selected)
+    else if (cutMode.enabled && cutMode.activeTool) {
         handleCutMouseMove(e);
     }
 
