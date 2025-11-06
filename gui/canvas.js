@@ -297,6 +297,8 @@ function drawPlaneFill(plane) {
     if (!plane.points || plane.points.length < 3) return;
 
     ctx.beginPath();
+
+    // Draw outer boundary (main polygon)
     const firstPoint = worldToScreen(plane.points[0][0], plane.points[0][1]);
     ctx.moveTo(firstPoint.x, firstPoint.y);
 
@@ -304,15 +306,33 @@ function drawPlaneFill(plane) {
         const point = worldToScreen(plane.points[i][0], plane.points[i][1]);
         ctx.lineTo(point.x, point.y);
     }
-
     ctx.closePath();
-    ctx.fill();
+
+    // Draw voids (holes) if they exist
+    if (plane.voids && plane.voids.length > 0) {
+        for (const void_points of plane.voids) {
+            if (void_points.length < 3) continue;
+
+            const firstVoidPoint = worldToScreen(void_points[0][0], void_points[0][1]);
+            ctx.moveTo(firstVoidPoint.x, firstVoidPoint.y);
+
+            for (let i = 1; i < void_points.length; i++) {
+                const point = worldToScreen(void_points[i][0], void_points[i][1]);
+                ctx.lineTo(point.x, point.y);
+            }
+            ctx.closePath();
+        }
+    }
+
+    // Fill with evenodd rule to create holes
+    ctx.fill('evenodd');
 }
 
 // Draw plane stroke only
 function drawPlaneStroke(plane) {
     if (!plane.points || plane.points.length < 3) return;
 
+    // Draw outer boundary stroke
     ctx.beginPath();
     const firstPoint = worldToScreen(plane.points[0][0], plane.points[0][1]);
     ctx.moveTo(firstPoint.x, firstPoint.y);
@@ -324,6 +344,25 @@ function drawPlaneStroke(plane) {
 
     ctx.closePath();
     ctx.stroke();
+
+    // Draw void strokes (holes)
+    if (plane.voids && plane.voids.length > 0) {
+        for (const void_points of plane.voids) {
+            if (void_points.length < 3) continue;
+
+            ctx.beginPath();
+            const firstVoidPoint = worldToScreen(void_points[0][0], void_points[0][1]);
+            ctx.moveTo(firstVoidPoint.x, firstVoidPoint.y);
+
+            for (let i = 1; i < void_points.length; i++) {
+                const point = worldToScreen(void_points[i][0], void_points[i][1]);
+                ctx.lineTo(point.x, point.y);
+            }
+
+            ctx.closePath();
+            ctx.stroke();
+        }
+    }
 }
 
 // Draw via as circle

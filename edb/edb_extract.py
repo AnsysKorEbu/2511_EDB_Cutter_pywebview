@@ -25,11 +25,24 @@ def extract_plane_positions(edb=None):
         else:
             points_list = []
 
+        # Extract voids (holes/cutouts) if they exist
+        voids_list = []
+        if polygon.has_voids:
+            voids = polygon.voids
+            if voids:
+                for void in voids:
+                    void_points_tuple = void.points()
+                    if void_points_tuple and len(void_points_tuple) == 2:
+                        vx_coords, vy_coords = void_points_tuple
+                        void_points_list = [[vx, vy] for vx, vy in zip(vx_coords, vy_coords)]
+                        voids_list.append(void_points_list)
+
         plane_info = {
             'name': polygon.aedt_name,
             'layer': polygon.layer_name,
             'net': polygon.net_name,
-            'points': points_list  # [[x, y], ...] format
+            'points': points_list,  # [[x, y], ...] format - outer boundary
+            'voids': voids_list     # [[[x, y], ...], ...] format - list of holes
         }
         planes_data.append(plane_info)
 

@@ -10,16 +10,19 @@ from pathlib import Path
 from gui import start_gui
 
 # EDB folder path (modify this to your .aedb folder)
-EDB_PATH = r"C:\Python_Code\FPCB_XSection_Map\source\B6_CTC_REV02_1208.aedb"
-# EDB_PATH = r"C:\Python_Code\2511_EDB_Cutter_pywebview\source\example\part2_otherstackup.aedb"
+# EDB_PATH = r"C:\Python_Code\FPCB_XSection_Map\source\B6_CTC_REV02_1208.aedb"
+EDB_PATH = r"C:\Python_Code\2511_EDB_Cutter_pywebview\source\example\part2_otherstackup.aedb"
 
 
-def extract_edb_data():
+def extract_edb_data(edb_path):
     """
     Extract EDB data using subprocess.
 
     This runs edb_interface.py in a separate process to avoid
     pythonnet conflicts with pywebview.
+
+    Args:
+        edb_path: Path to EDB file or folder
     """
     print("=" * 70)
     print("Step 1: Extracting EDB Data")
@@ -33,11 +36,11 @@ def extract_edb_data():
         print("Please ensure virtual environment is set up correctly.")
         sys.exit(1)
 
-    # Run edb package as subprocess
+    # Run edb package as subprocess with EDB_PATH as argument
     # capture_output=False allows real-time output to console
     try:
         result = subprocess.run(
-            [str(python_exe), "-m", "edb"],
+            [str(python_exe), "-m", "edb", edb_path],
             cwd=Path.cwd(),
             timeout=300  # 5 minutes timeout
         )
@@ -65,7 +68,7 @@ def main():
 
     # Step 1: Extract data using subprocess
     if True:
-        extract_edb_data()
+        extract_edb_data(EDB_PATH)
 
     # Step 2: Start GUI
     print("=" * 70)
