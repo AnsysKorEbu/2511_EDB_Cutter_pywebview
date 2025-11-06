@@ -332,8 +332,8 @@ function drawVia(via, color) {
 
     const screenPos = worldToScreen(via.position[0], via.position[1]);
 
-    // Default via radius in meters (0.15mm = 0.00015m)
-    const viaRadius = 0.00015;
+    // Use via radius from data, fallback to default (0.15mm = 0.00015m)
+    const viaRadius = via.radius || 0.00015;
     const screenRadius = viaRadius * viewState.scale;
 
     // Draw via fill
