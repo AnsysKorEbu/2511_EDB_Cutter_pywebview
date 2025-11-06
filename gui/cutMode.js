@@ -5,8 +5,12 @@ let cutMode = {
     currentCut: [],
     isDrawing: false,
     savedCuts: [],
-    panMode: false  // Temporary pan mode in cut mode
+    panMode: false,  // Temporary pan mode in cut mode
+    snapPoint: null  // Current snap point {x, y} in world coordinates
 };
+
+// Snap settings
+const SNAP_DISTANCE = 15;  // Snap distance in screen pixels
 
 // Toggle cut mode
 function toggleCutMode() {
@@ -158,10 +162,8 @@ function drawCurrentCut() {
         ctx.rect(pt1.x, pt1.y, pt2.x - pt1.x, pt2.y - pt1.y);
     }
 
-    // Close polygon path to show last line
-    if (cutMode.activeTool === 'polygon' && cutMode.currentCut.length >= 3) {
-        ctx.closePath();
-    }
+    // Don't auto-close polygon while drawing - only close when user explicitly clicks near first point
+    // This prevents the confusing auto-connection line from appearing
 
     ctx.stroke();
     ctx.setLineDash([]);
@@ -268,9 +270,94 @@ async function clearAllCuts() {
     }
 }
 
+// Get all snap points from saved cuts and current cut
+function getAllSnapPoints() {
+    const snapPoints = [];
+
+    // Add points from all saved cuts
+    cutMode.savedCuts.forEach(cut => {
+        if (cut.points && cut.points.length > 0) {
+            cut.points.forEach(point => {
+                snapPoints.push({
+                    x: point[0],
+                    y: point[1],
+                    source: 'saved'
+                });
+            });
+        }
+    });
+
+    // Add points from current cut (except the last one being drawn)
+    if (cutMode.isDrawing && cutMode.currentCut.length > 0) {
+        cutMode.currentCut.forEach(point => {
+            snapPoints.push({
+                x: point[0],
+                y: point[1],
+                source: 'current'
+            });
+        });
+    }
+
+    return snapPoints;
+}
+
+// Find nearest snap point to screen coordinates
+function findNearestSnapPoint(screenX, screenY) {
+    const snapPoints = getAllSnapPoints();
+    let nearestPoint = null;
+    let minDistance = SNAP_DISTANCE;
+
+    snapPoints.forEach(point => {
+        const screenPoint = worldToScreen(point.x, point.y);
+        const distance = Math.sqrt(
+            Math.pow(screenPoint.x - screenX, 2) +
+            Math.pow(screenPoint.y - screenY, 2)
+        );
+
+        if (distance < minDistance) {
+            minDistance = distance;
+            nearestPoint = {
+                x: point.x,
+                y: point.y,
+                screenX: screenPoint.x,
+                screenY: screenPoint.y,
+                source: point.source
+            };
+        }
+    });
+
+    return nearestPoint;
+}
+
+// Draw snap point indicator
+function drawSnapIndicator(snapPoint) {
+    if (!snapPoint) return;
+
+    // Draw highlight circle around snap point
+    ctx.strokeStyle = '#00ff00';
+    ctx.fillStyle = 'rgba(0, 255, 0, 0.2)';
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    ctx.arc(snapPoint.screenX, snapPoint.screenY, 8, 0, 2 * Math.PI);
+    ctx.fill();
+    ctx.stroke();
+
+    // Draw small center dot
+    ctx.fillStyle = '#00ff00';
+    ctx.beginPath();
+    ctx.arc(snapPoint.screenX, snapPoint.screenY, 3, 0, 2 * Math.PI);
+    ctx.fill();
+}
+
 // Handle cut mouse down
 function handleCutMouseDown(e) {
-    const worldPos = screenToWorld(e.offsetX, e.offsetY);
+    // Use snap point if available, otherwise use cursor position
+    let worldPos;
+    if (cutMode.snapPoint) {
+        worldPos = { x: cutMode.snapPoint.x, y: cutMode.snapPoint.y };
+    } else {
+        worldPos = screenToWorld(e.offsetX, e.offsetY);
+    }
 
     switch (cutMode.activeTool) {
         case 'line':
@@ -335,7 +422,7 @@ function handleCutMouseDown(e) {
                         Math.pow(firstPoint.y - currentPoint.y, 2)
                     );
 
-                    if (distance < 15) {
+                    if (distance < SNAP_DISTANCE) {
                         // Close the polygon by connecting to first point
                         cutMode.isDrawing = false;
                         saveCut();
@@ -356,15 +443,56 @@ function handleCutMouseDown(e) {
 
 // Handle cut mouse move
 function handleCutMouseMove(e) {
-    const worldPos = screenToWorld(e.offsetX, e.offsetY);
+    // Find nearest snap point
+    cutMode.snapPoint = findNearestSnapPoint(e.offsetX, e.offsetY);
+
+    // Use snap point if available, otherwise use cursor position
+    let worldPos;
+    let targetX = e.offsetX;
+    let targetY = e.offsetY;
+
+    if (cutMode.snapPoint) {
+        worldPos = { x: cutMode.snapPoint.x, y: cutMode.snapPoint.y };
+        targetX = cutMode.snapPoint.screenX;
+        targetY = cutMode.snapPoint.screenY;
+    } else {
+        worldPos = screenToWorld(e.offsetX, e.offsetY);
+    }
 
     switch (cutMode.activeTool) {
         case 'line':
-            // No preview for line tool - click two points directly
+            // Show snap indicator even before drawing starts
+            if (!cutMode.isDrawing) {
+                render();
+                drawSnapIndicator(cutMode.snapPoint);
+            }
+            // Show preview line for line tool
+            else if (cutMode.isDrawing && cutMode.currentCut.length === 1) {
+                render();
+                const startScreen = worldToScreen(cutMode.currentCut[0][0], cutMode.currentCut[0][1]);
+
+                // Draw snap indicator
+                drawSnapIndicator(cutMode.snapPoint);
+
+                // Draw preview line
+                ctx.strokeStyle = '#ff3333';
+                ctx.lineWidth = 1;
+                ctx.setLineDash([3, 3]);
+                ctx.beginPath();
+                ctx.moveTo(startScreen.x, startScreen.y);
+                ctx.lineTo(targetX, targetY);
+                ctx.stroke();
+                ctx.setLineDash([]);
+            }
             break;
 
         case 'rectangle':
-            if (cutMode.isDrawing && cutMode.currentCut.length === 1) {
+            // Show snap indicator even before drawing starts
+            if (!cutMode.isDrawing) {
+                render();
+                drawSnapIndicator(cutMode.snapPoint);
+            }
+            else if (cutMode.isDrawing && cutMode.currentCut.length === 1) {
                 // Show preview rectangle
                 const [x1, y1] = cutMode.currentCut[0];
                 const tempRect = [
@@ -376,6 +504,10 @@ function handleCutMouseMove(e) {
 
                 // Draw preview
                 render();
+
+                // Draw snap indicator
+                drawSnapIndicator(cutMode.snapPoint);
+
                 ctx.strokeStyle = '#ff3333';
                 ctx.lineWidth = 2;
                 ctx.setLineDash([5, 5]);
@@ -395,16 +527,24 @@ function handleCutMouseMove(e) {
         case 'polyline':
             // Show preview line to cursor
             render();
-            if (cutMode.isDrawing && cutMode.currentCut.length > 0) {
+            // Show snap indicator even before drawing starts
+            if (!cutMode.isDrawing) {
+                drawSnapIndicator(cutMode.snapPoint);
+            }
+            else if (cutMode.isDrawing && cutMode.currentCut.length > 0) {
                 const last = cutMode.currentCut[cutMode.currentCut.length - 1];
                 const lastScreen = worldToScreen(last[0], last[1]);
 
+                // Draw snap indicator
+                drawSnapIndicator(cutMode.snapPoint);
+
+                // Draw preview line
                 ctx.strokeStyle = '#ff3333';
                 ctx.lineWidth = 1;
                 ctx.setLineDash([3, 3]);
                 ctx.beginPath();
                 ctx.moveTo(lastScreen.x, lastScreen.y);
-                ctx.lineTo(e.offsetX, e.offsetY);
+                ctx.lineTo(targetX, targetY);
                 ctx.stroke();
                 ctx.setLineDash([]);
             }
@@ -413,14 +553,16 @@ function handleCutMouseMove(e) {
         case 'polygon':
             // Show preview line to cursor, snap to first point if close
             render();
-            if (cutMode.isDrawing && cutMode.currentCut.length > 0) {
+            // Show snap indicator even before drawing starts
+            if (!cutMode.isDrawing) {
+                drawSnapIndicator(cutMode.snapPoint);
+            }
+            else if (cutMode.isDrawing && cutMode.currentCut.length > 0) {
                 const last = cutMode.currentCut[cutMode.currentCut.length - 1];
                 const lastScreen = worldToScreen(last[0], last[1]);
 
-                let targetX = e.offsetX;
-                let targetY = e.offsetY;
-
-                // Check if near first point for snap preview
+                // Check if near first point for snap preview (polygon closing)
+                let isClosingPolygon = false;
                 if (cutMode.currentCut.length >= 3) {
                     const firstPoint = worldToScreen(cutMode.currentCut[0][0], cutMode.currentCut[0][1]);
                     const distance = Math.sqrt(
@@ -428,17 +570,25 @@ function handleCutMouseMove(e) {
                         Math.pow(firstPoint.y - e.offsetY, 2)
                     );
 
-                    if (distance < 15) {
+                    if (distance < SNAP_DISTANCE) {
+                        isClosingPolygon = true;
                         targetX = firstPoint.x;
                         targetY = firstPoint.y;
 
-                        // Draw highlight circle around first point
-                        ctx.strokeStyle = '#00ff00';
+                        // Draw special highlight for polygon closing
+                        ctx.strokeStyle = '#ffff00';
+                        ctx.fillStyle = 'rgba(255, 255, 0, 0.2)';
                         ctx.lineWidth = 2;
                         ctx.beginPath();
-                        ctx.arc(firstPoint.x, firstPoint.y, 8, 0, 2 * Math.PI);
+                        ctx.arc(firstPoint.x, firstPoint.y, 10, 0, 2 * Math.PI);
+                        ctx.fill();
                         ctx.stroke();
                     }
+                }
+
+                // Draw snap indicator (if not closing polygon)
+                if (!isClosingPolygon) {
+                    drawSnapIndicator(cutMode.snapPoint);
                 }
 
                 // Draw preview line
