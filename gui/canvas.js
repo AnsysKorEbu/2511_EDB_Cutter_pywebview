@@ -31,6 +31,12 @@ const layerColors = [
     '#F7DC6F', '#BB8FCE', '#85C1E2', '#F8B739', '#52B788'
 ];
 
+// Off-screen canvas for caching static layers
+let offscreenCanvas = null;
+let offscreenCtx = null;
+let cacheValid = false;
+let offscreenTransform = { scale: 1, offsetX: 0, offsetY: 0 };
+
 // Initialize canvas size
 function resizeCanvas() {
     const container = canvas.parentElement;
@@ -148,6 +154,7 @@ function toggleLayer(layerName) {
     const layer = layersMap.get(layerName);
     if (layer) {
         layer.visible = !layer.visible;
+        cacheValid = false; // Invalidate cache when layer visibility changes
         updateLayerList();
         render();
     }
@@ -174,6 +181,151 @@ function resetView() {
 
     updateZoomLabel();
     render();
+}
+
+// Cache static layers (planes and vias) to off-screen canvas
+function cacheStaticLayers() {
+    // Create or reuse offscreen canvas
+    if (!offscreenCanvas) {
+        offscreenCanvas = document.createElement('canvas');
+        offscreenCtx = offscreenCanvas.getContext('2d');
+    }
+
+    // Set resolution - higher = better quality but more memory
+    // Using 10,000 pixels per meter = 0.1mm per pixel
+    const pixelsPerMeter = 10000;
+
+    const dataWidth = dataBounds.maxX - dataBounds.minX;
+    const dataHeight = dataBounds.maxY - dataBounds.minY;
+
+    // Limit to max 8192x8192 for browser compatibility
+    offscreenCanvas.width = Math.min(8192, Math.ceil(dataWidth * pixelsPerMeter));
+    offscreenCanvas.height = Math.min(8192, Math.ceil(dataHeight * pixelsPerMeter));
+
+    // Calculate transform for offscreen rendering
+    offscreenTransform.scale = offscreenCanvas.width / dataWidth;
+    offscreenTransform.offsetX = -dataBounds.minX * offscreenTransform.scale;
+    offscreenTransform.offsetY = dataBounds.maxY * offscreenTransform.scale;
+
+    // Clear offscreen canvas
+    offscreenCtx.clearRect(0, 0, offscreenCanvas.width, offscreenCanvas.height);
+
+    // Helper function to transform world coords to offscreen coords
+    function worldToOffscreen(x, y) {
+        return {
+            x: x * offscreenTransform.scale + offscreenTransform.offsetX,
+            y: -y * offscreenTransform.scale + offscreenTransform.offsetY
+        };
+    }
+
+    // Step 1: Draw all plane fills
+    layersMap.forEach((layer) => {
+        if (!layer.visible) return;
+
+        offscreenCtx.fillStyle = layer.color + '80';
+
+        layer.planes.forEach(plane => {
+            if (!plane.points || plane.points.length < 3) return;
+
+            offscreenCtx.beginPath();
+
+            // Draw outer boundary
+            const first = worldToOffscreen(plane.points[0][0], plane.points[0][1]);
+            offscreenCtx.moveTo(first.x, first.y);
+
+            for (let i = 1; i < plane.points.length; i++) {
+                const pt = worldToOffscreen(plane.points[i][0], plane.points[i][1]);
+                offscreenCtx.lineTo(pt.x, pt.y);
+            }
+            offscreenCtx.closePath();
+
+            // Draw voids (holes)
+            if (plane.voids && plane.voids.length > 0) {
+                for (const void_points of plane.voids) {
+                    if (void_points.length < 3) continue;
+                    const firstVoid = worldToOffscreen(void_points[0][0], void_points[0][1]);
+                    offscreenCtx.moveTo(firstVoid.x, firstVoid.y);
+                    for (let i = 1; i < void_points.length; i++) {
+                        const pt = worldToOffscreen(void_points[i][0], void_points[i][1]);
+                        offscreenCtx.lineTo(pt.x, pt.y);
+                    }
+                    offscreenCtx.closePath();
+                }
+            }
+
+            offscreenCtx.fill('evenodd');
+        });
+    });
+
+    // Step 2: Draw all plane borders
+    offscreenCtx.strokeStyle = '#000000';
+    offscreenCtx.lineWidth = 2;
+
+    layersMap.forEach((layer) => {
+        if (!layer.visible) return;
+
+        layer.planes.forEach(plane => {
+            if (!plane.points || plane.points.length < 3) return;
+
+            // Draw outer boundary stroke
+            offscreenCtx.beginPath();
+            const first = worldToOffscreen(plane.points[0][0], plane.points[0][1]);
+            offscreenCtx.moveTo(first.x, first.y);
+
+            for (let i = 1; i < plane.points.length; i++) {
+                const pt = worldToOffscreen(plane.points[i][0], plane.points[i][1]);
+                offscreenCtx.lineTo(pt.x, pt.y);
+            }
+            offscreenCtx.closePath();
+            offscreenCtx.stroke();
+
+            // Draw void strokes
+            if (plane.voids && plane.voids.length > 0) {
+                for (const void_points of plane.voids) {
+                    if (void_points.length < 3) continue;
+                    offscreenCtx.beginPath();
+                    const firstVoid = worldToOffscreen(void_points[0][0], void_points[0][1]);
+                    offscreenCtx.moveTo(firstVoid.x, firstVoid.y);
+                    for (let i = 1; i < void_points.length; i++) {
+                        const pt = worldToOffscreen(void_points[i][0], void_points[i][1]);
+                        offscreenCtx.lineTo(pt.x, pt.y);
+                    }
+                    offscreenCtx.closePath();
+                    offscreenCtx.stroke();
+                }
+            }
+        });
+    });
+
+    // Step 3: Draw vias
+    layersMap.forEach((layer) => {
+        if (!layer.visible) return;
+
+        if (layer.vias && layer.vias.length > 0) {
+            layer.vias.forEach(via => {
+                if (!via.position || via.position.length < 2) return;
+
+                const pos = worldToOffscreen(via.position[0], via.position[1]);
+                const viaRadius = (via.radius || 0.00015) * offscreenTransform.scale;
+
+                // Draw via fill
+                offscreenCtx.fillStyle = layer.color + 'CC';
+                offscreenCtx.beginPath();
+                offscreenCtx.arc(pos.x, pos.y, viaRadius, 0, 2 * Math.PI);
+                offscreenCtx.fill();
+
+                // Draw via border
+                offscreenCtx.strokeStyle = '#000000';
+                offscreenCtx.lineWidth = 1;
+                offscreenCtx.beginPath();
+                offscreenCtx.arc(pos.x, pos.y, viaRadius, 0, 2 * Math.PI);
+                offscreenCtx.stroke();
+            });
+        }
+    });
+
+    cacheValid = true;
+    console.log(`Cached ${planesData.length} planes to ${offscreenCanvas.width}x${offscreenCanvas.height} offscreen canvas`);
 }
 
 // World to screen coordinates
@@ -209,39 +361,21 @@ function render() {
     // Draw grid
     drawGrid();
 
-    // Step 1: Draw all plane fills first
-    layersMap.forEach((layer) => {
-        if (!layer.visible) return;
+    // Ensure cache is valid
+    if (!cacheValid) {
+        cacheStaticLayers();
+    }
 
-        ctx.fillStyle = layer.color + '80'; // Semi-transparent fill
+    // Draw cached offscreen canvas
+    // Calculate screen positions of data bounds corners
+    const topLeft = worldToScreen(dataBounds.minX, dataBounds.maxY);
+    const bottomRight = worldToScreen(dataBounds.maxX, dataBounds.minY);
 
-        layer.planes.forEach(plane => {
-            drawPlaneFill(plane);
-        });
-    });
+    const screenWidth = bottomRight.x - topLeft.x;
+    const screenHeight = bottomRight.y - topLeft.y;
 
-    // Step 2: Draw all plane borders on top
-    ctx.strokeStyle = '#000000'; // Solid black border
-    ctx.lineWidth = 2 / viewState.scale; // Thicker border
-
-    layersMap.forEach((layer) => {
-        if (!layer.visible) return;
-
-        layer.planes.forEach(plane => {
-            drawPlaneStroke(plane);
-        });
-    });
-
-    // Step 3: Draw vias
-    layersMap.forEach((layer) => {
-        if (!layer.visible) return;
-
-        if (layer.vias && layer.vias.length > 0) {
-            layer.vias.forEach(via => {
-                drawVia(via, layer.color);
-            });
-        }
-    });
+    // Draw the cached image scaled to current view
+    ctx.drawImage(offscreenCanvas, topLeft.x, topLeft.y, screenWidth, screenHeight);
 
     // Draw saved cuts
     if (cutMode.enabled) {
