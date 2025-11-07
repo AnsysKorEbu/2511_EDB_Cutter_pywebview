@@ -183,6 +183,39 @@ function resetView() {
     render();
 }
 
+// Get viewport bounds in world coordinates
+function getViewportBounds() {
+    const topLeft = screenToWorld(0, 0);
+    const bottomRight = screenToWorld(canvas.width, canvas.height);
+
+    return {
+        minX: Math.min(topLeft.x, bottomRight.x),
+        maxX: Math.max(topLeft.x, bottomRight.x),
+        minY: Math.min(topLeft.y, bottomRight.y),
+        maxY: Math.max(topLeft.y, bottomRight.y)
+    };
+}
+
+// Check if plane is visible in viewport (rough bounding box check)
+function isPlaneVisible(plane, viewport) {
+    if (!plane.points || plane.points.length === 0) return false;
+
+    // Calculate plane bounding box
+    let minX = Infinity, minY = Infinity;
+    let maxX = -Infinity, maxY = -Infinity;
+
+    for (const [x, y] of plane.points) {
+        minX = Math.min(minX, x);
+        minY = Math.min(minY, y);
+        maxX = Math.max(maxX, x);
+        maxY = Math.max(maxY, y);
+    }
+
+    // Check if bounding boxes overlap
+    return !(maxX < viewport.minX || minX > viewport.maxX ||
+             maxY < viewport.minY || minY > viewport.maxY);
+}
+
 // Cache static layers (planes and vias) to off-screen canvas
 function cacheStaticLayers() {
     // Create or reuse offscreen canvas
@@ -192,8 +225,8 @@ function cacheStaticLayers() {
     }
 
     // Set resolution - higher = better quality but more memory
-    // Using 10,000 pixels per meter = 0.1mm per pixel
-    const pixelsPerMeter = 10000;
+    // Using 50,000 pixels per meter for higher zoom support (20μm per pixel)
+    const pixelsPerMeter = 50000;
 
     const dataWidth = dataBounds.maxX - dataBounds.minX;
     const dataHeight = dataBounds.maxY - dataBounds.minY;
@@ -366,16 +399,70 @@ function render() {
         cacheStaticLayers();
     }
 
-    // Draw cached offscreen canvas
-    // Calculate screen positions of data bounds corners
-    const topLeft = worldToScreen(dataBounds.minX, dataBounds.maxY);
-    const bottomRight = worldToScreen(dataBounds.maxX, dataBounds.minY);
+    // LOD threshold: switch to vector rendering when zoom exceeds cache resolution
+    // This ensures crisp rendering at high zoom (μm level, up to 100,000x zoom)
+    const lodThreshold = offscreenTransform.scale * 1.5;
+    const useVectorRendering = viewState.scale > lodThreshold;
 
-    const screenWidth = bottomRight.x - topLeft.x;
-    const screenHeight = bottomRight.y - topLeft.y;
+    if (useVectorRendering) {
+        // High zoom: Vector rendering with viewport culling for crisp μm-level detail
+        const viewport = getViewportBounds();
 
-    // Draw the cached image scaled to current view
-    ctx.drawImage(offscreenCanvas, topLeft.x, topLeft.y, screenWidth, screenHeight);
+        // Step 1: Draw all plane fills (only visible ones)
+        layersMap.forEach((layer) => {
+            if (!layer.visible) return;
+
+            ctx.fillStyle = layer.color + '80';
+
+            layer.planes.forEach(plane => {
+                if (isPlaneVisible(plane, viewport)) {
+                    drawPlaneFill(plane);
+                }
+            });
+        });
+
+        // Step 2: Draw all plane borders
+        ctx.strokeStyle = '#000000';
+        ctx.lineWidth = 2 / viewState.scale;
+
+        layersMap.forEach((layer) => {
+            if (!layer.visible) return;
+
+            layer.planes.forEach(plane => {
+                if (isPlaneVisible(plane, viewport)) {
+                    drawPlaneStroke(plane);
+                }
+            });
+        });
+
+        // Step 3: Draw vias
+        layersMap.forEach((layer) => {
+            if (!layer.visible) return;
+
+            if (layer.vias && layer.vias.length > 0) {
+                layer.vias.forEach(via => {
+                    if (!via.position || via.position.length < 2) return;
+
+                    const [vx, vy] = via.position;
+                    if (vx >= viewport.minX && vx <= viewport.maxX &&
+                        vy >= viewport.minY && vy <= viewport.maxY) {
+                        drawVia(via, layer.color);
+                    }
+                });
+            }
+        });
+
+    } else {
+        // Low zoom: Fast cached image rendering for overview
+        const topLeft = worldToScreen(dataBounds.minX, dataBounds.maxY);
+        const bottomRight = worldToScreen(dataBounds.maxX, dataBounds.minY);
+
+        const screenWidth = bottomRight.x - topLeft.x;
+        const screenHeight = bottomRight.y - topLeft.y;
+
+        // Draw the cached image scaled to current view
+        ctx.drawImage(offscreenCanvas, topLeft.x, topLeft.y, screenWidth, screenHeight);
+    }
 
     // Draw saved cuts
     if (cutMode.enabled) {
