@@ -5,6 +5,7 @@ const ctx = canvas.getContext('2d');
 // Data storage
 let planesData = [];
 let viasData = [];
+let tracesData = [];
 let layersMap = new Map();
 
 // View state
@@ -81,12 +82,42 @@ function loadData(data) {
                 name: layer,
                 planes: [],
                 vias: [],
+                traces: [],
                 visible: true,
                 color: layerColors[layersMap.size % layerColors.length]
             });
         }
         layersMap.get(layer).planes.push(plane);
     });
+
+    // Process traces and assign to layers
+    if (tracesData && tracesData.length > 0) {
+        tracesData.forEach(trace => {
+            // Update bounds from trace points
+            if (trace.points && trace.points.length > 0) {
+                trace.points.forEach(([x, y]) => {
+                    dataBounds.minX = Math.min(dataBounds.minX, x);
+                    dataBounds.minY = Math.min(dataBounds.minY, y);
+                    dataBounds.maxX = Math.max(dataBounds.maxX, x);
+                    dataBounds.maxY = Math.max(dataBounds.maxY, y);
+                });
+            }
+
+            // Group by layer
+            const layer = trace.layer || 'default';
+            if (!layersMap.has(layer)) {
+                layersMap.set(layer, {
+                    name: layer,
+                    planes: [],
+                    vias: [],
+                    traces: [],
+                    visible: true,
+                    color: layerColors[layersMap.size % layerColors.length]
+                });
+            }
+            layersMap.get(layer).traces.push(trace);
+        });
+    }
 
     // Process vias and assign to layers
     if (viasData && viasData.length > 0) {
@@ -107,6 +138,7 @@ function loadData(data) {
                             name: layerName,
                             planes: [],
                             vias: [],
+                            traces: [],
                             visible: true,
                             color: layerColors[layersMap.size % layerColors.length]
                         });
@@ -119,6 +151,8 @@ function loadData(data) {
 
     // Update UI
     document.getElementById('planeCount').textContent = planesData.length;
+    document.getElementById('traceCount').textContent = tracesData.length;
+    document.getElementById('viaCount').textContent = viasData.length;
     document.getElementById('layerCount').textContent = layersMap.size;
     document.getElementById('pointCount').textContent = totalPoints.toLocaleString();
 
@@ -137,11 +171,16 @@ function updateLayerList() {
         item.style.opacity = layer.visible ? '1' : '0.5';
         item.onclick = () => toggleLayer(layerName);
 
+        const planeCount = layer.planes.length;
+        const traceCount = layer.traces ? layer.traces.length : 0;
+        const viaCount = layer.vias ? layer.vias.length : 0;
+        const totalCount = planeCount + traceCount + viaCount;
+
         item.innerHTML = `
             <div class="layer-color" style="background: ${layer.color}"></div>
             <div class="layer-info">
                 <span class="layer-name">${layerName}</span>
-                <span class="layer-count">${layer.planes.length}</span>
+                <span class="layer-count" title="P:${planeCount} T:${traceCount} V:${viaCount}">${totalCount}</span>
             </div>
         `;
 
@@ -330,7 +369,36 @@ function cacheStaticLayers() {
         });
     });
 
-    // Step 3: Draw vias
+    // Step 3: Draw traces
+    layersMap.forEach((layer) => {
+        if (!layer.visible) return;
+
+        if (layer.traces && layer.traces.length > 0) {
+            layer.traces.forEach(trace => {
+                if (!trace.points || trace.points.length < 2) return;
+
+                // Get trace width (default to 0.0001m = 0.1mm if not specified)
+                const traceWidth = (trace.width || 0.0001) * offscreenTransform.scale;
+
+                offscreenCtx.strokeStyle = layer.color;
+                offscreenCtx.lineWidth = traceWidth;
+                offscreenCtx.lineCap = 'round';
+                offscreenCtx.lineJoin = 'round';
+
+                offscreenCtx.beginPath();
+                const first = worldToOffscreen(trace.points[0][0], trace.points[0][1]);
+                offscreenCtx.moveTo(first.x, first.y);
+
+                for (let i = 1; i < trace.points.length; i++) {
+                    const pt = worldToOffscreen(trace.points[i][0], trace.points[i][1]);
+                    offscreenCtx.lineTo(pt.x, pt.y);
+                }
+                offscreenCtx.stroke();
+            });
+        }
+    });
+
+    // Step 4: Draw vias
     layersMap.forEach((layer) => {
         if (!layer.visible) return;
 
@@ -358,7 +426,7 @@ function cacheStaticLayers() {
     });
 
     cacheValid = true;
-    console.log(`Cached ${planesData.length} planes to ${offscreenCanvas.width}x${offscreenCanvas.height} offscreen canvas`);
+    console.log(`Cached ${planesData.length} planes and ${tracesData.length} traces to ${offscreenCanvas.width}x${offscreenCanvas.height} offscreen canvas`);
 }
 
 // World to screen coordinates
@@ -435,7 +503,28 @@ function render() {
             });
         });
 
-        // Step 3: Draw vias
+        // Step 3: Draw traces
+        layersMap.forEach((layer) => {
+            if (!layer.visible) return;
+
+            if (layer.traces && layer.traces.length > 0) {
+                layer.traces.forEach(trace => {
+                    if (!trace.points || trace.points.length < 2) return;
+
+                    // Simple visibility check: check if any point is in viewport
+                    const isVisible = trace.points.some(([x, y]) =>
+                        x >= viewport.minX && x <= viewport.maxX &&
+                        y >= viewport.minY && y <= viewport.maxY
+                    );
+
+                    if (isVisible) {
+                        drawTrace(trace, layer.color);
+                    }
+                });
+            }
+        });
+
+        // Step 4: Draw vias
         layersMap.forEach((layer) => {
             if (!layer.visible) return;
 
@@ -584,6 +673,30 @@ function drawPlaneStroke(plane) {
             ctx.stroke();
         }
     }
+}
+
+// Draw trace as polyline
+function drawTrace(trace, color) {
+    if (!trace.points || trace.points.length < 2) return;
+
+    // Get trace width (default to 0.0001m = 0.1mm if not specified)
+    const traceWidth = trace.width || 0.0001;
+    const screenWidth = traceWidth * viewState.scale;
+
+    ctx.strokeStyle = color;
+    ctx.lineWidth = screenWidth;
+    ctx.lineCap = 'round';
+    ctx.lineJoin = 'round';
+
+    ctx.beginPath();
+    const firstPoint = worldToScreen(trace.points[0][0], trace.points[0][1]);
+    ctx.moveTo(firstPoint.x, firstPoint.y);
+
+    for (let i = 1; i < trace.points.length; i++) {
+        const point = worldToScreen(trace.points[i][0], trace.points[i][1]);
+        ctx.lineTo(point.x, point.y);
+    }
+    ctx.stroke();
 }
 
 // Draw via as circle

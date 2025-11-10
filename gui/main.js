@@ -23,8 +23,11 @@ async function reloadData() {
         // Get vias data from Python
         viasData = await window.pywebview.api.get_vias_data();
 
+        // Get traces data from Python
+        tracesData = await window.pywebview.api.get_traces_data();
+
         loadData(planesData);
-        statusText.textContent = `Loaded ${planesData.length} planes and ${viasData.length} vias successfully`;
+        statusText.textContent = `Loaded ${planesData.length} planes, ${viasData.length} vias, and ${tracesData.length} traces successfully`;
     } catch (error) {
         console.error('Error loading data:', error);
         statusText.textContent = 'Error: ' + error.message;

@@ -78,6 +78,19 @@ class Api:
             print(f"Error getting vias data: {e}")
             return []
 
+    def get_traces_data(self):
+        """Get traces data for rendering"""
+        try:
+            if self.data is None or self.data.get('traces') is None:
+                from edb.edb_saver import load_all_edb_data
+                print(f"Loading EDB data from {self._edb_data_dir}...")
+                self.data = load_all_edb_data(str(self._edb_data_dir))
+
+            return self.data.get('traces', [])
+        except Exception as e:
+            print(f"Error getting traces data: {e}")
+            return []
+
     def save_cut_data(self, cut_data):
         """Save cut geometry data to EDB-specific cut folder"""
         import json
