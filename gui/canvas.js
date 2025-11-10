@@ -289,6 +289,11 @@ function render() {
     // Vector rendering with viewport culling for optimal performance
     const viewport = getViewportBounds();
 
+    // Debug: Count visible traces (log once per 60 frames)
+    if (typeof window.renderFrameCount === 'undefined') window.renderFrameCount = 0;
+    window.renderFrameCount++;
+    const shouldLog = window.renderFrameCount % 60 === 0;
+
     // Step 1: Draw all plane fills (only visible ones in viewport)
     layersMap.forEach((layer) => {
         if (!layer.visible) return;
@@ -318,6 +323,11 @@ function render() {
     });
 
     // Step 3: Draw traces
+    let visibleTracesCount = 0;
+    let totalTracesCount = 0;
+    let minTraceWidth = Infinity;
+    let maxTraceWidth = -Infinity;
+
     layersMap.forEach((layer) => {
         if (!layer.visible) return;
 
@@ -325,19 +335,53 @@ function render() {
             layer.traces.forEach(trace => {
                 if (!trace.center_line || trace.center_line.length < 2) return;
 
-                // Simple visibility check: check if any valid point is in viewport
-                const isVisible = trace.center_line.some(([x, y]) =>
-                    isFinite(x) && isFinite(y) && Math.abs(x) < 1 && Math.abs(y) < 1 &&
-                    x >= viewport.minX && x <= viewport.maxX &&
-                    y >= viewport.minY && y <= viewport.maxY
-                );
+                totalTracesCount++;
 
-                if (isVisible) {
-                    drawTrace(trace, layer.color);
+                // Calculate trace bounding box with width buffer
+                const traceWidth = trace.width || 0.0001;
+                minTraceWidth = Math.min(minTraceWidth, traceWidth);
+                maxTraceWidth = Math.max(maxTraceWidth, traceWidth);
+
+                const buffer = traceWidth / 2; // Half width on each side
+
+                let minX = Infinity, minY = Infinity;
+                let maxX = -Infinity, maxY = -Infinity;
+
+                // Calculate bounds from valid points only
+                for (const [x, y] of trace.center_line) {
+                    if (isFinite(x) && isFinite(y) && Math.abs(x) < 1 && Math.abs(y) < 1) {
+                        minX = Math.min(minX, x);
+                        minY = Math.min(minY, y);
+                        maxX = Math.max(maxX, x);
+                        maxY = Math.max(maxY, y);
+                    }
+                }
+
+                // Check if trace bounding box (with width) overlaps viewport
+                if (minX !== Infinity) {
+                    const isVisible = !(
+                        maxX + buffer < viewport.minX ||
+                        minX - buffer > viewport.maxX ||
+                        maxY + buffer < viewport.minY ||
+                        minY - buffer > viewport.maxY
+                    );
+
+                    if (isVisible) {
+                        visibleTracesCount++;
+                        drawTrace(trace, layer.color);
+                    }
                 }
             });
         }
     });
+
+    // Debug logging
+    if (shouldLog && totalTracesCount > 0) {
+        console.log(`[Render Debug] Traces: ${visibleTracesCount}/${totalTracesCount} visible | ` +
+                    `Width range: ${(minTraceWidth * 1000000).toFixed(2)}um - ${(maxTraceWidth * 1000000).toFixed(2)}um | ` +
+                    `Scale: ${viewState.scale.toFixed(0)} | ` +
+                    `Viewport: ${(viewport.maxX - viewport.minX).toFixed(6)}m x ${(viewport.maxY - viewport.minY).toFixed(6)}m`);
+    }
 
     // Step 4: Draw vias (deduplicated - each via only once)
     const drawnVias = new Set();
@@ -491,8 +535,21 @@ function drawTrace(trace, color) {
     // Get trace width (default to 0.0001m = 0.1mm if not specified)
     const traceWidth = trace.width || 0.0001;
     const screenWidth = traceWidth * viewState.scale;
-    // Use actual trace width (minimum 0.3px for ultra-fine details)
-    const renderWidth = Math.max(screenWidth, 0.3);
+
+    // Adaptive minimum width based on zoom level:
+    // - At low zoom (scale < 1000): minimum 0.5px for visibility
+    // - At medium zoom (scale 1000-10000): minimum 0.8px
+    // - At high zoom (scale > 10000): minimum 1.2px for clarity
+    let minWidth;
+    if (viewState.scale < 1000) {
+        minWidth = 0.5;
+    } else if (viewState.scale < 10000) {
+        minWidth = 0.8;
+    } else {
+        minWidth = 1.2;
+    }
+
+    const renderWidth = Math.max(screenWidth, minWidth);
 
     ctx.strokeStyle = color;
     ctx.lineWidth = renderWidth;
