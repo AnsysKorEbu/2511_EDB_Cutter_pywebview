@@ -267,8 +267,9 @@ function cacheStaticLayers() {
     }
 
     // Set resolution - higher = better quality but more memory
-    // Using 50,000 pixels per meter for higher zoom support (20μm per pixel)
-    const pixelsPerMeter = 50000;
+    // Using 500,000 pixels per meter for ultra-high precision (2μm per pixel)
+    // This allows 0.01μm precision with vector rendering at high zoom
+    const pixelsPerMeter = 500000;
 
     const dataWidth = dataBounds.maxX - dataBounds.minX;
     const dataHeight = dataBounds.maxY - dataBounds.minY;
@@ -382,8 +383,8 @@ function cacheStaticLayers() {
 
                 // Get trace width (default to 0.0001m = 0.1mm if not specified)
                 const traceWidth = (trace.width || 0.0001) * offscreenTransform.scale;
-                // Use actual width, minimum 1.5px for visibility
-                const renderWidth = Math.max(traceWidth, 1.5);
+                // Use actual width, minimum 0.5px for ultra-fine details
+                const renderWidth = Math.max(traceWidth, 0.5);
 
                 offscreenCtx.strokeStyle = layer.color;
                 offscreenCtx.lineWidth = renderWidth;
@@ -520,8 +521,9 @@ function render() {
     }
 
     // LOD threshold: switch to vector rendering when zoom exceeds cache resolution
-    // This ensures crisp rendering at high zoom (μm level, up to 100,000x zoom)
-    const lodThreshold = offscreenTransform.scale * 1.5;
+    // This ensures crisp rendering at high zoom (0.01μm level precision)
+    // Lower threshold to switch to vector rendering earlier for better precision
+    const lodThreshold = offscreenTransform.scale * 0.8;
     const useVectorRendering = viewState.scale > lodThreshold;
 
     if (useVectorRendering) {
@@ -742,8 +744,8 @@ function drawTrace(trace, color) {
     // Get trace width (default to 0.0001m = 0.1mm if not specified)
     const traceWidth = trace.width || 0.0001;
     const screenWidth = traceWidth * viewState.scale;
-    // Use actual trace width at high zoom, minimum 1.5px at low zoom
-    const renderWidth = Math.max(screenWidth, 1.5);
+    // Use actual trace width (minimum 0.3px for ultra-fine details)
+    const renderWidth = Math.max(screenWidth, 0.3);
 
     ctx.strokeStyle = color;
     ctx.lineWidth = renderWidth;
