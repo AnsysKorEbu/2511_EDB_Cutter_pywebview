@@ -32,11 +32,6 @@ const layerColors = [
     '#F7DC6F', '#BB8FCE', '#85C1E2', '#F8B739', '#52B788'
 ];
 
-// Off-screen canvas for caching static layers
-let offscreenCanvas = null;
-let offscreenCtx = null;
-let cacheValid = false;
-let offscreenTransform = { scale: 1, offsetX: 0, offsetY: 0 };
 
 // Initialize canvas size
 function resizeCanvas() {
@@ -196,7 +191,6 @@ function toggleLayer(layerName) {
     const layer = layersMap.get(layerName);
     if (layer) {
         layer.visible = !layer.visible;
-        cacheValid = false; // Invalidate cache when layer visibility changes
         updateLayerList();
         render();
     }
@@ -258,230 +252,6 @@ function isPlaneVisible(plane, viewport) {
              maxY < viewport.minY || minY > viewport.maxY);
 }
 
-// Cache static layers (planes and vias) to off-screen canvas
-function cacheStaticLayers() {
-    // Create or reuse offscreen canvas
-    if (!offscreenCanvas) {
-        offscreenCanvas = document.createElement('canvas');
-        offscreenCtx = offscreenCanvas.getContext('2d');
-    }
-
-    // Set resolution - higher = better quality but more memory
-    // Using 500,000 pixels per meter for ultra-high precision (2μm per pixel)
-    // This allows 0.01μm precision with vector rendering at high zoom
-    const pixelsPerMeter = 500000;
-
-    const dataWidth = dataBounds.maxX - dataBounds.minX;
-    const dataHeight = dataBounds.maxY - dataBounds.minY;
-
-    // Limit to max 8192x8192 for browser compatibility
-    offscreenCanvas.width = Math.min(8192, Math.ceil(dataWidth * pixelsPerMeter));
-    offscreenCanvas.height = Math.min(8192, Math.ceil(dataHeight * pixelsPerMeter));
-
-    // Calculate transform for offscreen rendering
-    offscreenTransform.scale = offscreenCanvas.width / dataWidth;
-    offscreenTransform.offsetX = -dataBounds.minX * offscreenTransform.scale;
-    offscreenTransform.offsetY = dataBounds.maxY * offscreenTransform.scale;
-
-    // Clear offscreen canvas
-    offscreenCtx.clearRect(0, 0, offscreenCanvas.width, offscreenCanvas.height);
-
-    // Helper function to transform world coords to offscreen coords
-    function worldToOffscreen(x, y) {
-        return {
-            x: x * offscreenTransform.scale + offscreenTransform.offsetX,
-            y: -y * offscreenTransform.scale + offscreenTransform.offsetY
-        };
-    }
-
-    // Step 1: Draw all plane fills
-    layersMap.forEach((layer) => {
-        if (!layer.visible) return;
-
-        offscreenCtx.fillStyle = layer.color + '80';
-
-        layer.planes.forEach(plane => {
-            if (!plane.points || plane.points.length < 3) return;
-
-            offscreenCtx.beginPath();
-
-            // Draw outer boundary
-            const first = worldToOffscreen(plane.points[0][0], plane.points[0][1]);
-            offscreenCtx.moveTo(first.x, first.y);
-
-            for (let i = 1; i < plane.points.length; i++) {
-                const pt = worldToOffscreen(plane.points[i][0], plane.points[i][1]);
-                offscreenCtx.lineTo(pt.x, pt.y);
-            }
-            offscreenCtx.closePath();
-
-            // Draw voids (holes)
-            if (plane.voids && plane.voids.length > 0) {
-                for (const void_points of plane.voids) {
-                    if (void_points.length < 3) continue;
-                    const firstVoid = worldToOffscreen(void_points[0][0], void_points[0][1]);
-                    offscreenCtx.moveTo(firstVoid.x, firstVoid.y);
-                    for (let i = 1; i < void_points.length; i++) {
-                        const pt = worldToOffscreen(void_points[i][0], void_points[i][1]);
-                        offscreenCtx.lineTo(pt.x, pt.y);
-                    }
-                    offscreenCtx.closePath();
-                }
-            }
-
-            offscreenCtx.fill('evenodd');
-        });
-    });
-
-    // Step 2: Draw all plane borders
-    offscreenCtx.strokeStyle = '#000000';
-    offscreenCtx.lineWidth = 1.5;
-
-    layersMap.forEach((layer) => {
-        if (!layer.visible) return;
-
-        layer.planes.forEach(plane => {
-            if (!plane.points || plane.points.length < 3) return;
-
-            // Draw outer boundary stroke
-            offscreenCtx.beginPath();
-            const first = worldToOffscreen(plane.points[0][0], plane.points[0][1]);
-            offscreenCtx.moveTo(first.x, first.y);
-
-            for (let i = 1; i < plane.points.length; i++) {
-                const pt = worldToOffscreen(plane.points[i][0], plane.points[i][1]);
-                offscreenCtx.lineTo(pt.x, pt.y);
-            }
-            offscreenCtx.closePath();
-            offscreenCtx.stroke();
-
-            // Draw void strokes
-            if (plane.voids && plane.voids.length > 0) {
-                for (const void_points of plane.voids) {
-                    if (void_points.length < 3) continue;
-                    offscreenCtx.beginPath();
-                    const firstVoid = worldToOffscreen(void_points[0][0], void_points[0][1]);
-                    offscreenCtx.moveTo(firstVoid.x, firstVoid.y);
-                    for (let i = 1; i < void_points.length; i++) {
-                        const pt = worldToOffscreen(void_points[i][0], void_points[i][1]);
-                        offscreenCtx.lineTo(pt.x, pt.y);
-                    }
-                    offscreenCtx.closePath();
-                    offscreenCtx.stroke();
-                }
-            }
-        });
-    });
-
-    // Step 3: Draw traces
-    layersMap.forEach((layer) => {
-        if (!layer.visible) return;
-
-        if (layer.traces && layer.traces.length > 0) {
-            layer.traces.forEach(trace => {
-                if (!trace.center_line || trace.center_line.length < 2) return;
-
-                // Get trace width (default to 0.0001m = 0.1mm if not specified)
-                const traceWidth = (trace.width || 0.0001) * offscreenTransform.scale;
-                // Use actual width, minimum 0.5px for ultra-fine details
-                const renderWidth = Math.max(traceWidth, 0.5);
-
-                offscreenCtx.strokeStyle = layer.color;
-                offscreenCtx.lineWidth = renderWidth;
-                offscreenCtx.lineCap = 'round';
-                offscreenCtx.lineJoin = 'round';
-
-                offscreenCtx.beginPath();
-
-                // Filter and render only valid points
-                let started = false;
-                for (let i = 0; i < trace.center_line.length; i++) {
-                    const [x, y] = trace.center_line[i];
-                    // Skip invalid points (like the corrupted data in line__1582)
-                    if (!isFinite(x) || !isFinite(y) || Math.abs(x) >= 1 || Math.abs(y) >= 1) {
-                        continue;
-                    }
-
-                    const pt = worldToOffscreen(x, y);
-                    if (!started) {
-                        offscreenCtx.moveTo(pt.x, pt.y);
-                        started = true;
-                    } else {
-                        offscreenCtx.lineTo(pt.x, pt.y);
-                    }
-                }
-
-                if (started) {
-                    offscreenCtx.stroke();
-                }
-            });
-        }
-    });
-
-    // Step 4: Draw vias (deduplicated - each via only once)
-    const drawnVias = new Set();
-    layersMap.forEach((layer) => {
-        if (!layer.visible) return;
-
-        if (layer.vias && layer.vias.length > 0) {
-            layer.vias.forEach(via => {
-                if (!via.position || via.position.length < 2) return;
-
-                // Skip if already drawn
-                const viaKey = `${via.position[0]},${via.position[1]},${via.name || ''}`;
-                if (drawnVias.has(viaKey)) return;
-                drawnVias.add(viaKey);
-
-                const pos = worldToOffscreen(via.position[0], via.position[1]);
-
-                if (via.is_circular === false) {
-                    // Draw rectangular via
-                    const viaWidth = (via.width || 0.0003) * offscreenTransform.scale;
-                    const viaHeight = (via.height || 0.0003) * offscreenTransform.scale;
-
-                    // Draw via fill
-                    offscreenCtx.fillStyle = layer.color + 'CC';
-                    offscreenCtx.fillRect(
-                        pos.x - viaWidth / 2,
-                        pos.y - viaHeight / 2,
-                        viaWidth,
-                        viaHeight
-                    );
-
-                    // Draw via border
-                    offscreenCtx.strokeStyle = '#000000';
-                    offscreenCtx.lineWidth = 1.5;
-                    offscreenCtx.strokeRect(
-                        pos.x - viaWidth / 2,
-                        pos.y - viaHeight / 2,
-                        viaWidth,
-                        viaHeight
-                    );
-                } else {
-                    // Draw circular via
-                    const viaRadius = (via.radius || 0.00015) * offscreenTransform.scale;
-
-                    // Draw via fill
-                    offscreenCtx.fillStyle = layer.color + 'CC';
-                    offscreenCtx.beginPath();
-                    offscreenCtx.arc(pos.x, pos.y, viaRadius, 0, 2 * Math.PI);
-                    offscreenCtx.fill();
-
-                    // Draw via border
-                    offscreenCtx.strokeStyle = '#000000';
-                    offscreenCtx.lineWidth = 1.5;
-                    offscreenCtx.beginPath();
-                    offscreenCtx.arc(pos.x, pos.y, viaRadius, 0, 2 * Math.PI);
-                    offscreenCtx.stroke();
-                }
-            });
-        }
-    });
-
-    cacheValid = true;
-    console.log(`Cached ${planesData.length} planes and ${tracesData.length} traces to ${offscreenCanvas.width}x${offscreenCanvas.height} offscreen canvas`);
-}
-
 // World to screen coordinates
 function worldToScreen(x, y) {
     return {
@@ -515,105 +285,82 @@ function render() {
     // Draw grid
     drawGrid();
 
-    // Ensure cache is valid
-    if (!cacheValid) {
-        cacheStaticLayers();
-    }
+    // Always use vector rendering for crisp 0.01μm level precision
+    // Vector rendering with viewport culling for optimal performance
+    const viewport = getViewportBounds();
 
-    // LOD threshold: switch to vector rendering when zoom exceeds cache resolution
-    // This ensures crisp rendering at high zoom (0.01μm level precision)
-    // Lower threshold to switch to vector rendering earlier for better precision
-    const lodThreshold = offscreenTransform.scale * 0.8;
-    const useVectorRendering = viewState.scale > lodThreshold;
+    // Step 1: Draw all plane fills (only visible ones in viewport)
+    layersMap.forEach((layer) => {
+        if (!layer.visible) return;
 
-    if (useVectorRendering) {
-        // High zoom: Vector rendering with viewport culling for crisp μm-level detail
-        const viewport = getViewportBounds();
+        ctx.fillStyle = layer.color + '80';
 
-        // Step 1: Draw all plane fills (only visible ones)
-        layersMap.forEach((layer) => {
-            if (!layer.visible) return;
-
-            ctx.fillStyle = layer.color + '80';
-
-            layer.planes.forEach(plane => {
-                if (isPlaneVisible(plane, viewport)) {
-                    drawPlaneFill(plane);
-                }
-            });
-        });
-
-        // Step 2: Draw all plane borders
-        ctx.strokeStyle = '#000000';
-        // Keep constant 0.8 pixel width for clean appearance
-        ctx.lineWidth = 0.8;
-
-        layersMap.forEach((layer) => {
-            if (!layer.visible) return;
-
-            layer.planes.forEach(plane => {
-                if (isPlaneVisible(plane, viewport)) {
-                    drawPlaneStroke(plane);
-                }
-            });
-        });
-
-        // Step 3: Draw traces
-        layersMap.forEach((layer) => {
-            if (!layer.visible) return;
-
-            if (layer.traces && layer.traces.length > 0) {
-                layer.traces.forEach(trace => {
-                    if (!trace.center_line || trace.center_line.length < 2) return;
-
-                    // Simple visibility check: check if any valid point is in viewport
-                    const isVisible = trace.center_line.some(([x, y]) =>
-                        isFinite(x) && isFinite(y) && Math.abs(x) < 1 && Math.abs(y) < 1 &&
-                        x >= viewport.minX && x <= viewport.maxX &&
-                        y >= viewport.minY && y <= viewport.maxY
-                    );
-
-                    if (isVisible) {
-                        drawTrace(trace, layer.color);
-                    }
-                });
+        layer.planes.forEach(plane => {
+            if (isPlaneVisible(plane, viewport)) {
+                drawPlaneFill(plane);
             }
         });
+    });
 
-        // Step 4: Draw vias (deduplicated - each via only once)
-        const drawnVias = new Set();
-        layersMap.forEach((layer) => {
-            if (!layer.visible) return;
+    // Step 2: Draw all plane borders
+    ctx.strokeStyle = '#000000';
+    // Keep constant 0.8 pixel width for clean appearance
+    ctx.lineWidth = 0.8;
 
-            if (layer.vias && layer.vias.length > 0) {
-                layer.vias.forEach(via => {
-                    if (!via.position || via.position.length < 2) return;
+    layersMap.forEach((layer) => {
+        if (!layer.visible) return;
 
-                    // Skip if already drawn
-                    const viaKey = `${via.position[0]},${via.position[1]},${via.name || ''}`;
-                    if (drawnVias.has(viaKey)) return;
-                    drawnVias.add(viaKey);
-
-                    const [vx, vy] = via.position;
-                    if (vx >= viewport.minX && vx <= viewport.maxX &&
-                        vy >= viewport.minY && vy <= viewport.maxY) {
-                        drawVia(via, layer.color);
-                    }
-                });
+        layer.planes.forEach(plane => {
+            if (isPlaneVisible(plane, viewport)) {
+                drawPlaneStroke(plane);
             }
         });
+    });
 
-    } else {
-        // Low zoom: Fast cached image rendering for overview
-        const topLeft = worldToScreen(dataBounds.minX, dataBounds.maxY);
-        const bottomRight = worldToScreen(dataBounds.maxX, dataBounds.minY);
+    // Step 3: Draw traces
+    layersMap.forEach((layer) => {
+        if (!layer.visible) return;
 
-        const screenWidth = bottomRight.x - topLeft.x;
-        const screenHeight = bottomRight.y - topLeft.y;
+        if (layer.traces && layer.traces.length > 0) {
+            layer.traces.forEach(trace => {
+                if (!trace.center_line || trace.center_line.length < 2) return;
 
-        // Draw the cached image scaled to current view
-        ctx.drawImage(offscreenCanvas, topLeft.x, topLeft.y, screenWidth, screenHeight);
-    }
+                // Simple visibility check: check if any valid point is in viewport
+                const isVisible = trace.center_line.some(([x, y]) =>
+                    isFinite(x) && isFinite(y) && Math.abs(x) < 1 && Math.abs(y) < 1 &&
+                    x >= viewport.minX && x <= viewport.maxX &&
+                    y >= viewport.minY && y <= viewport.maxY
+                );
+
+                if (isVisible) {
+                    drawTrace(trace, layer.color);
+                }
+            });
+        }
+    });
+
+    // Step 4: Draw vias (deduplicated - each via only once)
+    const drawnVias = new Set();
+    layersMap.forEach((layer) => {
+        if (!layer.visible) return;
+
+        if (layer.vias && layer.vias.length > 0) {
+            layer.vias.forEach(via => {
+                if (!via.position || via.position.length < 2) return;
+
+                // Skip if already drawn
+                const viaKey = `${via.position[0]},${via.position[1]},${via.name || ''}`;
+                if (drawnVias.has(viaKey)) return;
+                drawnVias.add(viaKey);
+
+                const [vx, vy] = via.position;
+                if (vx >= viewport.minX && vx <= viewport.maxX &&
+                    vy >= viewport.minY && vy <= viewport.maxY) {
+                    drawVia(via, layer.color);
+                }
+            });
+        }
+    });
 
     // Draw saved cuts
     if (cutMode.enabled) {
