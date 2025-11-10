@@ -68,22 +68,33 @@ def extract_via_positions(edb=None):
         # Get via padstack definition for accurate hole/pad size
         padstack_def = via.padstack_definition
 
-        # Try to get hole diameter from padstack definition
+        # Get bounding box for width/height calculation
+        bbox = via.bounding_box  # [[x_min, y_min], [x_max, y_max]]
+
+        # Calculate width and height from bounding box
+        width = 0.0003  # Default 0.3mm width
+        height = 0.0003  # Default 0.3mm height
         radius = 0.00015  # Default 0.15mm radius
-        if padstack_def and hasattr(padstack_def, 'hole_properties'):
+
+        if bbox and len(bbox) >= 2:
+            width = abs(bbox[1][0] - bbox[0][0])
+            height = abs(bbox[1][1] - bbox[0][1])
+            radius = max(width, height) / 2
+
+        # Check if via is circular or rectangular based on aspect ratio
+        # If width/height ratio > 1.5, it's rectangular
+        aspect_ratio = max(width, height) / min(width, height) if min(width, height) > 0 else 1.0
+        is_circular = aspect_ratio < 1.5
+
+        # Try to get hole diameter from padstack definition for circular vias
+        if is_circular and padstack_def and hasattr(padstack_def, 'hole_properties'):
             try:
                 hole_diameter = padstack_def.hole_properties[0]  # Hole diameter in meters
                 radius = hole_diameter / 2
+                width = hole_diameter
+                height = hole_diameter
             except:
-                # Fallback to bounding box calculation
-                bbox = via.bounding_box
-                if bbox and len(bbox) >= 2:
-                    radius = (bbox[1][0] - bbox[0][0]) / 2
-        else:
-            # Use bounding box as fallback
-            bbox = via.bounding_box
-            if bbox and len(bbox) >= 2:
-                radius = (bbox[1][0] - bbox[0][0]) / 2
+                pass  # Use bounding box values
 
         via_info = {
             'name': via.aedt_name,
@@ -92,7 +103,10 @@ def extract_via_positions(edb=None):
             'start_layer': via.start_layer,
             'stop_layer': via.stop_layer,
             'layer_range_names': via.layer_range_names,  # start~stop 사이의 모든 레이어
-            'radius': radius,  # via 반지름 (미터 단위)
+            'radius': radius,  # via 반지름 (미터 단위) - circular일 때 사용
+            'width': width,   # via 너비 (미터 단위)
+            'height': height,  # via 높이 (미터 단위)
+            'is_circular': is_circular,  # True: 원형, False: 직사각형
         }
         vias_data.append(via_info)
     return vias_data

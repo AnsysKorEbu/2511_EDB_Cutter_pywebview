@@ -432,20 +432,47 @@ function cacheStaticLayers() {
                 drawnVias.add(viaKey);
 
                 const pos = worldToOffscreen(via.position[0], via.position[1]);
-                const viaRadius = (via.radius || 0.00015) * offscreenTransform.scale;
 
-                // Draw via fill
-                offscreenCtx.fillStyle = layer.color + 'CC';
-                offscreenCtx.beginPath();
-                offscreenCtx.arc(pos.x, pos.y, viaRadius, 0, 2 * Math.PI);
-                offscreenCtx.fill();
+                if (via.is_circular === false) {
+                    // Draw rectangular via
+                    const viaWidth = (via.width || 0.0003) * offscreenTransform.scale;
+                    const viaHeight = (via.height || 0.0003) * offscreenTransform.scale;
 
-                // Draw via border
-                offscreenCtx.strokeStyle = '#000000';
-                offscreenCtx.lineWidth = 1.5;
-                offscreenCtx.beginPath();
-                offscreenCtx.arc(pos.x, pos.y, viaRadius, 0, 2 * Math.PI);
-                offscreenCtx.stroke();
+                    // Draw via fill
+                    offscreenCtx.fillStyle = layer.color + 'CC';
+                    offscreenCtx.fillRect(
+                        pos.x - viaWidth / 2,
+                        pos.y - viaHeight / 2,
+                        viaWidth,
+                        viaHeight
+                    );
+
+                    // Draw via border
+                    offscreenCtx.strokeStyle = '#000000';
+                    offscreenCtx.lineWidth = 1.5;
+                    offscreenCtx.strokeRect(
+                        pos.x - viaWidth / 2,
+                        pos.y - viaHeight / 2,
+                        viaWidth,
+                        viaHeight
+                    );
+                } else {
+                    // Draw circular via
+                    const viaRadius = (via.radius || 0.00015) * offscreenTransform.scale;
+
+                    // Draw via fill
+                    offscreenCtx.fillStyle = layer.color + 'CC';
+                    offscreenCtx.beginPath();
+                    offscreenCtx.arc(pos.x, pos.y, viaRadius, 0, 2 * Math.PI);
+                    offscreenCtx.fill();
+
+                    // Draw via border
+                    offscreenCtx.strokeStyle = '#000000';
+                    offscreenCtx.lineWidth = 1.5;
+                    offscreenCtx.beginPath();
+                    offscreenCtx.arc(pos.x, pos.y, viaRadius, 0, 2 * Math.PI);
+                    offscreenCtx.stroke();
+                }
             });
         }
     });
@@ -748,28 +775,53 @@ function drawTrace(trace, color) {
     }
 }
 
-// Draw via as circle
+// Draw via as circle or rectangle based on shape
 function drawVia(via, color) {
     if (!via.position || via.position.length < 2) return;
 
     const screenPos = worldToScreen(via.position[0], via.position[1]);
 
-    // Use via radius from data, fallback to default (0.15mm = 0.00015m)
-    const viaRadius = via.radius || 0.00015;
-    const screenRadius = viaRadius * viewState.scale;
+    if (via.is_circular === false) {
+        // Draw rectangular via
+        const viaWidth = (via.width || 0.0003) * viewState.scale;
+        const viaHeight = (via.height || 0.0003) * viewState.scale;
 
-    // Draw via fill
-    ctx.fillStyle = color + 'CC'; // Semi-transparent
-    ctx.beginPath();
-    ctx.arc(screenPos.x, screenPos.y, screenRadius, 0, 2 * Math.PI);
-    ctx.fill();
+        // Draw via fill (centered on position)
+        ctx.fillStyle = color + 'CC'; // Semi-transparent
+        ctx.fillRect(
+            screenPos.x - viaWidth / 2,
+            screenPos.y - viaHeight / 2,
+            viaWidth,
+            viaHeight
+        );
 
-    // Draw via border
-    ctx.strokeStyle = '#000000';
-    ctx.lineWidth = 0.8;
-    ctx.beginPath();
-    ctx.arc(screenPos.x, screenPos.y, screenRadius, 0, 2 * Math.PI);
-    ctx.stroke();
+        // Draw via border
+        ctx.strokeStyle = '#000000';
+        ctx.lineWidth = 0.8;
+        ctx.strokeRect(
+            screenPos.x - viaWidth / 2,
+            screenPos.y - viaHeight / 2,
+            viaWidth,
+            viaHeight
+        );
+    } else {
+        // Draw circular via
+        const viaRadius = via.radius || 0.00015;
+        const screenRadius = viaRadius * viewState.scale;
+
+        // Draw via fill
+        ctx.fillStyle = color + 'CC'; // Semi-transparent
+        ctx.beginPath();
+        ctx.arc(screenPos.x, screenPos.y, screenRadius, 0, 2 * Math.PI);
+        ctx.fill();
+
+        // Draw via border
+        ctx.strokeStyle = '#000000';
+        ctx.lineWidth = 0.8;
+        ctx.beginPath();
+        ctx.arc(screenPos.x, screenPos.y, screenRadius, 0, 2 * Math.PI);
+        ctx.stroke();
+    }
 }
 
 // Zoom functions
