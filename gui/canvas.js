@@ -332,9 +332,9 @@ function cacheStaticLayers() {
         });
     });
 
-    // Step 2: Draw all plane borders
+    // Step 2: Draw all plane borders - use thicker line for better visibility when cached
     offscreenCtx.strokeStyle = '#000000';
-    offscreenCtx.lineWidth = 2;
+    offscreenCtx.lineWidth = 3;
 
     layersMap.forEach((layer) => {
         if (!layer.visible) return;
@@ -382,8 +382,8 @@ function cacheStaticLayers() {
 
                 // Get trace width (default to 0.0001m = 0.1mm if not specified)
                 const traceWidth = (trace.width || 0.0001) * offscreenTransform.scale;
-                // Ensure minimum 2 pixel width for visibility (especially for 0.035mm traces)
-                const renderWidth = Math.max(traceWidth, 2);
+                // Ensure minimum 3 pixel width for visibility when cached (especially for 0.035mm traces)
+                const renderWidth = Math.max(traceWidth, 3);
 
                 offscreenCtx.strokeStyle = layer.color;
                 offscreenCtx.lineWidth = renderWidth;
@@ -434,9 +434,9 @@ function cacheStaticLayers() {
                 offscreenCtx.arc(pos.x, pos.y, viaRadius, 0, 2 * Math.PI);
                 offscreenCtx.fill();
 
-                // Draw via border
+                // Draw via border - use thicker line for better visibility when cached
                 offscreenCtx.strokeStyle = '#000000';
-                offscreenCtx.lineWidth = 1;
+                offscreenCtx.lineWidth = 2;
                 offscreenCtx.beginPath();
                 offscreenCtx.arc(pos.x, pos.y, viaRadius, 0, 2 * Math.PI);
                 offscreenCtx.stroke();
@@ -510,7 +510,8 @@ function render() {
 
         // Step 2: Draw all plane borders
         ctx.strokeStyle = '#000000';
-        ctx.lineWidth = 2 / viewState.scale;
+        // Ensure minimum 1.5 pixel width for visibility at high zoom
+        ctx.lineWidth = Math.max(2 / viewState.scale, 1.5);
 
         layersMap.forEach((layer) => {
             if (!layer.visible) return;
@@ -702,8 +703,8 @@ function drawTrace(trace, color) {
     // Get trace width (default to 0.0001m = 0.1mm if not specified)
     const traceWidth = trace.width || 0.0001;
     const screenWidth = traceWidth * viewState.scale;
-    // Ensure minimum 2 pixel width for visibility (especially for 0.035mm traces)
-    const renderWidth = Math.max(screenWidth, 2);
+    // Ensure minimum 3 pixel width for visibility at high zoom (especially for 0.035mm traces)
+    const renderWidth = Math.max(screenWidth, 3);
 
     ctx.strokeStyle = color;
     ctx.lineWidth = renderWidth;
@@ -751,9 +752,9 @@ function drawVia(via, color) {
     ctx.arc(screenPos.x, screenPos.y, screenRadius, 0, 2 * Math.PI);
     ctx.fill();
 
-    // Draw via border
+    // Draw via border - ensure minimum 1.5 pixel width for visibility at high zoom
     ctx.strokeStyle = '#000000';
-    ctx.lineWidth = 1;
+    ctx.lineWidth = Math.max(1 / viewState.scale * 100, 1.5);
     ctx.beginPath();
     ctx.arc(screenPos.x, screenPos.y, screenRadius, 0, 2 * Math.PI);
     ctx.stroke();
