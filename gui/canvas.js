@@ -93,13 +93,16 @@ function loadData(data) {
     // Process traces and assign to layers
     if (tracesData && tracesData.length > 0) {
         tracesData.forEach(trace => {
-            // Update bounds from trace points
-            if (trace.points && trace.points.length > 0) {
-                trace.points.forEach(([x, y]) => {
-                    dataBounds.minX = Math.min(dataBounds.minX, x);
-                    dataBounds.minY = Math.min(dataBounds.minY, y);
-                    dataBounds.maxX = Math.max(dataBounds.maxX, x);
-                    dataBounds.maxY = Math.max(dataBounds.maxY, y);
+            // Update bounds from trace center_line
+            if (trace.center_line && trace.center_line.length > 0) {
+                trace.center_line.forEach(([x, y]) => {
+                    // Filter out invalid data (e.g., extremely large values)
+                    if (isFinite(x) && isFinite(y) && Math.abs(x) < 1 && Math.abs(y) < 1) {
+                        dataBounds.minX = Math.min(dataBounds.minX, x);
+                        dataBounds.minY = Math.min(dataBounds.minY, y);
+                        dataBounds.maxX = Math.max(dataBounds.maxX, x);
+                        dataBounds.maxY = Math.max(dataBounds.maxY, y);
+                    }
                 });
             }
 
@@ -375,25 +378,41 @@ function cacheStaticLayers() {
 
         if (layer.traces && layer.traces.length > 0) {
             layer.traces.forEach(trace => {
-                if (!trace.points || trace.points.length < 2) return;
+                if (!trace.center_line || trace.center_line.length < 2) return;
 
                 // Get trace width (default to 0.0001m = 0.1mm if not specified)
                 const traceWidth = (trace.width || 0.0001) * offscreenTransform.scale;
+                // Ensure minimum 2 pixel width for visibility (especially for 0.035mm traces)
+                const renderWidth = Math.max(traceWidth, 2);
 
                 offscreenCtx.strokeStyle = layer.color;
-                offscreenCtx.lineWidth = traceWidth;
+                offscreenCtx.lineWidth = renderWidth;
                 offscreenCtx.lineCap = 'round';
                 offscreenCtx.lineJoin = 'round';
 
                 offscreenCtx.beginPath();
-                const first = worldToOffscreen(trace.points[0][0], trace.points[0][1]);
-                offscreenCtx.moveTo(first.x, first.y);
 
-                for (let i = 1; i < trace.points.length; i++) {
-                    const pt = worldToOffscreen(trace.points[i][0], trace.points[i][1]);
-                    offscreenCtx.lineTo(pt.x, pt.y);
+                // Filter and render only valid points
+                let started = false;
+                for (let i = 0; i < trace.center_line.length; i++) {
+                    const [x, y] = trace.center_line[i];
+                    // Skip invalid points (like the corrupted data in line__1582)
+                    if (!isFinite(x) || !isFinite(y) || Math.abs(x) >= 1 || Math.abs(y) >= 1) {
+                        continue;
+                    }
+
+                    const pt = worldToOffscreen(x, y);
+                    if (!started) {
+                        offscreenCtx.moveTo(pt.x, pt.y);
+                        started = true;
+                    } else {
+                        offscreenCtx.lineTo(pt.x, pt.y);
+                    }
                 }
-                offscreenCtx.stroke();
+
+                if (started) {
+                    offscreenCtx.stroke();
+                }
             });
         }
     });
@@ -509,10 +528,11 @@ function render() {
 
             if (layer.traces && layer.traces.length > 0) {
                 layer.traces.forEach(trace => {
-                    if (!trace.points || trace.points.length < 2) return;
+                    if (!trace.center_line || trace.center_line.length < 2) return;
 
-                    // Simple visibility check: check if any point is in viewport
-                    const isVisible = trace.points.some(([x, y]) =>
+                    // Simple visibility check: check if any valid point is in viewport
+                    const isVisible = trace.center_line.some(([x, y]) =>
+                        isFinite(x) && isFinite(y) && Math.abs(x) < 1 && Math.abs(y) < 1 &&
                         x >= viewport.minX && x <= viewport.maxX &&
                         y >= viewport.minY && y <= viewport.maxY
                     );
@@ -677,26 +697,42 @@ function drawPlaneStroke(plane) {
 
 // Draw trace as polyline
 function drawTrace(trace, color) {
-    if (!trace.points || trace.points.length < 2) return;
+    if (!trace.center_line || trace.center_line.length < 2) return;
 
     // Get trace width (default to 0.0001m = 0.1mm if not specified)
     const traceWidth = trace.width || 0.0001;
     const screenWidth = traceWidth * viewState.scale;
+    // Ensure minimum 2 pixel width for visibility (especially for 0.035mm traces)
+    const renderWidth = Math.max(screenWidth, 2);
 
     ctx.strokeStyle = color;
-    ctx.lineWidth = screenWidth;
+    ctx.lineWidth = renderWidth;
     ctx.lineCap = 'round';
     ctx.lineJoin = 'round';
 
     ctx.beginPath();
-    const firstPoint = worldToScreen(trace.points[0][0], trace.points[0][1]);
-    ctx.moveTo(firstPoint.x, firstPoint.y);
 
-    for (let i = 1; i < trace.points.length; i++) {
-        const point = worldToScreen(trace.points[i][0], trace.points[i][1]);
-        ctx.lineTo(point.x, point.y);
+    // Filter and render only valid points
+    let started = false;
+    for (let i = 0; i < trace.center_line.length; i++) {
+        const [x, y] = trace.center_line[i];
+        // Skip invalid points (like the corrupted data in line__1582)
+        if (!isFinite(x) || !isFinite(y) || Math.abs(x) >= 1 || Math.abs(y) >= 1) {
+            continue;
+        }
+
+        const point = worldToScreen(x, y);
+        if (!started) {
+            ctx.moveTo(point.x, point.y);
+            started = true;
+        } else {
+            ctx.lineTo(point.x, point.y);
+        }
     }
-    ctx.stroke();
+
+    if (started) {
+        ctx.stroke();
+    }
 }
 
 // Draw via as circle
