@@ -10,9 +10,34 @@ from pathlib import Path
 from gui import start_gui
 
 # EDB folder path (modify this to your .aedb folder)
-# EDB_PATH = r"C:\Python_Code\FPCB_XSection_Map\source\B6_CTC_REV02_1208.aedb"
-EDB_PATH = r"C:\Python_Code\2511_EDB_Cutter_pywebview\source\example\org_design.aedb"
+EDB_PATH = r"C:\Python_Code\FPCB_XSection_Map\source\B6_CTC_REV02_1208.aedb"
+# EDB_PATH = r"C:\Python_Code\2511_EDB_Cutter_pywebview\source\example\org_design.aedb"
 # EDB_PATH = r"C:\Python_Code\2511_EDB_Cutter_pywebview\source\example\part2_otherstackup.aedb"
+OVERWRITE = True
+
+def check_extracted_data_exists(edb_path):
+    """
+    Check if any extracted EDB data files exist.
+
+    Args:
+        edb_path: Path to EDB folder
+
+    Returns:
+        bool: True if any .json.gz files exist in output folder, False otherwise
+    """
+    # Extract EDB folder name from path (same logic as edb_interface.py)
+    edb_folder_name = Path(edb_path).name
+
+    # Create output directory path: source/{edb_folder_name}/
+    output_dir = Path('source') / edb_folder_name
+
+    # Find any .json.gz files in the output folder
+    if not output_dir.exists():
+        return False
+
+    json_gz_files = list(output_dir.glob('*.json.gz'))
+
+    return len(json_gz_files) > 0
 
 
 def extract_edb_data(edb_path):
@@ -68,8 +93,13 @@ def main():
     print(f"EDB Path: {EDB_PATH}\n")
 
     # Step 1: Extract data using subprocess
-    if True:
+    if OVERWRITE or not check_extracted_data_exists(EDB_PATH):
         extract_edb_data(EDB_PATH)
+    else:
+        print("=" * 70)
+        print("Step 1: Skipping EDB extraction (data exists)")
+        print("=" * 70)
+        print("[OK] Using existing EDB data\n")
 
     # Step 2: Start GUI
     print("=" * 70)
