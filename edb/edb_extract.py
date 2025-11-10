@@ -65,8 +65,25 @@ def extract_trace_positions(edb=None):
 def extract_via_positions(edb=None):
     vias_data = []
     for via in edb.padstacks.vias.values():
-        bbox = via.bounding_box  # [[x_min, y_min], [x_max, y_max]]
-        radius = (bbox[1][0] - bbox[0][0]) / 2 if bbox else 0  # (x_max - x_min) / 2
+        # Get via padstack definition for accurate hole/pad size
+        padstack_def = via.padstack_definition
+
+        # Try to get hole diameter from padstack definition
+        radius = 0.00015  # Default 0.15mm radius
+        if padstack_def and hasattr(padstack_def, 'hole_properties'):
+            try:
+                hole_diameter = padstack_def.hole_properties[0]  # Hole diameter in meters
+                radius = hole_diameter / 2
+            except:
+                # Fallback to bounding box calculation
+                bbox = via.bounding_box
+                if bbox and len(bbox) >= 2:
+                    radius = (bbox[1][0] - bbox[0][0]) / 2
+        else:
+            # Use bounding box as fallback
+            bbox = via.bounding_box
+            if bbox and len(bbox) >= 2:
+                radius = (bbox[1][0] - bbox[0][0]) / 2
 
         via_info = {
             'name': via.aedt_name,

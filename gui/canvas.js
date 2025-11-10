@@ -332,9 +332,9 @@ function cacheStaticLayers() {
         });
     });
 
-    // Step 2: Draw all plane borders - use thicker line for better visibility when cached
+    // Step 2: Draw all plane borders
     offscreenCtx.strokeStyle = '#000000';
-    offscreenCtx.lineWidth = 3;
+    offscreenCtx.lineWidth = 1.5;
 
     layersMap.forEach((layer) => {
         if (!layer.visible) return;
@@ -382,8 +382,8 @@ function cacheStaticLayers() {
 
                 // Get trace width (default to 0.0001m = 0.1mm if not specified)
                 const traceWidth = (trace.width || 0.0001) * offscreenTransform.scale;
-                // Ensure minimum 3 pixel width for visibility when cached (especially for 0.035mm traces)
-                const renderWidth = Math.max(traceWidth, 3);
+                // Use actual width, minimum 1.5px for visibility
+                const renderWidth = Math.max(traceWidth, 1.5);
 
                 offscreenCtx.strokeStyle = layer.color;
                 offscreenCtx.lineWidth = renderWidth;
@@ -417,13 +417,19 @@ function cacheStaticLayers() {
         }
     });
 
-    // Step 4: Draw vias
+    // Step 4: Draw vias (deduplicated - each via only once)
+    const drawnVias = new Set();
     layersMap.forEach((layer) => {
         if (!layer.visible) return;
 
         if (layer.vias && layer.vias.length > 0) {
             layer.vias.forEach(via => {
                 if (!via.position || via.position.length < 2) return;
+
+                // Skip if already drawn
+                const viaKey = `${via.position[0]},${via.position[1]},${via.name || ''}`;
+                if (drawnVias.has(viaKey)) return;
+                drawnVias.add(viaKey);
 
                 const pos = worldToOffscreen(via.position[0], via.position[1]);
                 const viaRadius = (via.radius || 0.00015) * offscreenTransform.scale;
@@ -434,9 +440,9 @@ function cacheStaticLayers() {
                 offscreenCtx.arc(pos.x, pos.y, viaRadius, 0, 2 * Math.PI);
                 offscreenCtx.fill();
 
-                // Draw via border - use thicker line for better visibility when cached
+                // Draw via border
                 offscreenCtx.strokeStyle = '#000000';
-                offscreenCtx.lineWidth = 2;
+                offscreenCtx.lineWidth = 1.5;
                 offscreenCtx.beginPath();
                 offscreenCtx.arc(pos.x, pos.y, viaRadius, 0, 2 * Math.PI);
                 offscreenCtx.stroke();
@@ -510,8 +516,8 @@ function render() {
 
         // Step 2: Draw all plane borders
         ctx.strokeStyle = '#000000';
-        // Ensure minimum 1.5 pixel width for visibility at high zoom
-        ctx.lineWidth = Math.max(2 / viewState.scale, 1.5);
+        // Keep constant 0.8 pixel width for clean appearance
+        ctx.lineWidth = 0.8;
 
         layersMap.forEach((layer) => {
             if (!layer.visible) return;
@@ -545,13 +551,19 @@ function render() {
             }
         });
 
-        // Step 4: Draw vias
+        // Step 4: Draw vias (deduplicated - each via only once)
+        const drawnVias = new Set();
         layersMap.forEach((layer) => {
             if (!layer.visible) return;
 
             if (layer.vias && layer.vias.length > 0) {
                 layer.vias.forEach(via => {
                     if (!via.position || via.position.length < 2) return;
+
+                    // Skip if already drawn
+                    const viaKey = `${via.position[0]},${via.position[1]},${via.name || ''}`;
+                    if (drawnVias.has(viaKey)) return;
+                    drawnVias.add(viaKey);
 
                     const [vx, vy] = via.position;
                     if (vx >= viewport.minX && vx <= viewport.maxX &&
@@ -703,8 +715,8 @@ function drawTrace(trace, color) {
     // Get trace width (default to 0.0001m = 0.1mm if not specified)
     const traceWidth = trace.width || 0.0001;
     const screenWidth = traceWidth * viewState.scale;
-    // Ensure minimum 3 pixel width for visibility at high zoom (especially for 0.035mm traces)
-    const renderWidth = Math.max(screenWidth, 3);
+    // Use actual trace width at high zoom, minimum 1.5px at low zoom
+    const renderWidth = Math.max(screenWidth, 1.5);
 
     ctx.strokeStyle = color;
     ctx.lineWidth = renderWidth;
@@ -752,9 +764,9 @@ function drawVia(via, color) {
     ctx.arc(screenPos.x, screenPos.y, screenRadius, 0, 2 * Math.PI);
     ctx.fill();
 
-    // Draw via border - ensure minimum 1.5 pixel width for visibility at high zoom
+    // Draw via border
     ctx.strokeStyle = '#000000';
-    ctx.lineWidth = Math.max(1 / viewState.scale * 100, 1.5);
+    ctx.lineWidth = 0.8;
     ctx.beginPath();
     ctx.arc(screenPos.x, screenPos.y, screenRadius, 0, 2 * Math.PI);
     ctx.stroke();
