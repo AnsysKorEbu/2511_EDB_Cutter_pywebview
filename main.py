@@ -13,7 +13,7 @@ from gui import start_gui
 EDB_PATH = r"C:\Python_Code\FPCB_XSection_Map\source\B6_CTC_REV02_1208.aedb"
 # EDB_PATH = r"C:\Python_Code\2511_EDB_Cutter_pywebview\source\example\org_design.aedb"
 # EDB_PATH = r"C:\Python_Code\2511_EDB_Cutter_pywebview\source\example\part2_otherstackup.aedb"
-OVERWRITE = True
+OVERWRITE = False
 
 def check_extracted_data_exists(edb_path):
     """
