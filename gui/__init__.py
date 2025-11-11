@@ -204,7 +204,7 @@ class Api:
         """
         import subprocess
         import json
-        import tempfile
+        import time
 
         try:
             # Ensure cut_ids is a list
@@ -241,10 +241,14 @@ class Api:
                 'cut_files': cut_files
             }
 
-            # Create temporary batch file
-            with tempfile.NamedTemporaryFile(mode='w', suffix='.json', delete=False, encoding='utf-8') as batch_file:
+            # Create temporary batch file in source folder
+            source_dir = Path('source')
+            source_dir.mkdir(exist_ok=True)
+            batch_filename = f"_batch_{int(time.time() * 1000)}.json"
+            batch_file_path = source_dir / batch_filename
+
+            with open(batch_file_path, 'w', encoding='utf-8') as batch_file:
                 json.dump(batch_data, batch_file, indent=2)
-                batch_file_path = batch_file.name
 
             try:
                 # Run edb.cut package as subprocess with batch file
