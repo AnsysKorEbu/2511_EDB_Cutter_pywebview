@@ -31,7 +31,7 @@ async function reloadData() {
     } catch (error) {
         console.error('Error loading data:', error);
         statusText.textContent = 'Error: ' + error.message;
-        alert('Error loading data: ' + error.message);
+        await customAlert('Error loading data: ' + error.message);
     } finally {
         loading.classList.add('hidden');
         reloadBtn.disabled = false;

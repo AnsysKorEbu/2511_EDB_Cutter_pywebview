@@ -140,10 +140,29 @@
         </div>
     </div>
 
+    <!-- Custom Dialog Modal -->
+    <div id="customDialog" class="modal hidden">
+        <div class="modal-content custom-dialog-content">
+            <div class="modal-header">
+                <h2 id="dialogTitle">Dialog</h2>
+                <button class="modal-close" onclick="closeCustomDialog()">&times;</button>
+            </div>
+            <div class="modal-body">
+                <div id="dialogMessage" class="dialog-message"></div>
+                <input type="text" id="dialogInput" class="dialog-input hidden" />
+            </div>
+            <div class="modal-footer">
+                <button id="dialogCancelBtn" class="btn-secondary hidden" onclick="closeCustomDialog()">Cancel</button>
+                <button id="dialogConfirmBtn" class="btn-primary" onclick="confirmCustomDialog()">OK</button>
+            </div>
+        </div>
+    </div>
+
     <!-- JavaScript modules -->
     <script src="canvas.js"></script>
     <script src="cutMode.js"></script>
     <script src="cutExecutor.js"></script>
     <script src="main.js"></script>
+    <script src="customDialog.js"></script>
 </body>
 </html>

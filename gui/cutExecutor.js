@@ -160,7 +160,7 @@ function updateCutOrderDisplay() {
  */
 async function executeSelectedCut() {
     if (cutExecutor.selectedCutIds.length === 0) {
-        alert('Please select at least one cut to execute');
+        await customAlert('Please select at least one cut to execute');
         return;
     }
 

@@ -99,13 +99,13 @@ function togglePanMode() {
 }
 
 // Finish current cut
-function finishCurrentCut() {
+async function finishCurrentCut() {
     if (cutMode.currentCut.length >= 2) {
         cutMode.isDrawing = false;
         saveCut();
         document.getElementById('finishCutBtn').classList.add('hidden');
     } else {
-        alert('Need at least 2 points to save a cut');
+        await customAlert('Need at least 2 points to save a cut');
     }
 }
 
@@ -217,7 +217,7 @@ function drawCurrentCut() {
 // Save cut
 async function saveCut() {
     if (cutMode.currentCut.length === 0) {
-        alert('No cut to save');
+        await customAlert('No cut to save');
         return;
     }
 
@@ -236,11 +236,11 @@ async function saveCut() {
             render();
             document.getElementById('statusText').textContent = `Cut saved: ${result.id}`;
         } else {
-            alert('Error saving cut: ' + result.error);
+            await customAlert('Error saving cut: ' + result.error);
         }
     } catch (error) {
         console.error('Error saving cut:', error);
-        alert('Error saving cut: ' + error.message);
+        await customAlert('Error saving cut: ' + error.message);
     }
 }
 
@@ -294,31 +294,31 @@ async function deleteCut(cutId) {
             await refreshCutList();
             document.getElementById('statusText').textContent = `Deleted: ${cutId}`;
         } else {
-            alert('Error deleting cut: ' + result.error);
+            await customAlert('Error deleting cut: ' + result.error);
         }
     } catch (error) {
         console.error('Error deleting cut:', error);
-        alert('Error deleting cut: ' + error.message);
+        await customAlert('Error deleting cut: ' + error.message);
     }
 }
 
 // Rename cut
 async function renameCut(cutId) {
     try {
-        const newName = prompt('Enter new name (letters, numbers, and underscores only):', cutId);
+        const newName = await customPrompt('Enter new name (letters, numbers, and underscores only):', cutId);
 
         // User cancelled
         if (newName === null) return;
 
         // Empty name
         if (newName.trim() === '') {
-            alert('Name cannot be empty');
+            await customAlert('Name cannot be empty');
             return;
         }
 
         // Validate format
         if (!/^[a-zA-Z0-9_]+$/.test(newName)) {
-            alert('Invalid name format. Only letters, numbers, and underscores allowed.');
+            await customAlert('Invalid name format. Only letters, numbers, and underscores allowed.');
             return;
         }
 
@@ -327,17 +327,18 @@ async function renameCut(cutId) {
             await refreshCutList();
             document.getElementById('statusText').textContent = `Renamed: ${cutId} -> ${result.new_id}`;
         } else {
-            alert('Error renaming cut: ' + result.error);
+            await customAlert('Error renaming cut: ' + result.error);
         }
     } catch (error) {
         console.error('Error renaming cut:', error);
-        alert('Error renaming cut: ' + error.message);
+        await customAlert('Error renaming cut: ' + error.message);
     }
 }
 
 // Clear all cuts
 async function clearAllCuts() {
-    if (!confirm('Delete all cuts?')) return;
+    const confirmed = await customConfirm('Delete all cuts?');
+    if (!confirmed) return;
 
     try {
         const cuts = await window.pywebview.api.get_cut_list();
@@ -348,7 +349,7 @@ async function clearAllCuts() {
         document.getElementById('statusText').textContent = 'All cuts deleted';
     } catch (error) {
         console.error('Error clearing cuts:', error);
-        alert('Error clearing cuts: ' + error.message);
+        await customAlert('Error clearing cuts: ' + error.message);
     }
 }
 
