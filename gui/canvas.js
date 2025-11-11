@@ -659,11 +659,11 @@ window.addEventListener('resize', resizeCanvas);
 // Animation functions for marching ants effect
 function animate(currentTime) {
     // Update dash offset for marching ants effect
-    // 60 pixels per second (fast speed as per user preference)
+    // 30 pixels per second (medium speed)
     const elapsed = currentTime - lastAnimationTime;
 
     if (elapsed > 16) {  // ~60fps
-        dashOffset = (dashOffset + 1) % 12;  // 1px per frame = 60px/sec
+        dashOffset = (dashOffset + 0.5) % 12;  // 0.5px per frame = 30px/sec
         lastAnimationTime = currentTime;
 
         // Only render if there's a highlighted cut

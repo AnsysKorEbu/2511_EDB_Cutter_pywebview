@@ -648,8 +648,8 @@ function handleCutMouseMove(e) {
                         targetY = lastScreen.y;
 
                         // Draw special highlight for polyline finish
-                        ctx.strokeStyle = '#00ff00';
-                        ctx.fillStyle = 'rgba(0, 255, 0, 0.2)';
+                        ctx.strokeStyle = '#ffff00';
+                        ctx.fillStyle = 'rgba(255, 255, 0, 0.2)';
                         ctx.lineWidth = 2;
                         ctx.beginPath();
                         ctx.arc(lastScreen.x, lastScreen.y, 10, 0, 2 * Math.PI);
