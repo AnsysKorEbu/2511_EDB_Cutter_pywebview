@@ -131,7 +131,12 @@ class Api:
                 return []
 
             cuts = []
-            for cut_file in sorted(cut_dir.glob('cut_*.json')):
+            # Changed from 'cut_*.json' to '*.json' to support renamed cuts
+            for cut_file in sorted(cut_dir.glob('*.json')):
+                # Skip batch files (temporary files used for execution)
+                if cut_file.name.startswith('_batch_'):
+                    continue
+
                 try:
                     with open(cut_file, 'r', encoding='utf-8') as f:
                         cut_data = json.load(f)
@@ -169,6 +174,56 @@ class Api:
                 return {'success': False, 'error': 'File not found'}
         except Exception as e:
             print(f"Error deleting cut: {e}")
+            return {'success': False, 'error': str(e)}
+
+    def rename_cut(self, old_id, new_id):
+        """Rename a cut file"""
+        import json
+        import re
+
+        try:
+            # Validate new name format (alphanumeric + underscore only)
+            if not re.match(r'^[a-zA-Z0-9_]+$', new_id):
+                return {
+                    'success': False,
+                    'error': 'Invalid name format. Only letters, numbers, and underscores allowed.'
+                }
+
+            # Check if old_id and new_id are the same
+            if old_id == new_id:
+                return {'success': True, 'message': 'Name unchanged'}
+
+            cut_dir = self._edb_data_dir / 'cut'
+            old_file = cut_dir / f"{old_id}.json"
+            new_file = cut_dir / f"{new_id}.json"
+
+            # Check if old file exists
+            if not old_file.exists():
+                return {'success': False, 'error': 'Original cut file not found'}
+
+            # Check if new name already exists
+            if new_file.exists():
+                return {'success': False, 'error': f'Cut name "{new_id}" already exists'}
+
+            # Load cut data
+            with open(old_file, 'r', encoding='utf-8') as f:
+                cut_data = json.load(f)
+
+            # Update id in data
+            cut_data['id'] = new_id
+
+            # Save to new file
+            with open(new_file, 'w', encoding='utf-8') as f:
+                json.dump(cut_data, f, indent=2)
+
+            # Delete old file
+            old_file.unlink()
+
+            print(f"Renamed cut: {old_id} -> {new_id}")
+            return {'success': True, 'new_id': new_id}
+
+        except Exception as e:
+            print(f"Error renaming cut: {e}")
             return {'success': False, 'error': str(e)}
 
     def get_cut_data(self, cut_id):

@@ -298,6 +298,22 @@ button:disabled {
     background: #2d2d30;
 }
 
+.cut-list-item-buttons {
+    display: flex;
+    gap: 5px;
+}
+
+.cut-rename-btn {
+    padding: 4px 8px;
+    background: #0e639c;
+    font-size: 11px;
+    min-width: auto;
+}
+
+.cut-rename-btn:hover {
+    background: #1177bb;
+}
+
 .cut-delete-btn {
     padding: 4px 8px;
     background: #c72b2b;
@@ -482,6 +498,7 @@ canvas.cut-mode {
     border-radius: 6px;
     cursor: pointer;
     transition: all 0.2s;
+    position: relative;
 }
 
 .executor-cut-item:hover {
@@ -493,6 +510,23 @@ canvas.cut-mode {
     border-color: #1177bb;
     background: #2a2a2a;
     box-shadow: 0 0 8px rgba(17, 119, 187, 0.3);
+}
+
+.executor-cut-order-badge {
+    position: absolute;
+    top: 8px;
+    right: 8px;
+    width: 24px;
+    height: 24px;
+    background: #1177bb;
+    color: white;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 12px;
+    font-weight: 600;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
 }
 
 .executor-cut-header {

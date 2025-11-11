@@ -226,7 +226,10 @@ async function refreshCutList() {
                         <div style="color: #9cdcfe;">${cut.id}</div>
                         <div style="color: #858585; font-size: 10px;">${cut.type}</div>
                     </div>
-                    <button class="cut-delete-btn" onclick="deleteCut('${cut.id}')">Delete</button>
+                    <div class="cut-list-item-buttons">
+                        <button class="cut-rename-btn" onclick="renameCut('${cut.id}')">Rename</button>
+                        <button class="cut-delete-btn" onclick="deleteCut('${cut.id}')">Delete</button>
+                    </div>
                 </div>
             `).join('');
         }
@@ -250,6 +253,39 @@ async function deleteCut(cutId) {
     } catch (error) {
         console.error('Error deleting cut:', error);
         alert('Error deleting cut: ' + error.message);
+    }
+}
+
+// Rename cut
+async function renameCut(cutId) {
+    try {
+        const newName = prompt('Enter new name (letters, numbers, and underscores only):', cutId);
+
+        // User cancelled
+        if (newName === null) return;
+
+        // Empty name
+        if (newName.trim() === '') {
+            alert('Name cannot be empty');
+            return;
+        }
+
+        // Validate format
+        if (!/^[a-zA-Z0-9_]+$/.test(newName)) {
+            alert('Invalid name format. Only letters, numbers, and underscores allowed.');
+            return;
+        }
+
+        const result = await window.pywebview.api.rename_cut(cutId, newName);
+        if (result.success) {
+            await refreshCutList();
+            document.getElementById('statusText').textContent = `Renamed: ${cutId} -> ${result.new_id}`;
+        } else {
+            alert('Error renaming cut: ' + result.error);
+        }
+    } catch (error) {
+        console.error('Error renaming cut:', error);
+        alert('Error renaming cut: ' + error.message);
     }
 }
 

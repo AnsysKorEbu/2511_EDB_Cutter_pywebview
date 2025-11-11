@@ -6,7 +6,7 @@
 
 // Cut executor state
 let cutExecutor = {
-    selectedCutIds: new Set(),
+    selectedCutIds: [],  // Changed from Set to Array to preserve selection order
     isExecuting: false
 };
 
@@ -17,6 +17,10 @@ let cutExecutor = {
 async function openCutExecutor() {
     const modal = document.getElementById('cutExecutorModal');
     const cutListContainer = document.getElementById('executorCutList');
+
+    // Clear previous selection when opening modal
+    cutExecutor.selectedCutIds = [];
+    cutExecutor.isExecuting = false;
 
     // Show modal
     modal.classList.remove('hidden');
@@ -37,7 +41,7 @@ async function openCutExecutor() {
 
         // Generate cut list HTML
         cutListContainer.innerHTML = cuts.map(cut => `
-            <div class="executor-cut-item ${cutExecutor.selectedCutIds.has(cut.id) ? 'selected' : ''}"
+            <div class="executor-cut-item"
                  data-cut-id="${cut.id}"
                  onclick="selectCutForExecution('${cut.id}')">
                 <div class="executor-cut-header">
@@ -50,6 +54,9 @@ async function openCutExecutor() {
                 </div>
             </div>
         `).join('');
+
+        // Update execute button state
+        updateExecuteButton();
 
     } catch (error) {
         console.error('Failed to load cut list:', error);
@@ -68,31 +75,28 @@ async function openCutExecutor() {
 function closeCutExecutor() {
     const modal = document.getElementById('cutExecutorModal');
     modal.classList.add('hidden');
-    cutExecutor.selectedCutIds.clear();
+    cutExecutor.selectedCutIds = [];
     cutExecutor.isExecuting = false;
 }
 
 /**
- * Select a cut for execution (toggle mode - allows multiple selection)
+ * Select a cut for execution (toggle mode - allows multiple selection with order tracking)
  * @param {string} cutId - ID of the cut to select/deselect
  */
 function selectCutForExecution(cutId) {
+    const index = cutExecutor.selectedCutIds.indexOf(cutId);
+
     // Toggle selection
-    if (cutExecutor.selectedCutIds.has(cutId)) {
-        cutExecutor.selectedCutIds.delete(cutId);
+    if (index !== -1) {
+        // Deselect: remove from array
+        cutExecutor.selectedCutIds.splice(index, 1);
     } else {
-        cutExecutor.selectedCutIds.add(cutId);
+        // Select: add to end of array
+        cutExecutor.selectedCutIds.push(cutId);
     }
 
-    // Update UI
-    const selectedItem = document.querySelector(`.executor-cut-item[data-cut-id="${cutId}"]`);
-    if (selectedItem) {
-        if (cutExecutor.selectedCutIds.has(cutId)) {
-            selectedItem.classList.add('selected');
-        } else {
-            selectedItem.classList.remove('selected');
-        }
-    }
+    // Update all cut items UI (for selection state and order badges)
+    updateCutOrderDisplay();
 
     // Update execute button
     updateExecuteButton();
@@ -103,7 +107,7 @@ function selectCutForExecution(cutId) {
  */
 function updateExecuteButton() {
     const executeBtn = document.getElementById('executeCutBtn');
-    const count = cutExecutor.selectedCutIds.size;
+    const count = cutExecutor.selectedCutIds.length;
 
     if (count === 0) {
         executeBtn.disabled = true;
@@ -118,11 +122,44 @@ function updateExecuteButton() {
 }
 
 /**
- * Execute the selected cuts
+ * Update cut order display with selection state and order badges
+ */
+function updateCutOrderDisplay() {
+    // Get all cut items
+    const cutItems = document.querySelectorAll('.executor-cut-item');
+
+    cutItems.forEach(item => {
+        const cutId = item.getAttribute('data-cut-id');
+        const index = cutExecutor.selectedCutIds.indexOf(cutId);
+
+        // Remove existing badge if any
+        const existingBadge = item.querySelector('.executor-cut-order-badge');
+        if (existingBadge) {
+            existingBadge.remove();
+        }
+
+        if (index !== -1) {
+            // Selected: add selected class and order badge
+            item.classList.add('selected');
+
+            // Create order badge
+            const orderBadge = document.createElement('div');
+            orderBadge.className = 'executor-cut-order-badge';
+            orderBadge.textContent = index + 1; // 1-based numbering
+            item.appendChild(orderBadge);
+        } else {
+            // Not selected: remove selected class
+            item.classList.remove('selected');
+        }
+    });
+}
+
+/**
+ * Execute the selected cuts in the order they were selected
  * Calls backend to run EDB cutting operation(s)
  */
 async function executeSelectedCut() {
-    if (cutExecutor.selectedCutIds.size === 0) {
+    if (cutExecutor.selectedCutIds.length === 0) {
         alert('Please select at least one cut to execute');
         return;
     }
@@ -133,8 +170,8 @@ async function executeSelectedCut() {
 
     cutExecutor.isExecuting = true;
 
-    // Convert Set to Array
-    const cutIds = Array.from(cutExecutor.selectedCutIds);
+    // Use the array directly (already in selection order)
+    const cutIds = cutExecutor.selectedCutIds;
     const count = cutIds.length;
 
     // Update UI to show execution state
