@@ -135,10 +135,16 @@ class Api:
                 try:
                     with open(cut_file, 'r', encoding='utf-8') as f:
                         cut_data = json.load(f)
+
+                    # Calculate point count from points array
+                    points = cut_data.get('points', [])
+                    point_count = len(points) if isinstance(points, list) else 0
+
                     cuts.append({
                         'id': cut_data.get('id', cut_file.stem),
                         'type': cut_data.get('type', 'unknown'),
                         'timestamp': cut_data.get('timestamp', ''),
+                        'point_count': point_count,
                         'filename': cut_file.name
                     })
                 except Exception as e:
