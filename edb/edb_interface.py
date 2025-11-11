@@ -5,8 +5,6 @@ from edb import edb_extract, edb_saver
 
 def interface(
     edbpath=r"C:\Python_Code\FPCB_XSection_Map\source\B6_CTC_REV02_1208.aedb\edb.def",
-    # edbpath = r"C:\Python_Code\2511_EDB_Cutter_pywebview\source\example\part2_otherstackup.aedb\edb.def",
-    # edbpath=r"C:\Python_Code\LG_Minerva_EDB\Source\SIwave_demo.aedb\edb.def",
     edbversion="2025.1",
     output_dir="source",
     save_data=True

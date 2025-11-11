@@ -8,8 +8,9 @@ from pathlib import Path
 class Api:
     """JavaScript API for pywebview"""
 
-    def __init__(self, edb_path):
+    def __init__(self, edb_path, edb_version="2025.1"):
         self.edb_path = edb_path
+        self.edb_version = edb_version
         self.data = None
 
         # Extract EDB folder name from path
@@ -181,10 +182,78 @@ class Api:
             print(f"Error loading cut data: {e}")
             return None
 
+    def execute_cut(self, cut_id):
+        """
+        Execute cutting operation on EDB using selected cut geometry.
 
-def start_gui(edb_path):
+        This runs edb.cut module in a subprocess to avoid pythonnet conflicts.
+
+        Args:
+            cut_id: ID of the cut to execute (e.g., "cut_001")
+
+        Returns:
+            dict: {'success': bool, 'error': str (if failed)}
+        """
+        import subprocess
+
+        try:
+            # Get cut file path
+            cut_dir = self._edb_data_dir / 'cut'
+            cut_file = cut_dir / f"{cut_id}.json"
+
+            if not cut_file.exists():
+                return {'success': False, 'error': f'Cut file not found: {cut_id}'}
+
+            # Get python executable path
+            python_exe = Path(".venv/Scripts/python.exe")
+
+            if not python_exe.exists():
+                return {'success': False, 'error': 'Python executable not found'}
+
+            print(f"\n{'=' * 70}")
+            print(f"Executing cut: {cut_id}")
+            print(f"{'=' * 70}")
+
+            # Run edb.cut package as subprocess
+            result = subprocess.run(
+                [str(python_exe), "-m", "edb.cut", self.edb_path, self.edb_version, str(cut_file)],
+                cwd=Path.cwd(),
+                timeout=300,  # 5 minutes timeout
+                capture_output=True,
+                text=True
+            )
+
+            # Print subprocess output
+            if result.stdout:
+                print(result.stdout)
+            if result.stderr:
+                print("STDERR:", result.stderr)
+
+            if result.returncode != 0:
+                error_msg = f"Cut execution failed with code {result.returncode}"
+                if result.stderr:
+                    error_msg += f": {result.stderr}"
+                print(f"[ERROR] {error_msg}")
+                return {'success': False, 'error': error_msg}
+
+            print(f"\n[OK] Cut execution completed successfully!\n")
+            return {'success': True}
+
+        except subprocess.TimeoutExpired:
+            error_msg = "Cut execution timed out (>5 minutes)"
+            print(f"\n[ERROR] {error_msg}")
+            return {'success': False, 'error': error_msg}
+        except Exception as e:
+            error_msg = f"Failed to execute cut: {str(e)}"
+            print(f"\n[ERROR] {error_msg}")
+            import traceback
+            traceback.print_exc()
+            return {'success': False, 'error': error_msg}
+
+
+def start_gui(edb_path, edb_version="2025.1"):
     """Start the pywebview GUI"""
-    api = Api(edb_path)
+    api = Api(edb_path, edb_version)
 
     # Get HTML file path
     html_file = Path(__file__).parent / 'index.html'

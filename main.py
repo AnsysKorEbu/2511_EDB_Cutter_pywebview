@@ -11,6 +11,7 @@ from gui import start_gui
 
 # EDB folder path (modify this to your .aedb folder)
 EDB_PATH = r"C:\Python_Code\FPCB_XSection_Map\source\B6_CTC_REV02_1208.aedb"
+EDB_VERSION = "2025.1"
 # EDB_PATH = r"C:\Python_Code\2511_EDB_Cutter_pywebview\source\example\org_design.aedb"
 # EDB_PATH = r"C:\Python_Code\2511_EDB_Cutter_pywebview\source\example\part2_otherstackup.aedb"
 OVERWRITE = False
@@ -62,11 +63,11 @@ def extract_edb_data(edb_path):
         print("Please ensure virtual environment is set up correctly.")
         sys.exit(1)
 
-    # Run edb package as subprocess with EDB_PATH as argument
+    # Run edb package as subprocess with EDB_PATH and EDB_VERSION as arguments
     # capture_output=False allows real-time output to console
     try:
         result = subprocess.run(
-            [str(python_exe), "-m", "edb", edb_path],
+            [str(python_exe), "-m", "edb", edb_path, EDB_VERSION],
             cwd=Path.cwd(),
             timeout=300  # 5 minutes timeout
         )
@@ -105,7 +106,7 @@ def main():
     print("=" * 70)
     print("Step 2: Starting GUI")
     print("=" * 70)
-    start_gui(EDB_PATH)
+    start_gui(EDB_PATH, EDB_VERSION)
 
 
 if __name__ == "__main__":
