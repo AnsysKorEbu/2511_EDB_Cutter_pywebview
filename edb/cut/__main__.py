@@ -7,7 +7,7 @@ It loads cut data and calls the edb_cut_interface module.
 import sys
 import json
 from pathlib import Path
-from ..edb_cut_interface import execute_cut
+from .edb_cut_interface import execute_cut, clone_edbs_for_cuts
 
 
 def load_cut_data(cut_file_path):
@@ -53,7 +53,10 @@ if __name__ == "__main__":
     edb_version = sys.argv[2]
     input_file_path = sys.argv[3]
 
-    # If path ends with .aedb, append edb.def
+    # Keep original path for cloning
+    original_edb_path = edb_path
+
+    # If path ends with .aedb, append edb.def for execute_cut
     if edb_path.endswith('.aedb'):
         edb_path = str(Path(edb_path) / 'edb.def')
 
@@ -83,6 +86,22 @@ if __name__ == "__main__":
 
             print(f"[BATCH MODE] Processing {len(cut_files)} cuts")
             print()
+
+            # Clone EDB files before processing cuts
+            # n cuts = (n+1) clones (because n cuts divide design into n+1 segments)
+            num_clones = len(cut_files) + 1
+            print(f"Creating {num_clones} EDB clones ({len(cut_files)} cuts + 1)...")
+            print()
+
+            try:
+                cloned_paths = clone_edbs_for_cuts(original_edb_path, num_clones, edb_version)
+                print(f"[OK] Successfully created {len(cloned_paths)} EDB clones")
+                print()
+            except Exception as clone_error:
+                print(f"[ERROR] Failed to clone EDB files: {clone_error}")
+                import traceback
+                traceback.print_exc()
+                sys.exit(1)
 
             all_success = True
             failed_cuts = []
@@ -132,6 +151,22 @@ if __name__ == "__main__":
             cut_id = input_data.get('id', 'unknown')
             print(f"[SINGLE MODE] Processing cut: {cut_id}")
             print()
+
+            # Clone EDB files before processing cut
+            # 1 cut = 2 clones (divides design into 2 segments)
+            num_clones = 2
+            print(f"Creating {num_clones} EDB clones (1 cut → 2 segments)...")
+            print()
+
+            try:
+                cloned_paths = clone_edbs_for_cuts(original_edb_path, num_clones, edb_version)
+                print(f"[OK] Successfully created {len(cloned_paths)} EDB clones")
+                print()
+            except Exception as clone_error:
+                print(f"[ERROR] Failed to clone EDB files: {clone_error}")
+                import traceback
+                traceback.print_exc()
+                sys.exit(1)
 
             # Execute cutting operation
             success = execute_cut(edb_path, edb_version, input_data)
