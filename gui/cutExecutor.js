@@ -6,7 +6,7 @@
 
 // Cut executor state
 let cutExecutor = {
-    selectedCutId: null,
+    selectedCutIds: new Set(),
     isExecuting: false
 };
 
@@ -37,7 +37,7 @@ async function openCutExecutor() {
 
         // Generate cut list HTML
         cutListContainer.innerHTML = cuts.map(cut => `
-            <div class="executor-cut-item ${cutExecutor.selectedCutId === cut.id ? 'selected' : ''}"
+            <div class="executor-cut-item ${cutExecutor.selectedCutIds.has(cut.id) ? 'selected' : ''}"
                  data-cut-id="${cut.id}"
                  onclick="selectCutForExecution('${cut.id}')">
                 <div class="executor-cut-header">
@@ -68,40 +68,62 @@ async function openCutExecutor() {
 function closeCutExecutor() {
     const modal = document.getElementById('cutExecutorModal');
     modal.classList.add('hidden');
-    cutExecutor.selectedCutId = null;
+    cutExecutor.selectedCutIds.clear();
     cutExecutor.isExecuting = false;
 }
 
 /**
- * Select a cut for execution
- * @param {string} cutId - ID of the cut to select
+ * Select a cut for execution (toggle mode - allows multiple selection)
+ * @param {string} cutId - ID of the cut to select/deselect
  */
 function selectCutForExecution(cutId) {
-    cutExecutor.selectedCutId = cutId;
-
-    // Update UI - remove selection from all items
-    document.querySelectorAll('.executor-cut-item').forEach(item => {
-        item.classList.remove('selected');
-    });
-
-    // Add selection to clicked item
-    const selectedItem = document.querySelector(`.executor-cut-item[data-cut-id="${cutId}"]`);
-    if (selectedItem) {
-        selectedItem.classList.add('selected');
+    // Toggle selection
+    if (cutExecutor.selectedCutIds.has(cutId)) {
+        cutExecutor.selectedCutIds.delete(cutId);
+    } else {
+        cutExecutor.selectedCutIds.add(cutId);
     }
 
-    // Enable execute button
-    const executeBtn = document.getElementById('executeCutBtn');
-    executeBtn.disabled = false;
+    // Update UI
+    const selectedItem = document.querySelector(`.executor-cut-item[data-cut-id="${cutId}"]`);
+    if (selectedItem) {
+        if (cutExecutor.selectedCutIds.has(cutId)) {
+            selectedItem.classList.add('selected');
+        } else {
+            selectedItem.classList.remove('selected');
+        }
+    }
+
+    // Update execute button
+    updateExecuteButton();
 }
 
 /**
- * Execute the selected cut
- * Calls backend to run EDB cutting operation
+ * Update execute button state and text based on selection
+ */
+function updateExecuteButton() {
+    const executeBtn = document.getElementById('executeCutBtn');
+    const count = cutExecutor.selectedCutIds.size;
+
+    if (count === 0) {
+        executeBtn.disabled = true;
+        executeBtn.textContent = 'Execute';
+    } else if (count === 1) {
+        executeBtn.disabled = false;
+        executeBtn.textContent = 'Execute (1 cut)';
+    } else {
+        executeBtn.disabled = false;
+        executeBtn.textContent = `Execute (${count} cuts)`;
+    }
+}
+
+/**
+ * Execute the selected cuts
+ * Calls backend to run EDB cutting operation(s)
  */
 async function executeSelectedCut() {
-    if (!cutExecutor.selectedCutId) {
-        alert('Please select a cut to execute');
+    if (cutExecutor.selectedCutIds.size === 0) {
+        alert('Please select at least one cut to execute');
         return;
     }
 
@@ -111,6 +133,10 @@ async function executeSelectedCut() {
 
     cutExecutor.isExecuting = true;
 
+    // Convert Set to Array
+    const cutIds = Array.from(cutExecutor.selectedCutIds);
+    const count = cutIds.length;
+
     // Update UI to show execution state
     const executeBtn = document.getElementById('executeCutBtn');
     const statusDiv = document.getElementById('executorStatus');
@@ -118,24 +144,27 @@ async function executeSelectedCut() {
 
     executeBtn.disabled = true;
     executeBtn.textContent = 'Executing...';
+
+    const cutIdsText = count === 1 ? cutIds[0] : `${count} cuts`;
     statusDiv.innerHTML = `
         <div class="status-info">
             <span class="status-spinner">⏳</span>
-            <span>Opening EDB and executing cut ${cutExecutor.selectedCutId}...</span>
+            <span>Opening EDB and executing ${cutIdsText}...</span>
         </div>
     `;
     statusDiv.classList.remove('hidden');
 
     try {
-        // Call backend API to execute cut
-        const result = await window.pywebview.api.execute_cut(cutExecutor.selectedCutId);
+        // Call backend API to execute cuts
+        const result = await window.pywebview.api.execute_cuts(cutIds);
 
         if (result.success) {
             // Show success message
+            const successMsg = count === 1 ? 'Cut executed successfully!' : `${count} cuts executed successfully!`;
             statusDiv.innerHTML = `
                 <div class="status-success">
                     <span class="status-icon">✓</span>
-                    <span>Cut executed successfully!</span>
+                    <span>${successMsg}</span>
                 </div>
             `;
 
@@ -158,7 +187,7 @@ async function executeSelectedCut() {
         }
 
     } catch (error) {
-        console.error('Failed to execute cut:', error);
+        console.error('Failed to execute cuts:', error);
 
         // Show error message
         statusDiv.innerHTML = `

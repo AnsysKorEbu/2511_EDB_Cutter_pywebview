@@ -188,27 +188,42 @@ class Api:
             print(f"Error loading cut data: {e}")
             return None
 
-    def execute_cut(self, cut_id):
+    def execute_cuts(self, cut_ids):
         """
-        Execute cutting operation on EDB using selected cut geometry.
+        Execute cutting operations on EDB using selected cut geometries.
 
         This runs edb.cut module in a subprocess to avoid pythonnet conflicts.
+        Multiple cuts are processed in a single subprocess session, with each cut
+        opening the original EDB independently.
 
         Args:
-            cut_id: ID of the cut to execute (e.g., "cut_001")
+            cut_ids: List of cut IDs to execute (e.g., ["cut_001", "cut_002"])
 
         Returns:
             dict: {'success': bool, 'error': str (if failed)}
         """
         import subprocess
+        import json
+        import tempfile
 
         try:
-            # Get cut file path
-            cut_dir = self._edb_data_dir / 'cut'
-            cut_file = cut_dir / f"{cut_id}.json"
+            # Ensure cut_ids is a list
+            if isinstance(cut_ids, str):
+                cut_ids = [cut_ids]
 
-            if not cut_file.exists():
-                return {'success': False, 'error': f'Cut file not found: {cut_id}'}
+            if not cut_ids:
+                return {'success': False, 'error': 'No cut IDs provided'}
+
+            # Get cut directory
+            cut_dir = self._edb_data_dir / 'cut'
+
+            # Validate all cut files exist and build file paths
+            cut_files = []
+            for cut_id in cut_ids:
+                cut_file = cut_dir / f"{cut_id}.json"
+                if not cut_file.exists():
+                    return {'success': False, 'error': f'Cut file not found: {cut_id}'}
+                cut_files.append(str(cut_file.resolve()))
 
             # Get python executable path
             python_exe = Path(".venv/Scripts/python.exe")
@@ -217,40 +232,61 @@ class Api:
                 return {'success': False, 'error': 'Python executable not found'}
 
             print(f"\n{'=' * 70}")
-            print(f"Executing cut: {cut_id}")
+            print(f"Executing cuts: {', '.join(cut_ids)}")
             print(f"{'=' * 70}")
 
-            # Run edb.cut package as subprocess
-            result = subprocess.run(
-                [str(python_exe), "-m", "edb.cut", self.edb_path, self.edb_version, str(cut_file)],
-                cwd=Path.cwd(),
-                timeout=300,  # 5 minutes timeout
-                capture_output=True,
-                text=True
-            )
+            # Create batch JSON file with cut file paths
+            batch_data = {
+                'mode': 'batch',
+                'cut_files': cut_files
+            }
 
-            # Print subprocess output
-            if result.stdout:
-                print(result.stdout)
-            if result.stderr:
-                print("STDERR:", result.stderr)
+            # Create temporary batch file
+            with tempfile.NamedTemporaryFile(mode='w', suffix='.json', delete=False, encoding='utf-8') as batch_file:
+                json.dump(batch_data, batch_file, indent=2)
+                batch_file_path = batch_file.name
 
-            if result.returncode != 0:
-                error_msg = f"Cut execution failed with code {result.returncode}"
+            try:
+                # Run edb.cut package as subprocess with batch file
+                result = subprocess.run(
+                    [str(python_exe), "-m", "edb.cut", self.edb_path, self.edb_version, batch_file_path],
+                    cwd=Path.cwd(),
+                    timeout=600,  # 10 minutes timeout for multiple cuts
+                    capture_output=True,
+                    text=True
+                )
+
+                # Print subprocess output
+                if result.stdout:
+                    print(result.stdout)
                 if result.stderr:
-                    error_msg += f": {result.stderr}"
-                print(f"[ERROR] {error_msg}")
-                return {'success': False, 'error': error_msg}
+                    print("STDERR:", result.stderr)
 
-            print(f"\n[OK] Cut execution completed successfully!\n")
-            return {'success': True}
+                if result.returncode != 0:
+                    error_msg = f"Cut execution failed with code {result.returncode}"
+                    if result.stderr:
+                        error_msg += f": {result.stderr}"
+                    print(f"[ERROR] {error_msg}")
+                    return {'success': False, 'error': error_msg}
+
+                count = len(cut_ids)
+                success_msg = f"{count} cut{'s' if count > 1 else ''} executed successfully!"
+                print(f"\n[OK] {success_msg}\n")
+                return {'success': True}
+
+            finally:
+                # Clean up temporary batch file
+                try:
+                    Path(batch_file_path).unlink()
+                except Exception as cleanup_error:
+                    print(f"[WARNING] Failed to clean up batch file: {cleanup_error}")
 
         except subprocess.TimeoutExpired:
-            error_msg = "Cut execution timed out (>5 minutes)"
+            error_msg = "Cut execution timed out (>10 minutes)"
             print(f"\n[ERROR] {error_msg}")
             return {'success': False, 'error': error_msg}
         except Exception as e:
-            error_msg = f"Failed to execute cut: {str(e)}"
+            error_msg = f"Failed to execute cuts: {str(e)}"
             print(f"\n[ERROR] {error_msg}")
             import traceback
             traceback.print_exc()
