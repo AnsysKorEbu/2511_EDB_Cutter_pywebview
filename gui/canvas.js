@@ -18,6 +18,11 @@ let viewState = {
     lastY: 0
 };
 
+// Animation state for marching ants effect
+let dashOffset = 0;
+let lastAnimationTime = 0;
+let animationFrameId = null;
+
 // Bounds
 let dataBounds = {
     minX: Infinity,
@@ -650,3 +655,39 @@ function updateZoomLabel() {
 
 // Window resize handler
 window.addEventListener('resize', resizeCanvas);
+
+// Animation functions for marching ants effect
+function animate(currentTime) {
+    // Update dash offset for marching ants effect
+    // 60 pixels per second (fast speed as per user preference)
+    const elapsed = currentTime - lastAnimationTime;
+
+    if (elapsed > 16) {  // ~60fps
+        dashOffset = (dashOffset + 1) % 12;  // 1px per frame = 60px/sec
+        lastAnimationTime = currentTime;
+
+        // Only render if there's a highlighted cut
+        if (typeof cutMode !== 'undefined' && cutMode.highlightedCutId !== null) {
+            render();
+        }
+    }
+
+    animationFrameId = requestAnimationFrame(animate);
+}
+
+// Start animation loop
+function startAnimation() {
+    if (animationFrameId === null) {
+        lastAnimationTime = performance.now();
+        animationFrameId = requestAnimationFrame(animate);
+    }
+}
+
+// Stop animation loop
+function stopAnimation() {
+    if (animationFrameId !== null) {
+        cancelAnimationFrame(animationFrameId);
+        animationFrameId = null;
+        dashOffset = 0;
+    }
+}

@@ -62,6 +62,11 @@ canvas.addEventListener('mousedown', (e) => {
     } else if (cutMode.enabled && cutMode.activeTool) {
         handleCutMouseDown(e);
     } else {
+        // Clear highlight when clicking on blank canvas area
+        if (typeof cutMode !== 'undefined' && cutMode.highlightedCutId !== null) {
+            clearHighlight();
+        }
+
         viewState.isDragging = true;
         viewState.lastX = e.clientX;
         viewState.lastY = e.clientY;
@@ -145,17 +150,29 @@ document.addEventListener('keydown', (e) => {
         return;
     }
 
+    // ESC key - works globally
+    if (e.key === 'Escape') {
+        // Clear highlight if any
+        if (typeof cutMode !== 'undefined' && cutMode.highlightedCutId !== null) {
+            clearHighlight();
+            return;
+        }
+
+        // Cut mode specific: cancel current cut
+        if (cutMode.enabled) {
+            cutMode.currentCut = [];
+            cutMode.isDrawing = false;
+            document.getElementById('finishCutBtn').classList.add('hidden');
+            render();
+            document.getElementById('statusText').textContent = 'Cut cancelled';
+        }
+        return;
+    }
+
     // Cut mode specific shortcuts
     if (!cutMode.enabled) return;
 
-    if (e.key === 'Escape') {
-        // Cancel current cut
-        cutMode.currentCut = [];
-        cutMode.isDrawing = false;
-        document.getElementById('finishCutBtn').classList.add('hidden');
-        render();
-        document.getElementById('statusText').textContent = 'Cut cancelled';
-    } else if (e.key === ' ') {
+    if (e.key === ' ') {
         // Toggle pan mode with Space
         e.preventDefault();
         togglePanMode();

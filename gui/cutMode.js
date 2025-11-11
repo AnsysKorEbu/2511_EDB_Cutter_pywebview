@@ -6,7 +6,8 @@ let cutMode = {
     isDrawing: false,
     savedCuts: [],
     panMode: false,  // Temporary pan mode in cut mode
-    snapPoint: null  // Current snap point {x, y} in world coordinates
+    snapPoint: null,  // Current snap point {x, y} in world coordinates
+    highlightedCutId: null  // ID of the cut currently highlighted
 };
 
 // Snap settings
@@ -110,7 +111,19 @@ function finishCurrentCut() {
 
 // Draw saved cuts
 function drawSavedCuts() {
+    let highlightedCut = null;
+
+    // Draw normal cuts first
     cutMode.savedCuts.forEach(cut => {
+        const isHighlighted = (cut.id === cutMode.highlightedCutId);
+
+        // Skip highlighted cut for now (draw it last)
+        if (isHighlighted) {
+            highlightedCut = cut;
+            return;
+        }
+
+        // Normal cut style
         ctx.strokeStyle = '#ff6b35';
         ctx.lineWidth = 2;
         ctx.setLineDash([5, 5]);
@@ -131,9 +144,41 @@ function drawSavedCuts() {
 
             ctx.stroke();
         }
-
-        ctx.setLineDash([]);
     });
+
+    // Draw highlighted cut last (on top)
+    if (highlightedCut) {
+        // Highlighted cut style - cyan color, thicker, animated dashes
+        ctx.strokeStyle = '#00ffff';
+        ctx.lineWidth = 4;
+        ctx.setLineDash([8, 4]);
+
+        // Apply animated dash offset if available
+        if (typeof dashOffset !== 'undefined') {
+            ctx.lineDashOffset = -dashOffset;
+        }
+
+        if (highlightedCut.points && highlightedCut.points.length > 0) {
+            ctx.beginPath();
+            const first = worldToScreen(highlightedCut.points[0][0], highlightedCut.points[0][1]);
+            ctx.moveTo(first.x, first.y);
+
+            for (let i = 1; i < highlightedCut.points.length; i++) {
+                const pt = worldToScreen(highlightedCut.points[i][0], highlightedCut.points[i][1]);
+                ctx.lineTo(pt.x, pt.y);
+            }
+
+            if (highlightedCut.type === 'rectangle' || highlightedCut.type === 'polygon') {
+                ctx.closePath();
+            }
+
+            ctx.stroke();
+        }
+    }
+
+    // Reset line dash
+    ctx.setLineDash([]);
+    ctx.lineDashOffset = 0;
 }
 
 // Draw current cut
@@ -221,14 +266,15 @@ async function refreshCutList() {
             cutListItems.innerHTML = '<div style="color: #858585; font-size: 11px; text-align: center;">No cuts saved</div>';
         } else {
             cutListItems.innerHTML = cuts.map(cut => `
-                <div class="cut-list-item">
+                <div class="cut-list-item ${cutMode.highlightedCutId === cut.id ? 'highlighted' : ''}"
+                     onclick="highlightCut('${cut.id}')">
                     <div>
                         <div style="color: #9cdcfe;">${cut.id}</div>
                         <div style="color: #858585; font-size: 10px;">${cut.type}</div>
                     </div>
                     <div class="cut-list-item-buttons">
-                        <button class="cut-rename-btn" onclick="renameCut('${cut.id}')">Rename</button>
-                        <button class="cut-delete-btn" onclick="deleteCut('${cut.id}')">Delete</button>
+                        <button class="cut-rename-btn" onclick="event.stopPropagation(); renameCut('${cut.id}')">Rename</button>
+                        <button class="cut-delete-btn" onclick="event.stopPropagation(); deleteCut('${cut.id}')">Delete</button>
                     </div>
                 </div>
             `).join('');
@@ -682,4 +728,43 @@ function handleCutMouseMove(e) {
             }
             break;
     }
+}
+
+// Highlight a cut
+function highlightCut(cutId) {
+    // Toggle: if same cut is clicked, clear highlight
+    if (cutMode.highlightedCutId === cutId) {
+        clearHighlight();
+        return;
+    }
+
+    // Set highlighted cut
+    cutMode.highlightedCutId = cutId;
+
+    // Start animation
+    if (typeof startAnimation === 'function') {
+        startAnimation();
+    }
+
+    // Update cut list UI
+    refreshCutList();
+
+    // Render immediately
+    render();
+}
+
+// Clear cut highlight
+function clearHighlight() {
+    cutMode.highlightedCutId = null;
+
+    // Stop animation
+    if (typeof stopAnimation === 'function') {
+        stopAnimation();
+    }
+
+    // Update cut list UI
+    refreshCutList();
+
+    // Render immediately
+    render();
 }
