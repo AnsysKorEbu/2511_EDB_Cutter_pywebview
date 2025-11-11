@@ -65,7 +65,7 @@ function selectCutTool(tool) {
     const hints = {
         'line': 'Click two points to draw a line',
         'rectangle': 'Click two opposite corners to draw a rectangle',
-        'polyline': 'Click points, then click "Finish & Save Cut" or right-click',
+        'polyline': 'Click points, then click near last point to finish',
         'polygon': 'Click points to draw polygon, click near start point to close'
     };
     document.getElementById('cutHint').textContent = hints[tool];
@@ -399,10 +399,27 @@ function handleCutMouseDown(e) {
                 cutMode.isDrawing = true;
                 cutMode.currentCut = [[worldPos.x, worldPos.y]];
                 document.getElementById('finishCutBtn').classList.remove('hidden');
-                document.getElementById('statusText').textContent = 'Click points, then click "Finish & Save Cut" or right-click';
+                document.getElementById('statusText').textContent = 'Click points, then click near last point to finish';
             } else {
+                // Check if clicking near the last point (snap distance: 15px in screen space)
+                if (cutMode.currentCut.length >= 2) {
+                    const lastPoint = worldToScreen(cutMode.currentCut[cutMode.currentCut.length - 1][0], cutMode.currentCut[cutMode.currentCut.length - 1][1]);
+                    const currentPoint = { x: e.offsetX, y: e.offsetY };
+                    const distance = Math.sqrt(
+                        Math.pow(lastPoint.x - currentPoint.x, 2) +
+                        Math.pow(lastPoint.y - currentPoint.y, 2)
+                    );
+
+                    if (distance < SNAP_DISTANCE) {
+                        // Finish polyline
+                        finishCurrentCut();
+                        document.getElementById('statusText').textContent = 'Polyline finished and saved';
+                        break;
+                    }
+                }
+
                 cutMode.currentCut.push([worldPos.x, worldPos.y]);
-                document.getElementById('statusText').textContent = `${cutMode.currentCut.length} points - Click to add more`;
+                document.getElementById('statusText').textContent = `${cutMode.currentCut.length} points - Click near last point to finish`;
             }
             render();
             break;
@@ -535,8 +552,34 @@ function handleCutMouseMove(e) {
                 const last = cutMode.currentCut[cutMode.currentCut.length - 1];
                 const lastScreen = worldToScreen(last[0], last[1]);
 
-                // Draw snap indicator
-                drawSnapIndicator(cutMode.snapPoint);
+                // Check if near last point for finish preview
+                let isNearLastPoint = false;
+                if (cutMode.currentCut.length >= 2) {
+                    const distance = Math.sqrt(
+                        Math.pow(lastScreen.x - e.offsetX, 2) +
+                        Math.pow(lastScreen.y - e.offsetY, 2)
+                    );
+
+                    if (distance < SNAP_DISTANCE) {
+                        isNearLastPoint = true;
+                        targetX = lastScreen.x;
+                        targetY = lastScreen.y;
+
+                        // Draw special highlight for polyline finish
+                        ctx.strokeStyle = '#00ff00';
+                        ctx.fillStyle = 'rgba(0, 255, 0, 0.2)';
+                        ctx.lineWidth = 2;
+                        ctx.beginPath();
+                        ctx.arc(lastScreen.x, lastScreen.y, 10, 0, 2 * Math.PI);
+                        ctx.fill();
+                        ctx.stroke();
+                    }
+                }
+
+                // Draw snap indicator (if not near last point)
+                if (!isNearLastPoint) {
+                    drawSnapIndicator(cutMode.snapPoint);
+                }
 
                 // Draw preview line
                 ctx.strokeStyle = '#ff3333';

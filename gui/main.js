@@ -130,10 +130,6 @@ canvas.addEventListener('contextmenu', (e) => {
         cutMode.isDrawing = false;
         render();
         document.getElementById('statusText').textContent = 'Line drawing cancelled - Click to start new line';
-    } else if (cutMode.enabled && cutMode.activeTool === 'polyline' && cutMode.isDrawing && cutMode.currentCut.length >= 2) {
-        // Finish polyline
-        e.preventDefault();
-        finishCurrentCut();
     } else if (cutMode.enabled) {
         e.preventDefault(); // Prevent context menu in cut mode
     }

@@ -156,7 +156,9 @@ def execute_cut(edbpath, edbversion, cut_data):
     # Open EDB
     edb = open_edb(edbpath, edbversion)
 
-    # TODO: Implement actual cutting logic here
+    # Should Implement actual cutting logic here
+
+
     # For now, just print the cut data
     print("Cut data received:")
     print(f"  Type: {cut_data.get('type')}")
