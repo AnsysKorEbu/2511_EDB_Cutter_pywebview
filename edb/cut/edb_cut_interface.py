@@ -6,6 +6,7 @@ Currently only opens EDB, with room for future cutting logic.
 """
 import pyedb
 from pathlib import Path
+from datetime import datetime
 
 
 def open_edb(edbpath, edbversion):
@@ -80,8 +81,9 @@ def clone_edbs_for_cuts(original_edb_path, num_clones, edb_version):
         # Extract original name without .aedb extension
         original_name = original_aedb_folder.stem
 
-        # Create Results directory structure
-        results_dir = Path('Results') / original_name
+        # Create Results directory structure with timestamp
+        timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
+        results_dir = Path('Results') / f"{original_name}_{timestamp}"
         results_dir.mkdir(parents=True, exist_ok=True)
         print(f"[OK] Created output directory: {results_dir}")
         print()
