@@ -7,7 +7,7 @@ It loads cut data and calls the edb_cut_interface module.
 import sys
 import json
 from pathlib import Path
-from .edb_cut_interface import execute_cut, clone_edbs_for_cuts
+from .edb_cut_interface import execute_cut, clone_edbs_for_cuts, execute_cuts_on_clone
 
 
 def load_cut_data(cut_file_path):
@@ -103,35 +103,61 @@ if __name__ == "__main__":
                 traceback.print_exc()
                 sys.exit(1)
 
+            # Build clone-to-cut mapping
+            # Pattern: first and last clones get 1 cut, middle clones get 2 adjacent cuts
+            print("Building clone-to-cut mapping...")
+            clone_cut_mapping = []
+            for i in range(num_clones):
+                if i == 0:
+                    # First clone: only first cut
+                    clone_cut_mapping.append([cut_files[0]])
+                    print(f"  Clone {i+1}: {Path(cut_files[0]).stem}")
+                elif i == num_clones - 1:
+                    # Last clone: only last cut
+                    clone_cut_mapping.append([cut_files[-1]])
+                    print(f"  Clone {i+1}: {Path(cut_files[-1]).stem}")
+                else:
+                    # Middle clones: adjacent cuts [i-1, i]
+                    clone_cut_mapping.append([cut_files[i-1], cut_files[i]])
+                    print(f"  Clone {i+1}: {Path(cut_files[i-1]).stem}, {Path(cut_files[i]).stem}")
+            print()
+
             all_success = True
             failed_cuts = []
 
-            for i, cut_file_path in enumerate(cut_files, 1):
+            # Process each clone with its assigned cuts
+            for i, (clone_path, assigned_cut_files) in enumerate(zip(cloned_paths, clone_cut_mapping), 1):
                 print("-" * 70)
-                print(f"Processing cut {i}/{len(cut_files)}: {Path(cut_file_path).name}")
+                print(f"Processing Clone {i}/{num_clones}: {Path(clone_path).name}")
+                print(f"Assigned cuts: {', '.join([Path(f).stem for f in assigned_cut_files])}")
                 print("-" * 70)
+
+                # Get edb.def path for this clone
+                clone_edb_path = str(Path(clone_path) / 'edb.def')
 
                 try:
-                    # Load individual cut data
-                    cut_data = load_cut_data(cut_file_path)
-                    cut_id = cut_data.get('id', Path(cut_file_path).stem)
-                    print(f"[OK] Cut data loaded: {cut_id}")
-                    print()
+                    # Load all cut data for this clone
+                    cut_data_list = []
+                    for cut_file_path in assigned_cut_files:
+                        cut_data = load_cut_data(cut_file_path)
+                        cut_data_list.append(cut_data)
 
-                    # Execute cutting operation (EDB opens and closes for each cut)
-                    success = execute_cut(edb_path, edb_version, cut_data)
+                    # Execute all cuts on this clone (opens EDB once, processes all cuts, closes EDB)
+                    success = execute_cuts_on_clone(clone_edb_path, edb_version, cut_data_list)
 
                     if success:
-                        print(f"[OK] Cut {cut_id} completed successfully")
+                        print(f"[OK] All cuts completed successfully on clone {i}")
                     else:
-                        print(f"[ERROR] Cut {cut_id} failed")
+                        print(f"[ERROR] Some cuts failed on clone {i}")
                         all_success = False
-                        failed_cuts.append(cut_id)
+                        for cut_data in cut_data_list:
+                            failed_cuts.append(f"{cut_data.get('id', 'unknown')} (clone {i})")
 
-                except Exception as cut_error:
-                    print(f"[ERROR] Failed to process cut {i}: {cut_error}")
+                except Exception as clone_error:
+                    print(f"[ERROR] Failed to process clone {i}: {clone_error}")
                     all_success = False
-                    failed_cuts.append(f"cut_{i}")
+                    for cut_file_path in assigned_cut_files:
+                        failed_cuts.append(f"{Path(cut_file_path).stem} (clone {i})")
 
                 print()
 
@@ -168,19 +194,43 @@ if __name__ == "__main__":
                 traceback.print_exc()
                 sys.exit(1)
 
-            # Execute cutting operation
-            success = execute_cut(edb_path, edb_version, input_data)
+            # Both clones get the same cut (1 cut divides into 2 segments)
+            print("Applying cut to both clones...")
+            all_success = True
 
-            if success:
+            for i, clone_path in enumerate(cloned_paths, 1):
+                print("-" * 70)
+                print(f"Processing Clone {i}/{num_clones}: {Path(clone_path).name}")
+                print(f"Assigned cut: {cut_id}")
+                print("-" * 70)
+
+                # Get edb.def path for this clone
+                clone_edb_path = str(Path(clone_path) / 'edb.def')
+
+                try:
+                    # Execute cutting operation on THIS CLONE (opens EDB once, processes cut, closes EDB)
+                    success = execute_cuts_on_clone(clone_edb_path, edb_version, [input_data])
+
+                    if success:
+                        print(f"[OK] Cut {cut_id} completed successfully on clone {i}")
+                    else:
+                        print(f"[ERROR] Cut {cut_id} failed on clone {i}")
+                        all_success = False
+
+                except Exception as clone_error:
+                    print(f"[ERROR] Failed to process clone {i}: {clone_error}")
+                    all_success = False
+
                 print()
+
+            if all_success:
                 print("=" * 70)
-                print("[SUCCESS] EDB cutting operation completed")
+                print("[SUCCESS] EDB cutting operation completed on all clones")
                 print("=" * 70)
                 sys.exit(0)
             else:
-                print()
                 print("=" * 70)
-                print("[ERROR] EDB cutting operation failed")
+                print("[ERROR] EDB cutting operation failed on one or more clones")
                 print("=" * 70)
                 sys.exit(1)
 

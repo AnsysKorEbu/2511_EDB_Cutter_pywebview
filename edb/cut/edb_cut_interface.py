@@ -181,3 +181,71 @@ def execute_cut(edbpath, edbversion, cut_data):
         print(f"[WARNING] Failed to close EDB: {e}")
 
     return True
+
+
+def execute_cuts_on_clone(edbpath, edbversion, cut_data_list):
+    """
+    Execute multiple cutting operations on a single EDB clone.
+    Opens the EDB once, applies all cuts, then closes.
+
+    Args:
+        edbpath: Path to EDB file (edb.def path)
+        edbversion: AEDT version string (e.g., "2025.1")
+        cut_data_list: List of cut data dictionaries
+
+    Returns:
+        bool: True if all cuts successful, False otherwise
+    """
+    if not cut_data_list:
+        print("[WARNING] No cuts provided to execute_cuts_on_clone")
+        return True
+
+    print("=" * 70)
+    print(f"EDB Cutter - Execute {len(cut_data_list)} Cut(s) on Clone")
+    print("=" * 70)
+    print(f"EDB Path: {edbpath}")
+    print(f"Number of Cuts: {len(cut_data_list)}")
+    for i, cut_data in enumerate(cut_data_list, 1):
+        print(f"  Cut {i}: {cut_data.get('id', 'unknown')} ({cut_data.get('type', 'unknown')})")
+    print()
+
+    # Open EDB once
+    try:
+        edb = open_edb(edbpath, edbversion)
+    except Exception as e:
+        print(f"[ERROR] Failed to open EDB: {e}")
+        return False
+
+    all_success = True
+
+    # Process each cut
+    for i, cut_data in enumerate(cut_data_list, 1):
+        print("-" * 50)
+        print(f"Processing Cut {i}/{len(cut_data_list)}: {cut_data.get('id', 'unknown')}")
+        print("-" * 50)
+        print(f"Cut Type: {cut_data.get('type', 'unknown')}")
+        print(f"Number of Points: {len(cut_data.get('points', []))}")
+        print()
+
+        # Should implement actual cutting logic here
+        # For now, just print the cut data
+        print("Cut data received:")
+        print(f"  Type: {cut_data.get('type')}")
+        print(f"  Points: {cut_data.get('points')}")
+        print(f"  ID: {cut_data.get('id')}")
+        print(f"  Timestamp: {cut_data.get('timestamp')}")
+        print()
+
+        print("[INFO] Cutting logic not yet implemented")
+        print("[TODO] Future implementation will perform actual cutting operation")
+        print()
+
+    # Close EDB once (after all cuts processed)
+    try:
+        edb.close()
+        print("[OK] EDB closed successfully after processing all cuts")
+    except Exception as e:
+        print(f"[WARNING] Failed to close EDB: {e}")
+        all_success = False
+
+    return all_success
