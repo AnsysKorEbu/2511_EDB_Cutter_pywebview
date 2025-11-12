@@ -507,7 +507,6 @@ def execute_cuts_on_clone(edbpath, edbversion, cut_data_list):
         return False
 
     all_success = True
-
     # Process each cut
     for i, cut_data in enumerate(cut_data_list, 1):
         print("-" * 50)
