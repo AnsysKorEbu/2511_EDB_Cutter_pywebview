@@ -197,6 +197,94 @@ def apply_stackup(edb, cut_data):
     pass
 
 
+def collect_port_nets(edb, cut_data):
+    """
+    Collect nets connected to ports and separate into signal/ground nets.
+    - Positive terminal nets (port.net) are added to signal_nets
+    - Reference terminal nets (port.ref_terminal.net) are added to ground_nets
+
+    Args:
+        edb: Opened pyedb.Edb object
+        cut_data: Cut data dictionary to store collected net information
+
+    Returns:
+        bool: True if successful, False otherwise
+    """
+    try:
+        print("=" * 70)
+        print("EDB Cutter - Collecting Port Nets")
+        print("=" * 70)
+
+        # Lists to store nets
+        all_port_nets = []
+        signal_nets = []
+        ground_nets = []
+
+        print("Scanning ports...")
+        print()
+
+        # Collect all net names connected to ports
+        for port_name, port in edb.ports.items():
+            print(f"Port '{port_name}':")
+
+            # Positive terminal's net (signal)
+            if port.net:
+                pos_net_name = port.net.name
+                print(f"  Positive terminal -> Net '{pos_net_name}' [SIGNAL]")
+
+                if pos_net_name not in all_port_nets:
+                    all_port_nets.append(pos_net_name)
+
+                if pos_net_name not in signal_nets:
+                    signal_nets.append(pos_net_name)
+
+            # Reference terminal's net (ground/reference)
+            if port.ref_terminal and port.ref_terminal.net:
+                ref_net_name = port.ref_terminal.net.name
+                print(f"  Reference terminal -> Net '{ref_net_name}' [GROUND/REFERENCE]")
+
+                if ref_net_name not in all_port_nets:
+                    all_port_nets.append(ref_net_name)
+
+                if ref_net_name not in ground_nets:
+                    ground_nets.append(ref_net_name)
+
+            print()
+
+        print("-" * 70)
+        print(f"Total unique nets with ports: {len(all_port_nets)}")
+        print()
+        print(f"Signal nets (positive terminals): {len(signal_nets)}")
+        for net in signal_nets:
+            print(f"  - {net}")
+        print()
+        print(f"Ground/Reference nets (reference terminals): {len(ground_nets)}")
+        for net in ground_nets:
+            print(f"  - {net}")
+        print("-" * 70)
+        print()
+
+        # Store results in cut_data for later use
+        cut_data['port_nets'] = {
+            'all': all_port_nets,
+            'signal': signal_nets,
+            'ground': ground_nets
+        }
+
+        return True
+
+    except AttributeError as e:
+        print(f"ERROR: Attribute error while collecting port nets - {e}")
+        import traceback
+        traceback.print_exc()
+        return False
+    except Exception as e:
+        print(f"ERROR: Failed to collect port nets - {e}")
+        import traceback
+        traceback.print_exc()
+        return False
+
+
 def get_line_intersection(a1, a2, b1, b2):
     """
     Calculate exact intersection point of two line segments.
@@ -431,22 +519,27 @@ def execute_cuts_on_clone(edbpath, edbversion, cut_data_list):
 
         # Execute cut workflow in sequence
         # 1. Apply stackup
-        print("[1/4] Applying stackup...")
+        print("[1/5] Applying stackup...")
         apply_stackup(edb, cut_data)
         print()
 
-        # 2. Modify traces
-        print("[2/4] Modifying traces...")
+        # 2. Collect port nets (signal/ground classification)
+        print("[2/5] Collecting port nets...")
+        collect_port_nets(edb, cut_data)
+        print()
+
+        # 3. Modify traces
+        print("[3/5] Finding and analyzing traces...")
         modify_traces(edb, cut_data)
         print()
 
-        # 3. Remove and create ports
-        print("[3/4] Removing and creating ports...")
+        # 4. Remove and create ports
+        print("[4/5] Removing and creating ports...")
         remove_and_create_ports(edb, cut_data)
         print()
 
-        # 4. Execute actual cut (to be implemented)
-        print("[4/4] Executing cut operation...")
+        # 5. Execute actual cut (to be implemented)
+        print("[5/5] Executing cut operation...")
         print("Cut data received:")
         print(f"  Type: {cut_data.get('type')}")
         print(f"  Points: {cut_data.get('points')}")
