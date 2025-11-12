@@ -197,84 +197,177 @@ def apply_stackup(edb, cut_data):
     pass
 
 
+def get_line_intersection(a1, a2, b1, b2):
+    """
+    Calculate exact intersection point of two line segments.
+
+    Args:
+        a1: First point of line segment A [x, y]
+        a2: Second point of line segment A [x, y]
+        b1: First point of line segment B [x, y]
+        b2: Second point of line segment B [x, y]
+
+    Returns:
+        [x, y]: Intersection point, or None if lines are parallel
+    """
+    x1, y1 = a1
+    x2, y2 = a2
+    x3, y3 = b1
+    x4, y4 = b2
+
+    denom = (x1 - x2) * (y3 - y4) - (y1 - y2) * (x3 - x4)
+    if abs(denom) < 1e-10:
+        return None  # Parallel or coincident
+
+    t = ((x1 - x3) * (y3 - y4) - (y1 - y3) * (x3 - x4)) / denom
+
+    # Calculate intersection point
+    x = x1 + t * (x2 - x1)
+    y = y1 + t * (y2 - y1)
+    return [x, y]
+
+
 def modify_traces(edb, cut_data):
     """
-    Perform cutout operation on EDB using cut geometry.
+    Find traces intersecting with cut polyline, extract net info and trace paths.
 
     Args:
         edb: Opened pyedb.Edb object
-        cut_data: Cut data dictionary containing cut geometry points
+        cut_data: Cut data dictionary containing cut geometry points (polyline)
 
     Returns:
         bool: True if successful, False otherwise
     """
     try:
         print("=" * 70)
-        print("EDB Cutter - Performing Cutout Operation")
+        print("EDB Cutter - Finding Traces and Extracting Net Info")
         print("=" * 70)
 
         # Extract and validate points from cut_data
-        points = cut_data.get("points", [])
+        polyline_points = cut_data.get("points", [])
 
-        if not points:
+        if not polyline_points:
             print("ERROR: No points found in cut_data")
             return False
-        x_min = points[0][0]
-        y_min = points[0][1]
-        x_max = points[1][0]
-        y_max = points[1][1]
 
-        # bbox 성공 case
-        # from pyedb.dotnet.database.geometry.polygon_data import PolygonData
-        #
-        # # 검색 범위를 polygon으로 정의
-        # bbox_points = [[x_min, y_min], [x_max, y_min], [x_max, y_max], [x_min, y_max]]
-        # search_polygon = PolygonData(edb, create_from_points=True, points=bbox_points)
-        #
-        # traces_in_bbox = []
-        # for prim in edb.modeler.paths:
-        #     # intersection_type 사용
-        #     int_type = prim.polygon_data._edb_object.GetIntersectionType(search_polygon._edb_object)
-        #     if int_type > 0:
-        #         traces_in_bbox.append(prim)
+        if len(polyline_points) < 2:
+            print(f"ERROR: Insufficient points for polyline (found {len(polyline_points)}, need at least 2)")
+            return False
+
+        print(f"Cut geometry type: {cut_data.get('type', 'unknown')}")
+        print(f"Polyline points count: {len(polyline_points)}")
+        print(f"Polyline coordinates (meters):")
+        for idx, pt in enumerate(polyline_points):
+            print(f"  Point {idx}: [{pt[0]:.6f}, {pt[1]:.6f}]")
+        print()
 
         from pyedb.modeler.geometry_operators import GeometryOperators
 
-        # 좌표 추출
-        x_min = points[0][0]
-        y_min = points[0][1]
-        x_max = points[1][0]
-        y_max = points[1][1]
+        # Dictionary to store results: {net_name: [{'intersection_point': [x,y], 'trace_path': [[x,y],...], 'trace_obj': prim}]}
+        intersection_results = {}
 
-        line_start = [x_min, y_min]
-        line_end = [x_max, y_max]
+        print("Searching for trace intersections...")
+        print()
 
-        traces_intersecting_line = []
-
+        # Iterate through all traces in EDB
         for prim in edb.modeler.paths:
-            # points 프로퍼티 사용 (arc 포함)
+            # Get trace properties
+            net_name = prim.net_name
+            layer_name = prim.layer_name
+            trace_width = prim.width
             prim_points = prim.polygon_data.points
 
-            # Trace의 각 선분과 검색 선분의 교차 확인
-            for i in range(len(prim_points) - 1):
-                segment_start = prim_points[i]
-                segment_end = prim_points[i + 1]
+            # Skip traces without net name
+            if not net_name:
+                net_name = "NO_NET"
 
-                if GeometryOperators.are_segments_intersecting(
-                        line_start, line_end,
-                        segment_start, segment_end,
-                        include_collinear=True
-                ):
-                    traces_intersecting_line.append(prim)
-                    break
+            trace_found = False
 
-        print(f"traces_intersecting_line: {traces_intersecting_line}")
+            # Check intersection with each segment of the polyline
+            for i in range(len(polyline_points) - 1):
+                search_start = polyline_points[i]
+                search_end = polyline_points[i + 1]
+
+                # Check each segment of the trace
+                for j in range(len(prim_points) - 1):
+                    segment_start = prim_points[j]
+                    segment_end = prim_points[j + 1]
+
+                    # Check if segments intersect
+                    if GeometryOperators.are_segments_intersecting(
+                            search_start, search_end,
+                            segment_start, segment_end,
+                            include_collinear=True
+                    ):
+                        # Calculate exact intersection point
+                        intersection_point = get_line_intersection(
+                            search_start, search_end,
+                            segment_start, segment_end
+                        )
+
+                        if intersection_point:
+                            # Initialize net_name entry if not exists
+                            if net_name not in intersection_results:
+                                intersection_results[net_name] = []
+
+                            # Store intersection info
+                            trace_info = {
+                                'intersection_point': intersection_point,
+                                'trace_path': prim_points,
+                                'layer': layer_name,
+                                'width': trace_width,
+                                'trace_obj': prim,
+                                'polyline_segment_index': i,
+                                'trace_segment_index': j
+                            }
+                            intersection_results[net_name].append(trace_info)
+
+                            trace_found = True
+                            break  # Found intersection on this trace, move to next polyline segment
+
+                    if trace_found:
+                        break  # Already found intersection for this trace
+
+                if trace_found:
+                    break  # Move to next trace
+
+        # Print results
+        print("-" * 70)
+        print("INTERSECTION RESULTS")
+        print("-" * 70)
+        print(f"Total nets with intersections: {len(intersection_results)}")
+        print()
+
+        for net_name, trace_infos in intersection_results.items():
+            print(f"Net: {net_name}")
+            print(f"  Number of intersections: {len(trace_infos)}")
+            for idx, info in enumerate(trace_infos):
+                print(f"  [{idx+1}] Intersection point: [{info['intersection_point'][0]:.6f}, {info['intersection_point'][1]:.6f}] meters")
+                print(f"      Layer: {info['layer']}")
+                print(f"      Trace width: {info['width']:.6f} meters")
+                print(f"      Trace path segments: {len(info['trace_path'])}")
+                print(f"      Polyline segment: {info['polyline_segment_index']} -> {info['polyline_segment_index']+1}")
+            print()
+
+        print("-" * 70)
+        print(f"[OK] Found {sum(len(v) for v in intersection_results.values())} total intersection(s)")
+        print("-" * 70)
+        print()
+
+        # Store results in cut_data for later use
+        cut_data['intersection_results'] = intersection_results
+
+        return True
 
     except AttributeError as e:
-        print(f"ERROR: Cutout method not available in pyedb - {e}")
+        print(f"ERROR: Attribute error - {e}")
+        import traceback
+        traceback.print_exc()
         return False
     except Exception as e:
-        print(f"ERROR: Cutout operation failed - {e}")
+        print(f"ERROR: Trace finding failed - {e}")
+        import traceback
+        traceback.print_exc()
         return False
 
 
