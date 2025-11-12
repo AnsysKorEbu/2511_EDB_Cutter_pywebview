@@ -183,6 +183,48 @@ def execute_cut(edbpath, edbversion, cut_data):
     return True
 
 
+def apply_stackup(edb, cut_data):
+    """
+    Apply stackup configuration to EDB.
+
+    Args:
+        edb: Opened pyedb.Edb object
+        cut_data: Cut data dictionary containing stackup configuration
+
+    Returns:
+        bool: True if successful, False otherwise
+    """
+    pass
+
+
+def modify_traces(edb, cut_data):
+    """
+    Modify traces in EDB.
+
+    Args:
+        edb: Opened pyedb.Edb object
+        cut_data: Cut data dictionary containing trace modifications
+
+    Returns:
+        bool: True if successful, False otherwise
+    """
+    pass
+
+
+def remove_and_create_ports(edb, cut_data):
+    """
+    Remove existing ports and create new ports.
+
+    Args:
+        edb: Opened pyedb.Edb object
+        cut_data: Cut data dictionary containing port operations
+
+    Returns:
+        bool: True if successful, False otherwise
+    """
+    pass
+
+
 def execute_cuts_on_clone(edbpath, edbversion, cut_data_list):
     """
     Execute multiple cutting operations on a single EDB clone.
@@ -227,17 +269,31 @@ def execute_cuts_on_clone(edbpath, edbversion, cut_data_list):
         print(f"Number of Points: {len(cut_data.get('points', []))}")
         print()
 
-        # Should implement actual cutting logic here
-        # For now, just print the cut data
+        # Execute cut workflow in sequence
+        # 1. Apply stackup
+        print("[1/4] Applying stackup...")
+        apply_stackup(edb, cut_data)
+        print()
+
+        # 2. Modify traces
+        print("[2/4] Modifying traces...")
+        modify_traces(edb, cut_data)
+        print()
+
+        # 3. Remove and create ports
+        print("[3/4] Removing and creating ports...")
+        remove_and_create_ports(edb, cut_data)
+        print()
+
+        # 4. Execute actual cut (to be implemented)
+        print("[4/4] Executing cut operation...")
         print("Cut data received:")
         print(f"  Type: {cut_data.get('type')}")
         print(f"  Points: {cut_data.get('points')}")
         print(f"  ID: {cut_data.get('id')}")
         print(f"  Timestamp: {cut_data.get('timestamp')}")
         print()
-
-        print("[INFO] Cutting logic not yet implemented")
-        print("[TODO] Future implementation will perform actual cutting operation")
+        print("[TODO] Actual cutting operation to be implemented")
         print()
 
     # Close EDB once (after all cuts processed)
