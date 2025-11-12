@@ -90,7 +90,7 @@ def clone_edbs_for_cuts(original_edb_path, num_clones, edb_version):
 
         # Open original EDB
         print(f"Opening original EDB: {original_aedb_folder}")
-        edb = pyedb.Edb(str(original_aedb_folder), edbversion=edb_version)
+        edb = pyedb.Edb(str(original_aedb_folder), version=edb_version)
         print("[OK] Original EDB opened successfully")
         print()
 
@@ -199,16 +199,83 @@ def apply_stackup(edb, cut_data):
 
 def modify_traces(edb, cut_data):
     """
-    Modify traces in EDB.
+    Perform cutout operation on EDB using cut geometry.
 
     Args:
         edb: Opened pyedb.Edb object
-        cut_data: Cut data dictionary containing trace modifications
+        cut_data: Cut data dictionary containing cut geometry points
 
     Returns:
         bool: True if successful, False otherwise
     """
-    pass
+    try:
+        print("=" * 70)
+        print("EDB Cutter - Performing Cutout Operation")
+        print("=" * 70)
+
+        # Extract and validate points from cut_data
+        points = cut_data.get("points", [])
+
+        if not points:
+            print("ERROR: No points found in cut_data")
+            return False
+        x_min = points[0][0]
+        y_min = points[0][1]
+        x_max = points[1][0]
+        y_max = points[1][1]
+
+        # bbox 성공 case
+        # from pyedb.dotnet.database.geometry.polygon_data import PolygonData
+        #
+        # # 검색 범위를 polygon으로 정의
+        # bbox_points = [[x_min, y_min], [x_max, y_min], [x_max, y_max], [x_min, y_max]]
+        # search_polygon = PolygonData(edb, create_from_points=True, points=bbox_points)
+        #
+        # traces_in_bbox = []
+        # for prim in edb.modeler.paths:
+        #     # intersection_type 사용
+        #     int_type = prim.polygon_data._edb_object.GetIntersectionType(search_polygon._edb_object)
+        #     if int_type > 0:
+        #         traces_in_bbox.append(prim)
+
+        from pyedb.modeler.geometry_operators import GeometryOperators
+
+        # 좌표 추출
+        x_min = points[0][0]
+        y_min = points[0][1]
+        x_max = points[1][0]
+        y_max = points[1][1]
+
+        line_start = [x_min, y_min]
+        line_end = [x_max, y_max]
+
+        traces_intersecting_line = []
+
+        for prim in edb.modeler.paths:
+            # points 프로퍼티 사용 (arc 포함)
+            prim_points = prim.polygon_data.points
+
+            # Trace의 각 선분과 검색 선분의 교차 확인
+            for i in range(len(prim_points) - 1):
+                segment_start = prim_points[i]
+                segment_end = prim_points[i + 1]
+
+                if GeometryOperators.are_segments_intersecting(
+                        line_start, line_end,
+                        segment_start, segment_end,
+                        include_collinear=True
+                ):
+                    traces_intersecting_line.append(prim)
+                    break
+
+        print(f"traces_intersecting_line: {traces_intersecting_line}")
+
+    except AttributeError as e:
+        print(f"ERROR: Cutout method not available in pyedb - {e}")
+        return False
+    except Exception as e:
+        print(f"ERROR: Cutout operation failed - {e}")
+        return False
 
 
 def remove_and_create_ports(edb, cut_data):
@@ -298,6 +365,7 @@ def execute_cuts_on_clone(edbpath, edbversion, cut_data_list):
 
     # Close EDB once (after all cuts processed)
     try:
+        edb.save()
         edb.close()
         print("[OK] EDB closed successfully after processing all cuts")
     except Exception as e:
