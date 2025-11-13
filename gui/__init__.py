@@ -256,7 +256,7 @@ class Api:
             print(f"Error loading cut data: {e}")
             return None
 
-    def execute_cuts(self, cut_ids):
+    def execute_cuts(self, cut_ids, selected_nets=None):
         """
         Execute cutting operations on EDB using selected cut geometries.
 
@@ -266,6 +266,8 @@ class Api:
 
         Args:
             cut_ids: List of cut IDs to execute (e.g., ["cut_001", "cut_002"])
+            selected_nets: Dict with 'signal' and 'power' lists of net names
+                          (e.g., {'signal': ['NET1', 'NET2'], 'power': ['GND']})
 
         Returns:
             dict: {'success': bool, 'error': str (if failed)}
@@ -303,10 +305,20 @@ class Api:
             print(f"Executing cuts: {', '.join(cut_ids)}")
             print(f"{'=' * 70}")
 
-            # Create batch JSON file with cut file paths
+            # Debug logging for selected nets
+            print(f"[DEBUG] Received selected_nets parameter: {selected_nets}")
+            if selected_nets:
+                print(f"[DEBUG] Signal nets count: {len(selected_nets.get('signal', []))}")
+                print(f"[DEBUG] Power nets count: {len(selected_nets.get('power', []))}")
+                if selected_nets.get('signal'):
+                    print(f"[DEBUG] Signal nets: {selected_nets.get('signal')}")
+            print()
+
+            # Create batch JSON file with cut file paths and selected nets
             batch_data = {
                 'mode': 'batch',
-                'cut_files': cut_files
+                'cut_files': cut_files,
+                'selected_nets': selected_nets if selected_nets else {'signal': [], 'power': []}
             }
 
             # Create temporary batch file in source folder

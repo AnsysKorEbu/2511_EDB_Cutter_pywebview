@@ -192,8 +192,19 @@ async function executeSelectedCut() {
     statusDiv.classList.remove('hidden');
 
     try {
-        // Call backend API to execute cuts
-        const result = await window.pywebview.api.execute_cuts(cutIds);
+        // Collect selected nets from netsManager
+        let selectedNets = { signal: [], power: [] };
+        if (window.netsManager) {
+            selectedNets = window.netsManager.getSelectedNetsByType();
+            console.log('[DEBUG] Selected nets from GUI:', selectedNets);
+            console.log('[DEBUG] Signal nets count:', selectedNets.signal.length);
+            console.log('[DEBUG] Power nets count:', selectedNets.power.length);
+        } else {
+            console.log('[DEBUG] netsManager not found');
+        }
+
+        // Call backend API to execute cuts with selected nets
+        const result = await window.pywebview.api.execute_cuts(cutIds, selectedNets);
 
         if (result.success) {
             // Show success message

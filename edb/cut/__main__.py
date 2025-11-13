@@ -84,7 +84,17 @@ if __name__ == "__main__":
                 print("[ERROR] No cut files in batch")
                 sys.exit(1)
 
+            # Get selected nets from batch data
+            selected_nets = input_data.get('selected_nets', {'signal': [], 'power': []})
+
             print(f"[BATCH MODE] Processing {len(cut_files)} cuts")
+            print(f"[DEBUG] Batch selected_nets from file: {selected_nets}")
+            print(f"[DEBUG] Signal nets count: {len(selected_nets.get('signal', []))}")
+            print(f"[DEBUG] Power nets count: {len(selected_nets.get('power', []))}")
+            if selected_nets.get('signal'):
+                print(f"Selected signal nets: {', '.join(selected_nets['signal'])}")
+            else:
+                print("No signal nets selected")
             print()
 
             # Clone EDB files before processing cuts
@@ -140,6 +150,9 @@ if __name__ == "__main__":
                     cut_data_list = []
                     for cut_file_path in assigned_cut_files:
                         cut_data = load_cut_data(cut_file_path)
+                        # Add selected nets to cut data
+                        cut_data['selected_nets'] = selected_nets
+                        print(f"[DEBUG] Added selected_nets to cut {cut_data.get('id', 'unknown')}: {cut_data['selected_nets']}")
                         cut_data_list.append(cut_data)
 
                     # Execute all cuts on this clone (opens EDB once, processes all cuts, closes EDB)
@@ -176,6 +189,10 @@ if __name__ == "__main__":
             # Single mode: one cut (input_data is the cut data itself)
             cut_id = input_data.get('id', 'unknown')
             print(f"[SINGLE MODE] Processing cut: {cut_id}")
+
+            # Add empty selected_nets for single mode (no batch file)
+            if 'selected_nets' not in input_data:
+                input_data['selected_nets'] = {'signal': [], 'power': []}
             print()
 
             # Clone EDB files before processing cut

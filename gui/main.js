@@ -229,6 +229,8 @@ let netsManager = null;
 async function initNetsManager() {
     try {
         netsManager = new NetsManager();
+        // Expose to window for access from other modules (e.g., cutExecutor.js)
+        window.netsManager = netsManager;
         await netsManager.loadNetsData();
         console.log('NetsManager initialized successfully');
     } catch (error) {

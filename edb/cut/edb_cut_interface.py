@@ -371,6 +371,141 @@ def modify_traces(edb, cut_data):
         return False
 
 
+def find_endpoint_pads_same_net(edb, net_name):
+    """
+    Find endpoint pads for a given net by checking connections within the same net.
+
+    Args:
+        edb: Opened pyedb.Edb object
+        net_name: Name of the net to analyze
+
+    Returns:
+        list: List of dictionaries containing endpoint pad information:
+              - name: Pad AEDT name
+              - position: [x, y] position
+              - is_pin: Boolean indicating if it's a pin
+              - component: Component name (or None)
+              - same_net_connections: Number of connections within the same net
+              - total_connections: Total number of connections
+    """
+    try:
+        padstacks = edb.padstacks.get_instances(net_name=net_name)
+        endpoint_pads = []
+
+        for pad in padstacks:
+            connected_objs = pad.get_connected_objects()
+
+            # Filter to objects in the same net
+            same_net_connections = [
+                obj for obj in connected_objs
+                if hasattr(obj, 'net_name') and obj.net_name == net_name
+            ]
+
+            # Endpoint has 1 or fewer connections within the same net
+            if len(same_net_connections) <= 1:
+                endpoint_pads.append({
+                    'name': pad.aedt_name,
+                    'position': pad.position,
+                    'is_pin': pad.is_pin,
+                    'component': pad.component.name if pad.component else None,
+                    'same_net_connections': len(same_net_connections),
+                    'total_connections': len(connected_objs)
+                })
+
+        return endpoint_pads
+
+    except Exception as e:
+        print(f"[WARNING] Error finding endpoints for net '{net_name}': {e}")
+        return []
+
+
+def find_endpoint_pads_for_selected_nets(edb, cut_data):
+    """
+    Find endpoint pads for user-selected signal nets from GUI.
+
+    Args:
+        edb: Opened pyedb.Edb object
+        cut_data: Cut data dictionary containing selected_nets
+
+    Returns:
+        bool: True if successful, False otherwise
+    """
+    try:
+        print("=" * 70)
+        print("EDB Cutter - Finding Endpoint Pads for Selected Nets")
+        print("=" * 70)
+
+        # Get selected nets from cut_data
+        selected_nets = cut_data.get('selected_nets', {})
+        print(f"[DEBUG] cut_data keys: {list(cut_data.keys())}")
+        print(f"[DEBUG] selected_nets from cut_data: {selected_nets}")
+        print(f"[DEBUG] Type of selected_nets: {type(selected_nets)}")
+
+        signal_nets = selected_nets.get('signal', [])
+        print(f"[DEBUG] signal_nets extracted: {signal_nets}")
+        print(f"[DEBUG] Type of signal_nets: {type(signal_nets)}")
+        print(f"[DEBUG] Length of signal_nets: {len(signal_nets) if signal_nets else 0}")
+
+        if not signal_nets:
+            print("[WARNING] No signal nets selected. Skipping endpoint finding.")
+            print()
+            cut_data['endpoint_pads'] = {}
+            return True
+
+        print(f"Number of selected signal nets: {len(signal_nets)}")
+        print()
+
+        # Dictionary to store endpoint results: {net_name: [endpoint_pad_list]}
+        endpoint_results = {}
+        total_endpoints = 0
+
+        # Process each signal net
+        for idx, net_name in enumerate(signal_nets, 1):
+            print(f"[{idx}/{len(signal_nets)}] Processing net: {net_name}")
+
+            # Find endpoints for this net
+            endpoints = find_endpoint_pads_same_net(edb, net_name)
+
+            if endpoints:
+                endpoint_results[net_name] = endpoints
+                total_endpoints += len(endpoints)
+                print(f"  Found {len(endpoints)} endpoint(s)")
+
+                # Print endpoint details
+                for ep_idx, endpoint in enumerate(endpoints, 1):
+                    print(f"    [{ep_idx}] {endpoint['name']}")
+                    print(f"        Position: [{endpoint['position'][0]:.6f}, {endpoint['position'][1]:.6f}] meters")
+                    print(f"        Component: {endpoint['component']}")
+                    print(f"        Is Pin: {endpoint['is_pin']}")
+                    print(f"        Same-net connections: {endpoint['same_net_connections']}")
+            else:
+                print(f"  [WARNING] No endpoints found for net '{net_name}'")
+
+            print()
+
+        # Print summary
+        print("-" * 70)
+        print("ENDPOINT FINDING SUMMARY")
+        print("-" * 70)
+        print(f"Total nets processed: {len(signal_nets)}")
+        print(f"Nets with endpoints found: {len(endpoint_results)}")
+        print(f"Total endpoints found: {total_endpoints}")
+        print("-" * 70)
+        print()
+
+        # Store results in cut_data for later use (e.g., port creation)
+        cut_data['endpoint_pads'] = endpoint_results
+
+        return True
+
+    except Exception as e:
+        print(f"[ERROR] Failed to find endpoint pads: {e}")
+        import traceback
+        traceback.print_exc()
+        cut_data['endpoint_pads'] = {}
+        return False
+
+
 def remove_and_create_ports(edb, cut_data):
     """
     Remove existing ports and create new ports.
@@ -435,10 +570,10 @@ def execute_cuts_on_clone(edbpath, edbversion, cut_data_list):
         apply_stackup(edb, cut_data)
         print()
 
-        # 2. Collect port nets (signal/ground classification)
-        # print("[2/5] Collecting port nets...")
-        # collect_port_nets(edb, cut_data)
-        # print()
+        # 2. Find endpoint pads for selected signal nets
+        print("[2/5] Finding endpoint pads for selected nets...")
+        find_endpoint_pads_for_selected_nets(edb, cut_data)
+        print()
 
         # 3. Modify traces
         print("[3/5] Finding and analyzing traces...")
