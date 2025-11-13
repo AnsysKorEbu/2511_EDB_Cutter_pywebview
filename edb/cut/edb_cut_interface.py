@@ -197,181 +197,6 @@ def apply_stackup(edb, cut_data):
     pass
 
 
-def get_primitive_by_layer_and_point_refactored(self, point=None, layer=None, nets=None):
-    if isinstance(layer, str) and layer not in list(self._pedb.stackup.signal_layers.keys()):
-        layer = None
-    if not isinstance(point, list) and len(point) == 2:
-        self._logger.error("Provided point must be a list of two values")
-        return False
-    pt = self._edb.Geometry.PointData(self._pedb.edb_value(point[0]), self._pedb.edb_value(point[1]))
-    _obj_instances = list(self._pedb.layout_instance.FindLayoutObjInstance(pt, None, nets).Items)
-    returned_obj = []
-    if layer:
-        selected_prim = [
-            obj.GetLayoutObj()
-            for obj in _obj_instances
-            if layer in [lay.GetName() for lay in list(obj.GetLayers())]
-            and "Terminal" not in str(obj.GetLayoutObj())
-        ]
-        for prim in selected_prim:
-            try:
-                obj_id = prim.GetId()
-                prim_type = str(prim.GetPrimitiveType())
-                if prim_type == "Polygon":
-                    [returned_obj.append(p) for p in [poly for poly in self.polygons if poly.id == obj_id]]
-                elif prim_type == "Path":
-                    [returned_obj.append(p) for p in [t for t in self.paths if t.id == obj_id]]
-                elif prim_type == "Rectangle":
-                    [returned_obj.append(p) for p in [t for t in self.rectangles if t.id == obj_id]]
-            except:
-                pass
-    else:
-        for obj in _obj_instances:
-            obj_id = obj.GetLayoutObj().GetId()
-            [returned_obj.append(p) for p in [obj for obj in self.primitives if obj.id == obj_id]]
-    return returned_obj
-
-def collect_port_nets(edb, cut_data):
-    """
-    Collect nets connected to ports and separate into signal/ground nets.
-    Uses terminal layer and location to find primitives and extract net information.
-    - Positive terminal nets are added to signal_nets
-    - Reference terminal nets are added to ground_nets
-
-    Args:
-        edb: Opened pyedb.Edb object
-        cut_data: Cut data dictionary to store collected net information
-
-    Returns:
-        bool: True if successful, False otherwise
-    """
-    try:
-        print("=" * 70)
-        print("EDB Cutter - Collecting Port Nets")
-        print("=" * 70)
-
-        # Lists to store nets
-        all_port_nets = []
-        signal_nets = []
-        ground_nets = []
-
-        print("Scanning ports and terminals...")
-        print()
-
-        # Collect all net names connected to ports
-        for port_name, port in edb.ports.items():
-            print(f"Port '{port_name}':")
-
-            # Process positive terminal (signal)
-            if hasattr(port, 'terminal') and port.terminal:
-                terminal = port.terminal
-                terminal_name = terminal.name
-                print(f"  Positive terminal: '{terminal_name}'")
-
-                try:
-                    # Get terminal layer and location
-                    layer_name = terminal.layer.name
-                    location = terminal.location
-                    print(f"    Layer: {layer_name}")
-                    print(f"    Location: [{location[0]:.6f}, {location[1]:.6f}]")
-
-                    primitives = edb.modeler.get_primitive_by_layer_and_point(
-                        point=location,
-                        layer=layer_name,
-                    )
-
-
-                    # Extract nets from primitives
-                    if primitives:
-                        for prim in primitives:
-                            if hasattr(prim, 'net') and prim.net:
-                                net_name = prim.net.name
-                                print(f"    Net: '{net_name}' (Type: {prim.type}) [SIGNAL]")
-
-                                if net_name not in all_port_nets:
-                                    all_port_nets.append(net_name)
-
-                                if net_name not in signal_nets:
-                                    signal_nets.append(net_name)
-                    else:
-                        print(f"    No primitives found at location")
-
-                except Exception as e:
-                    print(f"    ERROR: Failed to process positive terminal - {e}")
-
-            # Process reference terminal (ground/reference)
-            if hasattr(port, 'ref_terminal') and port.ref_terminal:
-                ref_terminal = port.ref_terminal
-                ref_terminal_name = ref_terminal.name
-                print(f"  Reference terminal: '{ref_terminal_name}'")
-
-                try:
-                    # Get terminal layer and location
-                    ref_layer_name = ref_terminal.layer.name
-                    ref_location = ref_terminal.location
-                    print(f"    Layer: {ref_layer_name}")
-                    print(f"    Location: [{ref_location[0]:.6f}, {ref_location[1]:.6f}]")
-
-                    # Get primitives at terminal location
-                    ref_primitives = get_primitive_by_layer_and_point_refactored(edb.modeler,
-                        point=ref_location,
-                        layer=ref_layer_name
-                    )
-
-                    # Extract nets from primitives
-                    if ref_primitives:
-                        for prim in ref_primitives:
-                            if hasattr(prim, 'net') and prim.net:
-                                net_name = prim.net.name
-                                print(f"    Net: '{net_name}' (Type: {prim.type}) [GROUND/REFERENCE]")
-
-                                if net_name not in all_port_nets:
-                                    all_port_nets.append(net_name)
-
-                                if net_name not in ground_nets:
-                                    ground_nets.append(net_name)
-                    else:
-                        print(f"    No primitives found at location")
-
-                except Exception as e:
-                    print(f"    ERROR: Failed to process reference terminal - {e}")
-
-            print()
-
-        print("-" * 70)
-        print(f"Total unique nets with ports: {len(all_port_nets)}")
-        print()
-        print(f"Signal nets (positive terminals): {len(signal_nets)}")
-        for net in signal_nets:
-            print(f"  - {net}")
-        print()
-        print(f"Ground/Reference nets (reference terminals): {len(ground_nets)}")
-        for net in ground_nets:
-            print(f"  - {net}")
-        print("-" * 70)
-        print()
-
-        # Store results in cut_data for later use
-        cut_data['port_nets'] = {
-            'all': all_port_nets,
-            'signal': signal_nets,
-            'ground': ground_nets
-        }
-
-        return True
-
-    except AttributeError as e:
-        print(f"ERROR: Attribute error while collecting port nets - {e}")
-        import traceback
-        traceback.print_exc()
-        return False
-    except Exception as e:
-        print(f"ERROR: Failed to collect port nets - {e}")
-        import traceback
-        traceback.print_exc()
-        return False
-
-
 def get_line_intersection(a1, a2, b1, b2):
     """
     Calculate exact intersection point of two line segments.
@@ -594,6 +419,7 @@ def execute_cuts_on_clone(edbpath, edbversion, cut_data_list):
         return False
 
     all_success = True
+
     # Process each cut
     for i, cut_data in enumerate(cut_data_list, 1):
         print("-" * 50)
@@ -610,9 +436,9 @@ def execute_cuts_on_clone(edbpath, edbversion, cut_data_list):
         print()
 
         # 2. Collect port nets (signal/ground classification)
-        print("[2/5] Collecting port nets...")
-        collect_port_nets(edb, cut_data)
-        print()
+        # print("[2/5] Collecting port nets...")
+        # collect_port_nets(edb, cut_data)
+        # print()
 
         # 3. Modify traces
         print("[3/5] Finding and analyzing traces...")
