@@ -200,10 +200,53 @@ canvas.addEventListener('wheel', (e) => {
     render();
 });
 
+// Tab switching functionality
+function initTabs() {
+    const tabButtons = document.querySelectorAll('.tab-btn');
+    const tabContents = document.querySelectorAll('.tab-content');
+
+    tabButtons.forEach(button => {
+        button.addEventListener('click', () => {
+            const tabName = button.dataset.tab;
+
+            // Remove active class from all buttons and contents
+            tabButtons.forEach(btn => btn.classList.remove('active'));
+            tabContents.forEach(content => content.classList.remove('active'));
+
+            // Add active class to clicked button and corresponding content
+            button.classList.add('active');
+            const tabContent = document.getElementById(`${tabName}-tab`);
+            if (tabContent) {
+                tabContent.classList.add('active');
+            }
+        });
+    });
+}
+
+// Initialize NetsManager
+let netsManager = null;
+
+async function initNetsManager() {
+    try {
+        netsManager = new NetsManager();
+        await netsManager.loadNetsData();
+        console.log('NetsManager initialized successfully');
+    } catch (error) {
+        console.error('Error initializing NetsManager:', error);
+    }
+}
+
 // Initialize when pywebview is ready
 window.addEventListener('pywebviewready', function() {
     console.log('PyWebView ready!');
     resizeCanvas();
+
+    // Initialize tabs
+    initTabs();
+
+    // Initialize NetsManager
+    initNetsManager();
+
     // Auto-load data on startup
     setTimeout(reloadData, 500);
 });

@@ -15,11 +15,14 @@ from gui import start_gui
 # EDB_PATH = r"C:\Python_Code\2511_EDB_Cutter_pywebview\source\example\part2_otherstackup.aedb"
 EDB_PATH = r"C:\Python_Code\2511_EDB_Cutter_pywebview\source\example\part1.aedb"
 EDB_VERSION = "2025.1"
-OVERWRITE = False
+OVERWRITE = True
 
 def check_extracted_data_exists(edb_path):
     """
     Check if any extracted EDB data files exist.
+
+    Checks for: planes.json.gz, traces.json.gz, components.json.gz,
+                vias.json.gz, net_names.json.gz
 
     Args:
         edb_path: Path to EDB folder

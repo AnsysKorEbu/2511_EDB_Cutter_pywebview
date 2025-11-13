@@ -11,8 +11,18 @@
         <div class="sidebar">
             <h2>EDB 2D Viewer</h2>
 
-            <div class="info-section">
-                <h3 style="font-size: 14px; margin-bottom: 10px; color: #9cdcfe;">Data Information</h3>
+            <!-- Sidebar Tabs -->
+            <div class="sidebar-tabs">
+                <button class="tab-btn active" data-tab="data-info">Data Info</button>
+                <button class="tab-btn" data-tab="layers">Layers</button>
+                <button class="tab-btn" data-tab="nets">Nets</button>
+                <button class="tab-btn" data-tab="cuts">Cuts</button>
+            </div>
+
+            <!-- Tab Content: Data Info -->
+            <div class="tab-content active" id="data-info-tab">
+                <div class="info-section">
+                    <h3 style="font-size: 14px; margin-bottom: 10px; color: #9cdcfe;">Data Information</h3>
                 <div class="info-item">
                     <span class="info-label">Planes:</span>
                     <span class="info-value" id="planeCount">0</span>
@@ -33,24 +43,37 @@
                     <span class="info-label">Total Points:</span>
                     <span class="info-value" id="pointCount">0</span>
                 </div>
+                </div>
+                <button class="btn-reload" onclick="reloadData()" id="reloadBtn">Reload Data</button>
             </div>
 
-            <div class="info-section">
-                <h3 style="font-size: 14px; margin-bottom: 10px; color: #9cdcfe;">Layers</h3>
-                <div class="layer-list" id="layerList">
-                    <div style="color: #858585; font-size: 12px; text-align: center; padding: 20px;">
-                        Click "Reload Data" to load
+            <!-- Tab Content: Layers -->
+            <div class="tab-content" id="layers-tab">
+                <div class="info-section">
+                    <h3 style="font-size: 14px; margin-bottom: 10px; color: #9cdcfe;">Layers</h3>
+                    <div class="layer-list" id="layerList">
+                        <div style="color: #858585; font-size: 12px; text-align: center; padding: 20px;">
+                            Click "Reload Data" to load
+                        </div>
                     </div>
                 </div>
             </div>
 
-            <button class="btn-reload" onclick="reloadData()" id="reloadBtn">Reload Data</button>
+            <!-- Tab Content: Nets -->
+            <div class="tab-content" id="nets-tab">
+                <div id="nets-content">
+                    <div style="color: #858585; font-size: 12px; text-align: center; padding: 20px;">
+                        Loading nets...
+                    </div>
+                </div>
+            </div>
 
-            <button class="btn-cut-mode" onclick="toggleCutMode()" id="cutModeBtn">✂️ Cut Mode</button>
+            <!-- Tab Content: Cuts -->
+            <div class="tab-content" id="cuts-tab">
+                <button class="btn-cut-mode" onclick="toggleCutMode()" id="cutModeBtn">✂️ Cut Mode</button>
+                <button class="btn-execute-cut" onclick="openCutExecutor()" id="openExecuteCutBtn">Execute Cut</button>
 
-            <button class="btn-execute-cut" onclick="openCutExecutor()" id="openExecuteCutBtn">Execute Cut</button>
-
-            <div id="cutTools" class="cut-tools hidden">
+                <div id="cutTools" class="cut-tools hidden">
                 <h3 style="font-size: 14px; margin-bottom: 10px; color: #9cdcfe;">Cut Tools</h3>
                 <button class="cut-tool-btn" onclick="selectCutTool('line')" data-tool="line">
                     <span>📏</span> Line Cut
@@ -75,14 +98,15 @@
                 </button>
             </div>
 
-            <div id="cutList" class="cut-list hidden">
-                <h3 style="font-size: 14px; margin-bottom: 10px; color: #9cdcfe;">Saved Cuts (<span id="cutCount">0</span>)</h3>
-                <div id="cutListItems">
-                    <div style="color: #858585; font-size: 11px; text-align: center;">No cuts saved</div>
-                </div>
-                <div class="cut-actions">
-                    <button onclick="refreshCutList()">Refresh</button>
-                    <button onclick="clearAllCuts()">Clear All</button>
+                <div id="cutList" class="cut-list hidden">
+                    <h3 style="font-size: 14px; margin-bottom: 10px; color: #9cdcfe;">Saved Cuts (<span id="cutCount">0</span>)</h3>
+                    <div id="cutListItems">
+                        <div style="color: #858585; font-size: 11px; text-align: center;">No cuts saved</div>
+                    </div>
+                    <div class="cut-actions">
+                        <button onclick="refreshCutList()">Refresh</button>
+                        <button onclick="clearAllCuts()">Clear All</button>
+                    </div>
                 </div>
             </div>
         </div>
@@ -162,6 +186,7 @@
     <script src="canvas.js"></script>
     <script src="cutMode.js"></script>
     <script src="cutExecutor.js"></script>
+    <script src="nets.js"></script>
     <script src="main.js"></script>
     <script src="customDialog.js"></script>
 </body>

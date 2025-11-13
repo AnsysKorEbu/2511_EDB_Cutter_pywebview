@@ -111,5 +111,28 @@ def extract_via_positions(edb=None):
         vias_data.append(via_info)
     return vias_data
 
+def extract_net_names(edb=None):
+    """
+    Extract signal and power/ground net names from EDB.
+
+    Args:
+        edb: pyedb EDB object
+
+    Returns:
+        Dictionary with 'signal' and 'power' keys containing lists of net names
+    """
+    # Signal net names
+    signal_nets = list(edb.nets.signal.keys())
+
+    # Power/Ground net names
+    power_nets = list(edb.nets.power.keys())
+
+    nets_data = {
+        'signal': signal_nets,
+        'power': power_nets
+    }
+
+    return nets_data
+
 if __name__ == "__main__":
     extract_component_positions()
