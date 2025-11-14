@@ -235,7 +235,7 @@ def modify_traces(edb, cut_data):
     Find traces intersecting with cut polyline, extract net info and trace paths.
 
     Args:
-        edb: Opened pyedb.Edb object
+        edb: Opened pyedb.Edb object (gRPC-based)
         cut_data: Cut data dictionary containing cut geometry points (polyline)
 
     Returns:
@@ -265,8 +265,9 @@ def modify_traces(edb, cut_data):
         print()
 
         from pyedb.modeler.geometry_operators import GeometryOperators
+        from ansys.edb.core.utility.value import Value
 
-        # Dictionary to store results: {net_name: [{'intersection_point': [x,y], 'trace_path': [[x,y],...], 'trace_obj': prim}]}
+        # Dictionary to store results
         intersection_results = {}
 
         print("Searching for trace intersections...")
@@ -278,7 +279,11 @@ def modify_traces(edb, cut_data):
             net_name = prim.net_name
             layer_name = prim.layer_name
             trace_width = prim.width
-            prim_points = prim.polygon_data.points
+
+            # gRPC: polygon_data.points returns PointData objects
+            prim_points_raw = prim.polygon_data.points
+            # Convert to [x, y] coordinate lists
+            prim_points = [[Value(pt.x), Value(pt.y)] for pt in prim_points_raw]
 
             # Skip traces without net name
             if not net_name:
@@ -318,7 +323,7 @@ def modify_traces(edb, cut_data):
                                 'intersection_point': intersection_point,
                                 'trace_path': prim_points,
                                 'layer': layer_name,
-                                'width': trace_width,
+                                'width': Value(trace_width) if hasattr(trace_width, 'value') else trace_width,
                                 'trace_obj': prim,
                                 'polyline_segment_index': i,
                                 'trace_segment_index': j
@@ -326,13 +331,13 @@ def modify_traces(edb, cut_data):
                             intersection_results[net_name].append(trace_info)
 
                             trace_found = True
-                            break  # Found intersection on this trace, move to next polyline segment
+                            break
 
                     if trace_found:
-                        break  # Already found intersection for this trace
+                        break
 
                 if trace_found:
-                    break  # Move to next trace
+                    break
 
         # Print results
         print("-" * 70)
@@ -347,7 +352,9 @@ def modify_traces(edb, cut_data):
             for idx, info in enumerate(trace_infos):
                 print(f"  [{idx+1}] Intersection point: [{info['intersection_point'][0]:.6f}, {info['intersection_point'][1]:.6f}] meters")
                 print(f"      Layer: {info['layer']}")
-                print(f"      Trace width: {info['width']:.6f} meters")
+                width_val = info['width']
+                width_display = width_val if isinstance(width_val, (int, float)) else width_val
+                print(f"      Trace width: {width_display:.6f} meters")
                 print(f"      Trace path segments: {len(info['trace_path'])}")
                 print(f"      Polyline segment: {info['polyline_segment_index']} -> {info['polyline_segment_index']+1}")
             print()
