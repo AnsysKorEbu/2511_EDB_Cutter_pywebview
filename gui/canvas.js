@@ -8,6 +8,9 @@ let viasData = [];
 let tracesData = [];
 let layersMap = new Map();
 
+// Net highlighting
+let highlightedNets = new Set(); // Set of net names to highlight
+
 // View state
 let viewState = {
     offsetX: 0,
@@ -44,6 +47,32 @@ function resizeCanvas() {
     canvas.width = container.clientWidth;
     canvas.height = container.clientHeight;
     render();
+}
+
+/**
+ * Set which nets to highlight
+ * @param {Set<string>} netNames - Set of net names to highlight
+ */
+function setHighlightedNets(netNames) {
+    highlightedNets = new Set(netNames);
+    render();
+}
+
+/**
+ * Check if a net name should be highlighted
+ * @param {string} netName - Net name to check
+ * @returns {boolean} - True if net should be highlighted
+ */
+function isNetHighlighted(netName) {
+    return highlightedNets.size > 0 && highlightedNets.has(netName);
+}
+
+/**
+ * Check if any nets are being highlighted
+ * @returns {boolean} - True if any nets are being highlighted
+ */
+function hasHighlightedNets() {
+    return highlightedNets.size > 0;
 }
 
 // Load data and process
@@ -300,28 +329,53 @@ function render() {
     const shouldLog = window.renderFrameCount % 60 === 0;
 
     // Step 1: Draw all plane fills (only visible ones in viewport)
+    const isHighlighting = hasHighlightedNets();
+
     layersMap.forEach((layer) => {
         if (!layer.visible) return;
 
-        ctx.fillStyle = layer.color + '80';
-
         layer.planes.forEach(plane => {
             if (isPlaneVisible(plane, viewport)) {
+                // Determine if this plane should be highlighted
+                const highlighted = isHighlighting && isNetHighlighted(plane.net);
+                const dimmed = isHighlighting && !highlighted;
+
+                // Set fill style based on highlight state
+                if (highlighted) {
+                    ctx.fillStyle = '#FFFF00CC'; // Bright yellow for highlighted
+                } else if (dimmed) {
+                    ctx.fillStyle = layer.color + '10'; // Very transparent for dimmed (hex 10 = ~6% opacity)
+                } else {
+                    ctx.fillStyle = layer.color + '80'; // Normal transparency
+                }
+
                 drawPlaneFill(plane);
             }
         });
     });
 
     // Step 2: Draw all plane borders
-    ctx.strokeStyle = '#000000';
-    // Keep constant 0.8 pixel width for clean appearance
-    ctx.lineWidth = 0.8;
-
     layersMap.forEach((layer) => {
         if (!layer.visible) return;
 
         layer.planes.forEach(plane => {
             if (isPlaneVisible(plane, viewport)) {
+                // Determine if this plane should be highlighted
+                const highlighted = isHighlighting && isNetHighlighted(plane.net);
+                const dimmed = isHighlighting && !highlighted;
+
+                // Set stroke style based on highlight state
+                if (highlighted) {
+                    ctx.strokeStyle = '#FFFF00'; // Bright yellow border for highlighted
+                    ctx.lineWidth = 2.5; // Thicker border
+                } else if (dimmed) {
+                    ctx.strokeStyle = '#00000010'; // Very faint border for dimmed (hex 10 = ~6% opacity)
+                    ctx.lineWidth = 0.8;
+                } else {
+                    ctx.strokeStyle = '#000000'; // Normal border
+                    ctx.lineWidth = 0.8;
+                }
+
                 drawPlaneStroke(plane);
             }
         });
@@ -373,7 +427,21 @@ function render() {
 
                     if (isVisible) {
                         visibleTracesCount++;
-                        drawTrace(trace, layer.color);
+
+                        // Determine trace color based on highlight state
+                        const highlighted = isHighlighting && isNetHighlighted(trace.net);
+                        const dimmed = isHighlighting && !highlighted;
+
+                        let traceColor;
+                        if (highlighted) {
+                            traceColor = '#FFFF00'; // Bright yellow for highlighted
+                        } else if (dimmed) {
+                            traceColor = layer.color + '15'; // Very faint for dimmed (hex 15 = ~8% opacity)
+                        } else {
+                            traceColor = layer.color; // Normal color
+                        }
+
+                        drawTrace(trace, traceColor);
                     }
                 }
             });
@@ -405,7 +473,21 @@ function render() {
                 const [vx, vy] = via.position;
                 if (vx >= viewport.minX && vx <= viewport.maxX &&
                     vy >= viewport.minY && vy <= viewport.maxY) {
-                    drawVia(via, layer.color);
+
+                    // Determine via color based on highlight state
+                    const highlighted = isHighlighting && isNetHighlighted(via.net);
+                    const dimmed = isHighlighting && !highlighted;
+
+                    let viaColor;
+                    if (highlighted) {
+                        viaColor = '#FFFF00CC'; // Bright yellow with opacity
+                    } else if (dimmed) {
+                        viaColor = layer.color + '15'; // Very faint for dimmed
+                    } else {
+                        viaColor = layer.color + 'CC'; // Normal color with opacity
+                    }
+
+                    drawVia(via, viaColor);
                 }
             });
         }
@@ -598,7 +680,7 @@ function drawVia(via, color) {
         const viaHeight = (via.height || 0.0003) * viewState.scale;
 
         // Draw via fill (centered on position)
-        ctx.fillStyle = color + 'CC'; // Semi-transparent
+        ctx.fillStyle = color; // Color already includes opacity
         ctx.fillRect(
             screenPos.x - viaWidth / 2,
             screenPos.y - viaHeight / 2,
@@ -621,7 +703,7 @@ function drawVia(via, color) {
         const screenRadius = viaRadius * viewState.scale;
 
         // Draw via fill
-        ctx.fillStyle = color + 'CC'; // Semi-transparent
+        ctx.fillStyle = color; // Color already includes opacity
         ctx.beginPath();
         ctx.arc(screenPos.x, screenPos.y, screenRadius, 0, 2 * Math.PI);
         ctx.fill();

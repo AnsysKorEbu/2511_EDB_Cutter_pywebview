@@ -72,9 +72,9 @@ def extract_via_positions(edb=None):
         bbox = via.bounding_box  # [[x_min, y_min], [x_max, y_max]]
 
         # Calculate width and height from bounding box
-        width = 0.0003  # Default 0.3mm width
-        height = 0.0003  # Default 0.3mm height
-        radius = 0.00015  # Default 0.15mm radius
+        width = 0.0  # Default 0
+        height = 0.0  # Default 0
+        radius = 0.0  # Default 0
 
         if bbox and len(bbox) >= 2:
             width = abs(bbox[1][0] - bbox[0][0])

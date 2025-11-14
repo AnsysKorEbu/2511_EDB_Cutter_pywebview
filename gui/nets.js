@@ -167,6 +167,11 @@ class NetsManager {
             this.selectedNets.add(checkbox.dataset.net);
         });
         console.log('All nets selected:', this.selectedNets.size);
+
+        // Update canvas highlighting
+        if (typeof setHighlightedNets !== 'undefined') {
+            setHighlightedNets(this.selectedNets);
+        }
     }
 
     /**
@@ -179,6 +184,11 @@ class NetsManager {
         });
         this.selectedNets.clear();
         console.log('All nets deselected');
+
+        // Update canvas highlighting (clear all highlights)
+        if (typeof setHighlightedNets !== 'undefined') {
+            setHighlightedNets(new Set());
+        }
     }
 
     /**
@@ -199,7 +209,10 @@ class NetsManager {
 
         console.log(`Total selected nets: ${this.selectedNets.size}`);
 
-        // TODO: Future implementation - apply filtering or highlighting based on selected nets
+        // Update canvas highlighting
+        if (typeof setHighlightedNets !== 'undefined') {
+            setHighlightedNets(this.selectedNets);
+        }
     }
 
     /**
