@@ -14,8 +14,9 @@ from gui import start_gui
 # EDB_PATH = r"C:\Python_Code\2511_EDB_Cutter_pywebview\source\example\org_design.aedb"
 # EDB_PATH = r"C:\Python_Code\2511_EDB_Cutter_pywebview\source\example\part2_otherstackup.aedb"
 EDB_PATH = r"C:\Python_Code\2511_EDB_Cutter_pywebview\source\example\none_port_design.aedb"
-EDB_VERSION = "2025.1"
-OVERWRITE = False
+EDB_VERSION = "2025.2"
+grpc = True
+OVERWRITE = True
 
 def check_extracted_data_exists(edb_path):
     """
@@ -110,7 +111,7 @@ def main():
     print("=" * 70)
     print("Step 2: Starting GUI")
     print("=" * 70)
-    start_gui(EDB_PATH, EDB_VERSION)
+    start_gui(EDB_PATH, EDB_VERSION, grpc)
 
 
 if __name__ == "__main__":

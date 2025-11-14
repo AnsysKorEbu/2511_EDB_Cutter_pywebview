@@ -8,9 +8,10 @@ from pathlib import Path
 class Api:
     """JavaScript API for pywebview"""
 
-    def __init__(self, edb_path, edb_version="2025.1"):
+    def __init__(self, edb_path, edb_version="2025.1", grpc=False):
         self.edb_path = edb_path
         self.edb_version = edb_version
+        self.grpc = grpc
         self.data = None
 
         # Extract EDB folder name from path
@@ -332,8 +333,9 @@ class Api:
 
             try:
                 # Run edb.cut package as subprocess with batch file (real-time output)
+                grpc_str = "True" if self.grpc else "False"
                 process = subprocess.Popen(
-                    [str(python_exe), "-u", "-m", "edb.cut", self.edb_path, self.edb_version, batch_file_path],
+                    [str(python_exe), "-u", "-m", "edb.cut", self.edb_path, self.edb_version, batch_file_path, grpc_str],
                     cwd=Path.cwd(),
                     stdout=subprocess.PIPE,
                     stderr=subprocess.STDOUT,
@@ -378,9 +380,9 @@ class Api:
             return {'success': False, 'error': error_msg}
 
 
-def start_gui(edb_path, edb_version="2025.1"):
+def start_gui(edb_path, edb_version="2025.1", grpc=False):
     """Start the pywebview GUI"""
-    api = Api(edb_path, edb_version)
+    api = Api(edb_path, edb_version, grpc)
 
     # Get HTML file path
     html_file = Path(__file__).parent / 'index.html'

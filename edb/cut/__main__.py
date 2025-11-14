@@ -43,15 +43,17 @@ if __name__ == "__main__":
         sys.argv[1]: edb_path (path to .aedb folder or edb.def file)
         sys.argv[2]: edb_version (e.g., "2025.1")
         sys.argv[3]: cut_file_path (path to cut JSON file or batch JSON file)
+        sys.argv[4]: grpc (optional, "True" or "False", default: "False")
     """
     if len(sys.argv) < 4:
         print("[ERROR] Insufficient arguments")
-        print("Usage: python -m edb.cut <edb_path> <edb_version> <cut_file_path>")
+        print("Usage: python -m edb.cut <edb_path> <edb_version> <cut_file_path> [grpc]")
         sys.exit(1)
 
     edb_path = sys.argv[1]
     edb_version = sys.argv[2]
     input_file_path = sys.argv[3]
+    grpc = sys.argv[4].lower() == 'true' if len(sys.argv) > 4 else False
 
     # Keep original path for cloning
     original_edb_path = edb_path
@@ -66,6 +68,7 @@ if __name__ == "__main__":
     print(f"EDB Path: {edb_path}")
     print(f"EDB Version: {edb_version}")
     print(f"Input File: {input_file_path}")
+    print(f"gRPC Mode: {grpc}")
     print()
 
     try:
@@ -104,7 +107,7 @@ if __name__ == "__main__":
             print()
 
             try:
-                cloned_paths = clone_edbs_for_cuts(original_edb_path, num_clones, edb_version)
+                cloned_paths = clone_edbs_for_cuts(original_edb_path, num_clones, edb_version, grpc)
                 print(f"[OK] Successfully created {len(cloned_paths)} EDB clones")
                 print()
             except Exception as clone_error:
@@ -156,7 +159,7 @@ if __name__ == "__main__":
                         cut_data_list.append(cut_data)
 
                     # Execute all cuts on this clone (opens EDB once, processes all cuts, closes EDB)
-                    success = execute_cuts_on_clone(clone_edb_path, edb_version, cut_data_list)
+                    success = execute_cuts_on_clone(clone_edb_path, edb_version, cut_data_list, grpc)
 
                     if success:
                         print(f"[OK] All cuts completed successfully on clone {i}")
@@ -202,7 +205,7 @@ if __name__ == "__main__":
             print()
 
             try:
-                cloned_paths = clone_edbs_for_cuts(original_edb_path, num_clones, edb_version)
+                cloned_paths = clone_edbs_for_cuts(original_edb_path, num_clones, edb_version, grpc)
                 print(f"[OK] Successfully created {len(cloned_paths)} EDB clones")
                 print()
             except Exception as clone_error:
@@ -226,7 +229,7 @@ if __name__ == "__main__":
 
                 try:
                     # Execute cutting operation on THIS CLONE (opens EDB once, processes cut, closes EDB)
-                    success = execute_cuts_on_clone(clone_edb_path, edb_version, [input_data])
+                    success = execute_cuts_on_clone(clone_edb_path, edb_version, [input_data], grpc)
 
                     if success:
                         print(f"[OK] Cut {cut_id} completed successfully on clone {i}")

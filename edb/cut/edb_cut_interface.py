@@ -9,13 +9,14 @@ from pathlib import Path
 from datetime import datetime
 
 
-def open_edb(edbpath, edbversion):
+def open_edb(edbpath, edbversion, grpc=False):
     """
     Open EDB file using pyedb.
 
     Args:
         edbpath: Path to EDB file (edb.def path)
         edbversion: AEDT version string (e.g., "2025.1")
+        grpc: Use gRPC mode (default: False)
 
     Returns:
         pyedb.Edb: Opened EDB object
@@ -28,11 +29,12 @@ def open_edb(edbpath, edbversion):
     print("=" * 70)
     print(f"EDB Path: {edbpath}")
     print(f"EDB Version: {edbversion}")
+    print(f"gRPC Mode: {grpc}")
     print()
 
     try:
         print("Opening EDB...")
-        edb = pyedb.Edb(edbpath=edbpath, version=edbversion)
+        edb = pyedb.Edb(edbpath=edbpath, version=edbversion, grpc=grpc)
         print("[OK] EDB opened successfully\n")
         return edb
 
@@ -41,7 +43,7 @@ def open_edb(edbpath, edbversion):
         raise
 
 
-def clone_edbs_for_cuts(original_edb_path, num_clones, edb_version):
+def clone_edbs_for_cuts(original_edb_path, num_clones, edb_version, grpc):
     """
     Clone original EDB file multiple times for cut processing.
 
@@ -90,7 +92,7 @@ def clone_edbs_for_cuts(original_edb_path, num_clones, edb_version):
 
         # Open original EDB
         print(f"Opening original EDB: {original_aedb_folder}")
-        edb = pyedb.Edb(str(original_aedb_folder), version=edb_version)
+        edb = pyedb.Edb(str(original_aedb_folder), version=edb_version, grpc=grpc)
         print("[OK] Original EDB opened successfully")
         print()
 
@@ -131,7 +133,7 @@ def clone_edbs_for_cuts(original_edb_path, num_clones, edb_version):
         raise
 
 
-def execute_cut(edbpath, edbversion, cut_data):
+def execute_cut(edbpath, edbversion, cut_data, grpc=False):
     """
     Execute cutting operation on EDB.
 
@@ -143,6 +145,7 @@ def execute_cut(edbpath, edbversion, cut_data):
         edbversion: AEDT version string (e.g., "2025.1")
         cut_data: Dictionary containing cut information
                   (type, points, id, timestamp, edb_folder)
+        grpc: Use gRPC mode (default: False)
 
     Returns:
         bool: True if successful, False otherwise
@@ -156,7 +159,7 @@ def execute_cut(edbpath, edbversion, cut_data):
     print()
 
     # Open EDB
-    edb = open_edb(edbpath, edbversion)
+    edb = open_edb(edbpath, edbversion, grpc=grpc)
 
     # Should Implement actual cutting logic here
 
@@ -373,7 +376,7 @@ def modify_traces(edb, cut_data):
 
 def find_endpoint_pads_same_net(edb, net_name):
     """
-    Find endpoint pads for a given net by checking connections within the same net.
+    Find endpoint pads for a given net by checking physical connections only.
 
     Args:
         edb: Opened pyedb.Edb object
@@ -393,24 +396,24 @@ def find_endpoint_pads_same_net(edb, net_name):
         endpoint_pads = []
 
         for pad in padstacks:
-            connected_objs = pad.get_connected_objects()
+            # 물리적으로 직접 연결된 객체의 ID 가져오기
+            connected_ids = pad.get_connected_object_id_set()
 
-            # Filter to objects in the same net
-            same_net_connections = [
-                obj for obj in connected_objs
-                if hasattr(obj, 'net_name') and obj.net_name == net_name
-            ]
+            # 연결된 객체가 없으면 endpoint
+            if len(connected_ids) == 0:
+                endpoint_pads.append(pad)
+            else:
+                # 같은 net에 속한 객체만 확인
+                same_net_count = 0
+                for obj_id in connected_ids:
+                    # ID로 객체 가져오기
+                    obj = edb.modeler.get_primitive(obj_id, edb_uid=False)
+                    if obj and obj.net_name == net_name:
+                        same_net_count += 1
 
-            # Endpoint has 1 or fewer connections within the same net
-            if len(same_net_connections) <= 1:
-                endpoint_pads.append({
-                    'name': pad.aedt_name,
-                    'position': pad.position,
-                    'is_pin': pad.is_pin,
-                    'component': pad.component.name if pad.component else None,
-                    'same_net_connections': len(same_net_connections),
-                    'total_connections': len(connected_objs)
-                })
+                # 같은 net의 연결이 없으면 endpoint
+                if same_net_count == 0:
+                    endpoint_pads.append(pad)
 
         return endpoint_pads
 
@@ -520,7 +523,7 @@ def remove_and_create_ports(edb, cut_data):
     pass
 
 
-def execute_cuts_on_clone(edbpath, edbversion, cut_data_list):
+def execute_cuts_on_clone(edbpath, edbversion, cut_data_list, grpc=False):
     """
     Execute multiple cutting operations on a single EDB clone.
     Opens the EDB once, applies all cuts, then closes.
@@ -529,6 +532,7 @@ def execute_cuts_on_clone(edbpath, edbversion, cut_data_list):
         edbpath: Path to EDB file (edb.def path)
         edbversion: AEDT version string (e.g., "2025.1")
         cut_data_list: List of cut data dictionaries
+        grpc: Use gRPC mode (default: False)
 
     Returns:
         bool: True if all cuts successful, False otherwise
@@ -548,7 +552,7 @@ def execute_cuts_on_clone(edbpath, edbversion, cut_data_list):
 
     # Open EDB once
     try:
-        edb = open_edb(edbpath, edbversion)
+        edb = open_edb(edbpath, edbversion, grpc=grpc)
     except Exception as e:
         print(f"[ERROR] Failed to open EDB: {e}")
         return False
