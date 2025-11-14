@@ -282,8 +282,8 @@ def modify_traces(edb, cut_data):
 
             # gRPC: polygon_data.points returns PointData objects
             prim_points_raw = prim.polygon_data.points
-            # Convert to [x, y] coordinate lists
-            prim_points = [[Value(pt.x), Value(pt.y)] for pt in prim_points_raw]
+            # Convert PointData objects to [x, y] lists
+            prim_points = [[pt.x.value, pt.y.value] for pt in prim_points_raw]
 
             # Skip traces without net name
             if not net_name:
@@ -353,7 +353,7 @@ def modify_traces(edb, cut_data):
                 print(f"  [{idx+1}] Intersection point: [{info['intersection_point'][0]:.6f}, {info['intersection_point'][1]:.6f}] meters")
                 print(f"      Layer: {info['layer']}")
                 width_val = info['width']
-                width_display = width_val if isinstance(width_val, (int, float)) else width_val
+                width_display = width_val.value if hasattr(width_val, 'value') else width_val
                 print(f"      Trace width: {width_display:.6f} meters")
                 print(f"      Trace path segments: {len(info['trace_path'])}")
                 print(f"      Polyline segment: {info['polyline_segment_index']} -> {info['polyline_segment_index']+1}")
