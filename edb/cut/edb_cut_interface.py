@@ -374,48 +374,57 @@ def modify_traces(edb, cut_data):
         return False
 
 
-def find_endpoint_pads_same_net(edb, net_name):
+def find_endpoint_pads(edb, net_name):
     """
-    Find endpoint pads for a given net by checking physical connections only.
+    Find endpoint pads - pads with only one connection on the same net.
+
+    This function uses PadstackInstance.get_connected_objects() which internally calls
+    layout_instance.get_connected_objects(layout_object_instance, True).
+    The True parameter ensures only physically connected objects are returned.
 
     Args:
         edb: Opened pyedb.Edb object
         net_name: Name of the net to analyze
 
     Returns:
-        list: List of dictionaries containing endpoint pad information:
-              - name: Pad AEDT name
-              - position: [x, y] position
-              - is_pin: Boolean indicating if it's a pin
-              - component: Component name (or None)
-              - same_net_connections: Number of connections within the same net
-              - total_connections: Total number of connections
+        list: List of PadstackInstance objects that are endpoints
+              (pads with exactly 1 same-net connection or 0 total connections)
+
+    Notes:
+        - get_connected_objects() returns Path, Polygon, Rectangle, Circle,
+          PadstackInstance, PadstackInstanceTerminal objects
+        - Only physically connected objects are returned (not electrical)
     """
     try:
         padstacks = edb.padstacks.get_instances(net_name=net_name)
-        endpoint_pads = []
+        endpoints = []
 
         for pad in padstacks:
-            # 물리적으로 직접 연결된 객체의 ID 가져오기
-            connected_ids = pad.get_connected_object_id_set()
+            # Get physically connected objects
+            # Internally uses layout_instance.get_connected_objects(layout_object_instance, True)
+            # where True = physical connections only
+            connected = pad.get_connected_objects()
 
-            # 연결된 객체가 없으면 endpoint
-            if len(connected_ids) == 0:
-                endpoint_pads.append(pad)
-            else:
-                # 같은 net에 속한 객체만 확인
-                same_net_count = 0
-                for obj_id in connected_ids:
-                    # ID로 객체 가져오기
-                    obj = edb.modeler.get_primitive(obj_id, edb_uid=False)
-                    if obj and obj.net_name == net_name:
-                        same_net_count += 1
+            # Filter for same net connections (primitives and padstacks)
+            # Connected objects can be: Path, Polygon, Rectangle, Circle,
+            # PadstackInstance, PadstackInstanceTerminal
+            same_net_connections = []
+            for obj in connected:
+                # Check if object has net_name attribute and matches
+                if hasattr(obj, 'net_name') and obj.net_name == net_name:
+                    # Exclude self-reference
+                    if hasattr(obj, 'id') and obj.id != pad.id:
+                        same_net_connections.append(obj)
 
-                # 같은 net의 연결이 없으면 endpoint
-                if same_net_count == 0:
-                    endpoint_pads.append(pad)
+            # Endpoint criteria:
+            # 1. Exactly 1 same-net connection = true endpoint
+            # 2. No connections at all = isolated pad (also treated as endpoint)
+            if len(same_net_connections) == 1:
+                endpoints.append(pad)
+            elif len(connected) == 0:
+                endpoints.append(pad)
 
-        return endpoint_pads
+        return endpoints
 
     except Exception as e:
         print(f"[WARNING] Error finding endpoints for net '{net_name}': {e}")
@@ -425,10 +434,11 @@ def find_endpoint_pads_same_net(edb, net_name):
 def find_endpoint_pads_for_selected_nets(edb, cut_data):
     """
     Find endpoint pads for user-selected signal nets from GUI.
+    Selects the two farthest is_pin endpoints relative to the cut line.
 
     Args:
         edb: Opened pyedb.Edb object
-        cut_data: Cut data dictionary containing selected_nets
+        cut_data: Cut data dictionary containing selected_nets and cut points
 
     Returns:
         bool: True if successful, False otherwise
@@ -437,6 +447,19 @@ def find_endpoint_pads_for_selected_nets(edb, cut_data):
         print("=" * 70)
         print("EDB Cutter - Finding Endpoint Pads for Selected Nets")
         print("=" * 70)
+
+        # Get cut polyline points
+        cut_points = cut_data.get('points', [])
+        if not cut_points or len(cut_points) < 2:
+            print("[WARNING] No valid cut points found. Cannot determine farthest endpoints.")
+            cut_data['endpoint_pads'] = {}
+            return True
+
+        # Calculate cut line direction (from first to last point)
+        cut_start = cut_points[0]
+        cut_end = cut_points[-1]
+        print(f"Cut line: Start [{cut_start[0]:.6f}, {cut_start[1]:.6f}] -> End [{cut_end[0]:.6f}, {cut_end[1]:.6f}]")
+        print()
 
         # Get selected nets from cut_data
         selected_nets = cut_data.get('selected_nets', {})
@@ -458,7 +481,7 @@ def find_endpoint_pads_for_selected_nets(edb, cut_data):
         print(f"Number of selected signal nets: {len(signal_nets)}")
         print()
 
-        # Dictionary to store endpoint results: {net_name: [endpoint_pad_list]}
+        # Dictionary to store endpoint results: {net_name: [two_farthest_pin_endpoints]}
         endpoint_results = {}
         total_endpoints = 0
 
@@ -467,20 +490,71 @@ def find_endpoint_pads_for_selected_nets(edb, cut_data):
             print(f"[{idx}/{len(signal_nets)}] Processing net: {net_name}")
 
             # Find endpoints for this net
-            endpoints = find_endpoint_pads_same_net(edb, net_name)
+            endpoints = find_endpoint_pads(edb, net_name)
 
             if endpoints:
-                endpoint_results[net_name] = endpoints
-                total_endpoints += len(endpoints)
-                print(f"  Found {len(endpoints)} endpoint(s)")
+                print(f"  Found {len(endpoints)} total endpoint(s)")
 
-                # Print endpoint details
-                for ep_idx, endpoint in enumerate(endpoints, 1):
-                    print(f"    [{ep_idx}] {endpoint['name']}")
-                    print(f"        Position: [{endpoint['position'][0]:.6f}, {endpoint['position'][1]:.6f}] meters")
-                    print(f"        Component: {endpoint['component']}")
-                    print(f"        Is Pin: {endpoint['is_pin']}")
-                    print(f"        Same-net connections: {endpoint['same_net_connections']}")
+                # Filter for pin endpoints only
+                pin_endpoints = [ep for ep in endpoints if ep.is_pin]
+                print(f"  Filtered to {len(pin_endpoints)} pin endpoint(s)")
+
+                if len(pin_endpoints) >= 2:
+                    # Calculate projection of each pin endpoint along cut line direction
+                    def project_on_cut_line(endpoint):
+                        """Project endpoint position onto cut line direction"""
+                        pos = endpoint.position
+                        # Vector from cut_start to cut_end
+                        dx = cut_end[0] - cut_start[0]
+                        dy = cut_end[1] - cut_start[1]
+                        # Vector from cut_start to endpoint
+                        px = pos[0] - cut_start[0]
+                        py = pos[1] - cut_start[1]
+                        # Projection parameter t
+                        line_length_sq = dx*dx + dy*dy
+                        if line_length_sq < 1e-10:
+                            return 0.0
+                        t = (px*dx + py*dy) / line_length_sq
+                        return t
+
+                    # Calculate projections for all pin endpoints
+                    projections = [(ep, project_on_cut_line(ep)) for ep in pin_endpoints]
+
+                    # Sort by projection value
+                    projections.sort(key=lambda x: x[1])
+
+                    # Select the two farthest (min and max projection)
+                    farthest_two = [projections[0][0], projections[-1][0]]
+
+                    endpoint_results[net_name] = farthest_two
+                    total_endpoints += 2
+
+                    print(f"  Selected 2 farthest pin endpoints:")
+                    for ep_idx, endpoint in enumerate(farthest_two, 1):
+                        pos = endpoint.position
+                        comp_name = endpoint.component.name if endpoint.component else "None"
+                        proj_value = projections[0][1] if ep_idx == 1 else projections[-1][1]
+
+                        print(f"    [{ep_idx}] {endpoint.name}")
+                        print(f"        Position: [{pos[0]:.6f}, {pos[1]:.6f}] meters")
+                        print(f"        Component: {comp_name}")
+                        print(f"        Projection: {proj_value:.6f}")
+
+                elif len(pin_endpoints) == 1:
+                    # Only one pin endpoint found
+                    endpoint_results[net_name] = pin_endpoints
+                    total_endpoints += 1
+                    print(f"  [WARNING] Only 1 pin endpoint found, using it")
+
+                    endpoint = pin_endpoints[0]
+                    pos = endpoint.position
+                    comp_name = endpoint.component.name if endpoint.component else "None"
+                    print(f"    [1] {endpoint.name}")
+                    print(f"        Position: [{pos[0]:.6f}, {pos[1]:.6f}] meters")
+                    print(f"        Component: {comp_name}")
+
+                else:
+                    print(f"  [WARNING] No pin endpoints found for net '{net_name}'")
             else:
                 print(f"  [WARNING] No endpoints found for net '{net_name}'")
 
@@ -491,8 +565,8 @@ def find_endpoint_pads_for_selected_nets(edb, cut_data):
         print("ENDPOINT FINDING SUMMARY")
         print("-" * 70)
         print(f"Total nets processed: {len(signal_nets)}")
-        print(f"Nets with endpoints found: {len(endpoint_results)}")
-        print(f"Total endpoints found: {total_endpoints}")
+        print(f"Nets with pin endpoints found: {len(endpoint_results)}")
+        print(f"Total pin endpoints selected: {total_endpoints}")
         print("-" * 70)
         print()
 

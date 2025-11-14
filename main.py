@@ -16,7 +16,7 @@ from gui import start_gui
 EDB_PATH = r"C:\Python_Code\2511_EDB_Cutter_pywebview\source\example\none_port_design.aedb"
 EDB_VERSION = "2025.2"
 grpc = True
-OVERWRITE = True
+OVERWRITE = False
 
 def check_extracted_data_exists(edb_path):
     """
