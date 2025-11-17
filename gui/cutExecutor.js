@@ -199,8 +199,24 @@ async function executeSelectedCut() {
             console.log('[DEBUG] Selected nets from GUI:', selectedNets);
             console.log('[DEBUG] Signal nets count:', selectedNets.signal.length);
             console.log('[DEBUG] Power nets count:', selectedNets.power.length);
+            console.log('[DEBUG] Reference layer:', selectedNets.reference_layer);
         } else {
             console.log('[DEBUG] netsManager not found');
+        }
+
+        // Validate reference layer selection (required)
+        if (!selectedNets.reference_layer) {
+            statusDiv.innerHTML = `
+                <div class="status-error">
+                    <span class="status-icon">⚠</span>
+                    <span>Please select a Reference Layer for Gap Ports in the Nets tab</span>
+                </div>
+            `;
+            statusDiv.classList.remove('hidden');
+            executeBtn.disabled = false;
+            executeBtn.textContent = originalBtnText;
+            cutExecutor.isExecuting = false;
+            return;
         }
 
         // Call backend API to execute cuts with selected nets

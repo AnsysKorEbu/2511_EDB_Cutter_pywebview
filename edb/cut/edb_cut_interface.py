@@ -916,14 +916,20 @@ def create_gap_ports_for_signal_nets(edb, cut_data):
             print()
             return True
 
-        # Get selected signal nets
+        # Get selected signal nets and reference layer
         selected_nets = cut_data.get('selected_nets', {})
         signal_nets = selected_nets.get('signal', [])
+        reference_layer = selected_nets.get('reference_layer', None)
 
         if not signal_nets:
             print("[WARNING] No signal nets selected. Skipping gap port creation.")
             print()
             return True
+
+        if reference_layer:
+            print(f"Reference layer: {reference_layer}")
+        else:
+            print("[WARNING] No reference layer specified")
 
         print(f"Signal nets to process: {len(signal_nets)}")
         print(f"Nets with intersections: {len(intersection_results)}")
@@ -982,15 +988,23 @@ def create_gap_ports_for_signal_nets(edb, cut_data):
                 port_name = f"GapPort_{net_name}"
 
                 # Create vertical gap port
-                edb.source_excitation.create_edge_port_vertical(
-                    prim_id=prim_id,
-                    point_on_edge=[str(point_on_edge[0]), str(point_on_edge[1])],
-                    port_name=port_name,
-                    impedance=50,
-                    hfss_type="Gap"
-                )
+                port_params = {
+                    "prim_id": prim_id,
+                    "point_on_edge": [str(point_on_edge[0]), str(point_on_edge[1])],
+                    "port_name": port_name,
+                    "impedance": 50,
+                    "hfss_type": "Gap"
+                }
+
+                # Add reference layer if specified
+                if reference_layer:
+                    port_params["reference_layer"] = reference_layer
+
+                edb.source_excitation.create_edge_port_vertical(**port_params)
 
                 print(f"  [OK] Created gap port: {port_name}")
+                if reference_layer:
+                    print(f"      Reference layer: {reference_layer}")
                 total_ports_created += 1
 
             except Exception as port_error:

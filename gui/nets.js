@@ -5,6 +5,7 @@ class NetsManager {
     constructor() {
         this.netsData = null;
         this.selectedNets = new Set(); // Store selected net names
+        this.selectedReferenceLayer = null; // Store selected reference layer
     }
 
     /**
@@ -53,6 +54,17 @@ class NetsManager {
                     <button id="deselect-all-nets" class="nets-btn">Deselect All</button>
                 </div>
 
+                <!-- Reference Layer Selection -->
+                <div class="reference-layer-section">
+                    <label for="referenceLayerSelect" class="reference-layer-label">
+                        <span style="color: #ff6b6b;">*</span> Reference Layer for Gap Ports:
+                    </label>
+                    <select id="referenceLayerSelect" class="reference-layer-select">
+                        <option value="">-- Select Layer --</option>
+                        ${this.renderLayerOptions()}
+                    </select>
+                </div>
+
                 <!-- Signal Nets Section -->
                 <div class="nets-section">
                     <div class="nets-section-header" data-section="signal">
@@ -81,6 +93,20 @@ class NetsManager {
 
         // Initialize event handlers
         this.initEventHandlers();
+    }
+
+    /**
+     * Render layer options for reference layer dropdown
+     */
+    renderLayerOptions() {
+        if (!window.layersMap || window.layersMap.size === 0) {
+            return '';
+        }
+
+        const layerNames = Array.from(window.layersMap.keys());
+        return layerNames.map(layerName =>
+            `<option value="${layerName}">${layerName}</option>`
+        ).join('');
     }
 
     /**
@@ -117,6 +143,12 @@ class NetsManager {
         const deselectAllBtn = document.getElementById('deselect-all-nets');
         if (deselectAllBtn) {
             deselectAllBtn.addEventListener('click', () => this.deselectAllNets());
+        }
+
+        // Reference Layer dropdown
+        const referenceLayerSelect = document.getElementById('referenceLayerSelect');
+        if (referenceLayerSelect) {
+            referenceLayerSelect.addEventListener('change', (e) => this.onReferenceLayerChange(e));
         }
 
         // Section headers (expand/collapse)
@@ -216,6 +248,15 @@ class NetsManager {
     }
 
     /**
+     * Handle reference layer dropdown change event
+     */
+    onReferenceLayerChange(event) {
+        const select = event.target;
+        this.selectedReferenceLayer = select.value || null;
+        console.log(`Reference layer selected: ${this.selectedReferenceLayer}`);
+    }
+
+    /**
      * Get currently selected nets
      * @returns {Array} Array of selected net names
      */
@@ -225,7 +266,7 @@ class NetsManager {
 
     /**
      * Get selected nets by type
-     * @returns {Object} Object with signal and power arrays
+     * @returns {Object} Object with signal and power arrays, and reference_layer
      */
     getSelectedNetsByType() {
         const signalNets = [];
@@ -242,7 +283,11 @@ class NetsManager {
             }
         });
 
-        return { signal: signalNets, power: powerNets };
+        return {
+            signal: signalNets,
+            power: powerNets,
+            reference_layer: this.selectedReferenceLayer
+        };
     }
 }
 

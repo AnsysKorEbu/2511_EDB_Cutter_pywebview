@@ -746,6 +746,51 @@ canvas.cut-mode {
     background: #2e2e32;
 }
 
+/* Reference Layer Section */
+.reference-layer-section {
+    margin-bottom: 15px;
+    padding: 12px;
+    background: #1e1e1e;
+    border-radius: 4px;
+    border: 1px solid #3e3e42;
+}
+
+.reference-layer-label {
+    display: block;
+    font-size: 11px;
+    color: #9cdcfe;
+    margin-bottom: 8px;
+    font-weight: 500;
+}
+
+.reference-layer-select {
+    width: 100%;
+    padding: 8px 10px;
+    background: #2d2d30;
+    border: 1px solid #555558;
+    border-radius: 4px;
+    color: #cccccc;
+    font-size: 11px;
+    cursor: pointer;
+    transition: all 0.2s;
+}
+
+.reference-layer-select:hover {
+    background: #3e3e42;
+    border-color: #6e6e72;
+}
+
+.reference-layer-select:focus {
+    outline: none;
+    border-color: #0e639c;
+    background: #3e3e42;
+}
+
+.reference-layer-select option {
+    background: #2d2d30;
+    color: #cccccc;
+}
+
 .nets-section {
     margin-bottom: 15px;
     background: #1e1e1e;
