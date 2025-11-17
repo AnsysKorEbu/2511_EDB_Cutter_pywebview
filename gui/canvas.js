@@ -361,7 +361,7 @@ function render() {
 
                 // Set fill style based on highlight state
                 if (highlighted && isPowerNet) {
-                    ctx.fillStyle = '#87CEEBCC'; // Light blue for highlighted power nets (SkyBlue with opacity)
+                    ctx.fillStyle = layer.color + '30'; // Darker for highlighted power nets (~19% opacity, brighter than dimmed)
                 } else if (highlighted) {
                     ctx.fillStyle = '#FFFF00CC'; // Bright yellow for highlighted signal nets
                 } else if (dimmed) {
@@ -388,8 +388,8 @@ function render() {
 
                 // Set stroke style based on highlight state
                 if (highlighted && isPowerNet) {
-                    ctx.strokeStyle = '#4682B4'; // Steel blue border for highlighted power nets
-                    ctx.lineWidth = 2.5; // Thicker border
+                    ctx.strokeStyle = '#00000030'; // Darker border for highlighted power nets (~19% opacity, brighter than dimmed)
+                    ctx.lineWidth = 1.2; // Slightly thicker border for subtle highlight
                 } else if (highlighted) {
                     ctx.strokeStyle = '#FFFF00'; // Bright yellow border for highlighted signal nets
                     ctx.lineWidth = 2.5; // Thicker border
@@ -460,7 +460,7 @@ function render() {
 
                         let traceColor;
                         if (highlighted && isPowerNet) {
-                            traceColor = '#87CEEB'; // Light blue for highlighted power nets
+                            traceColor = layer.color + '30'; // Darker for highlighted power nets (~19% opacity, brighter than dimmed)
                         } else if (highlighted) {
                             traceColor = '#FFFF00'; // Bright yellow for highlighted signal nets
                         } else if (dimmed) {
@@ -509,7 +509,7 @@ function render() {
 
                     let viaColor;
                     if (highlighted && isPowerNet) {
-                        viaColor = '#87CEEBCC'; // Light blue for highlighted power nets with opacity
+                        viaColor = layer.color + '30'; // Darker for highlighted power nets (~19% opacity, brighter than dimmed)
                     } else if (highlighted) {
                         viaColor = '#FFFF00CC'; // Bright yellow for highlighted signal nets with opacity
                     } else if (dimmed) {

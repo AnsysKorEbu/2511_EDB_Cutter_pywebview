@@ -100,10 +100,20 @@ if __name__ == "__main__":
                 print("No signal nets selected")
             print()
 
+            # Determine cut type from first cut file
+            first_cut_data = load_cut_data(cut_files[0])
+            cut_type = first_cut_data.get('type', 'polyline')
+            print(f"Cut type detected: {cut_type}")
+
             # Clone EDB files before processing cuts
-            # n cuts = (n+1) clones (because n cuts divide design into n+1 segments)
-            num_clones = len(cut_files) + 1
-            print(f"Creating {num_clones} EDB clones ({len(cut_files)} cuts + 1)...")
+            # Polygon/Rectangle: n cuts = n clones (each cut defines a region)
+            # Polyline: n cuts = (n+1) clones (cuts divide design into n+1 segments)
+            if cut_type in ['polygon', 'rectangle']:
+                num_clones = len(cut_files)
+                print(f"Creating {num_clones} EDB clones ({len(cut_files)} polygon regions)...")
+            else:
+                num_clones = len(cut_files) + 1
+                print(f"Creating {num_clones} EDB clones ({len(cut_files)} cuts + 1 segments)...")
             print()
 
             try:
@@ -117,22 +127,29 @@ if __name__ == "__main__":
                 sys.exit(1)
 
             # Build clone-to-cut mapping
-            # Pattern: first and last clones get 1 cut, middle clones get 2 adjacent cuts
             print("Building clone-to-cut mapping...")
             clone_cut_mapping = []
-            for i in range(num_clones):
-                if i == 0:
-                    # First clone: only first cut
-                    clone_cut_mapping.append([cut_files[0]])
-                    print(f"  Clone {i+1}: {Path(cut_files[0]).stem}")
-                elif i == num_clones - 1:
-                    # Last clone: only last cut
-                    clone_cut_mapping.append([cut_files[-1]])
-                    print(f"  Clone {i+1}: {Path(cut_files[-1]).stem}")
-                else:
-                    # Middle clones: adjacent cuts [i-1, i]
-                    clone_cut_mapping.append([cut_files[i-1], cut_files[i]])
-                    print(f"  Clone {i+1}: {Path(cut_files[i-1]).stem}, {Path(cut_files[i]).stem}")
+
+            if cut_type in ['polygon', 'rectangle']:
+                # Polygon: 1:1 mapping (each clone gets one polygon region)
+                for i in range(num_clones):
+                    clone_cut_mapping.append([cut_files[i]])
+                    print(f"  Clone {i+1}: {Path(cut_files[i]).stem} (polygon region {i+1})")
+            else:
+                # Polyline: first and last clones get 1 cut, middle clones get 2 adjacent cuts
+                for i in range(num_clones):
+                    if i == 0:
+                        # First clone: only first cut
+                        clone_cut_mapping.append([cut_files[0]])
+                        print(f"  Clone {i+1}: {Path(cut_files[0]).stem}")
+                    elif i == num_clones - 1:
+                        # Last clone: only last cut
+                        clone_cut_mapping.append([cut_files[-1]])
+                        print(f"  Clone {i+1}: {Path(cut_files[-1]).stem}")
+                    else:
+                        # Middle clones: adjacent cuts [i-1, i]
+                        clone_cut_mapping.append([cut_files[i-1], cut_files[i]])
+                        print(f"  Clone {i+1}: {Path(cut_files[i-1]).stem}, {Path(cut_files[i]).stem}")
             print()
 
             all_success = True
@@ -191,7 +208,9 @@ if __name__ == "__main__":
         else:
             # Single mode: one cut (input_data is the cut data itself)
             cut_id = input_data.get('id', 'unknown')
+            cut_type = input_data.get('type', 'polyline')
             print(f"[SINGLE MODE] Processing cut: {cut_id}")
+            print(f"Cut type: {cut_type}")
 
             # Add empty selected_nets for single mode (no batch file)
             if 'selected_nets' not in input_data:
@@ -199,9 +218,14 @@ if __name__ == "__main__":
             print()
 
             # Clone EDB files before processing cut
-            # 1 cut = 2 clones (divides design into 2 segments)
-            num_clones = 2
-            print(f"Creating {num_clones} EDB clones (1 cut → 2 segments)...")
+            # Polygon/Rectangle: 1 cut = 1 clone (defines a region)
+            # Polyline: 1 cut = 2 clones (divides design into 2 segments)
+            if cut_type in ['polygon', 'rectangle']:
+                num_clones = 1
+                print(f"Creating {num_clones} EDB clone (1 polygon region)...")
+            else:
+                num_clones = 2
+                print(f"Creating {num_clones} EDB clones (1 cut → 2 segments)...")
             print()
 
             try:

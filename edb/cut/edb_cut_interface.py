@@ -248,9 +248,11 @@ def apply_cutout(edb, cut_data):
         print()
 
         try:
+            netlist = edb.nets.netlist
+            filtered_netlist = [n for n in netlist if not signal_nets or n not in signal_nets]
             edb.cutout(
-                signal_nets=signal_nets if signal_nets else None,
-                reference_nets=power_nets if power_nets else None,
+                signal_nets=filtered_netlist,
+                reference_nets=signal_nets if signal_nets else [],
                 custom_extent=polygon_points,
                 custom_extent_units="meter"  # Coordinates are in meters
             )
