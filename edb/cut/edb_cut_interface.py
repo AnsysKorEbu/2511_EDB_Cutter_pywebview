@@ -614,16 +614,150 @@ def find_endpoint_pads_for_selected_nets(edb, cut_data):
 
 def remove_and_create_ports(edb, cut_data):
     """
-    Remove existing ports and create new ports.
+    Remove existing ports and create circuit ports for signal endpoints with power net references.
 
     Args:
         edb: Opened pyedb.Edb object
-        cut_data: Cut data dictionary containing port operations
+        cut_data: Cut data dictionary containing endpoint_pads and selected_nets
 
     Returns:
         bool: True if successful, False otherwise
     """
-    pass
+    try:
+        print("=" * 70)
+        print("EDB Cutter - Creating Circuit Ports for Endpoints")
+        print("=" * 70)
+
+        # Get endpoint pads from cut_data
+        endpoint_pads = cut_data.get('endpoint_pads', {})
+        if not endpoint_pads:
+            print("[WARNING] No endpoint pads found. Skipping port creation.")
+            print()
+            return True
+
+        # Get selected power nets from cut_data
+        selected_nets = cut_data.get('selected_nets', {})
+        power_nets = selected_nets.get('power', [])
+
+        if not power_nets:
+            print("[WARNING] No power nets selected. Cannot create circuit ports without reference.")
+            print()
+            return True
+
+        print(f"Signal nets with endpoints: {len(endpoint_pads)}")
+        print(f"Power nets for reference: {len(power_nets)} ({', '.join(power_nets)})")
+        print()
+
+        # Collect all power net padstack instances (do this once, outside the loop)
+        print("Collecting power net pins...")
+        all_power_pins = []
+        for power_net in power_nets:
+            power_pins = edb.padstacks.get_instances(net_name=power_net)
+            all_power_pins.extend(power_pins)
+            print(f"  {power_net}: {len(power_pins)} pins")
+
+        if not all_power_pins:
+            print("[ERROR] No power net pins found in EDB")
+            print()
+            return False
+
+        print(f"Total power pins collected: {len(all_power_pins)}")
+        print()
+
+        # Track port creation
+        total_ports_created = 0
+        failed_ports = 0
+
+        # Create ports for each signal endpoint
+        for net_name, endpoints in endpoint_pads.items():
+            print(f"Processing signal net: {net_name}")
+            print(f"  Endpoints: {len(endpoints)}")
+
+            for idx, signal_pin in enumerate(endpoints, 1):
+                pin_name = signal_pin.name
+                pin_position = signal_pin.position
+                component_name = signal_pin.component.name if signal_pin.component else "None"
+
+                print(f"  [{idx}/{len(endpoints)}] Signal pin: {pin_name}")
+                print(f"      Position: [{pin_position[0]:.6f}, {pin_position[1]:.6f}]")
+                print(f"      Component: {component_name}")
+
+                # Find reference power pins
+                reference_pins = []
+
+                # Strategy 1: Find power pins in the same component
+                if signal_pin.component:
+                    component_power_pins = [
+                        pin for pin in all_power_pins
+                        if pin.component and pin.component.name == component_name
+                    ]
+                    if component_power_pins:
+                        reference_pins = component_power_pins
+                        print(f"      Found {len(reference_pins)} power pins in same component")
+
+                # Strategy 2: If no component power pins, find nearest power pins
+                if not reference_pins:
+                    print(f"      No power pins in component, finding nearest pins...")
+
+                    # Calculate distance to each power pin
+                    def calculate_distance(pin):
+                        pos = pin.position
+                        dx = pos[0] - pin_position[0]
+                        dy = pos[1] - pin_position[1]
+                        return (dx*dx + dy*dy) ** 0.5
+
+                    # Sort power pins by distance
+                    sorted_power_pins = sorted(all_power_pins, key=calculate_distance)
+
+                    # Use closest 3 power pins as reference
+                    reference_pins = sorted_power_pins[:3]
+
+                    if reference_pins:
+                        nearest_distance = calculate_distance(reference_pins[0])
+                        print(f"      Using {len(reference_pins)} nearest power pins (closest: {nearest_distance:.6f}m)")
+
+                # Create circuit port
+                if reference_pins:
+                    try:
+                        # Generate port name: Port_{net_name}_{pin_name_cleaned}
+                        port_name = f"Port_{net_name}_{pin_name.replace('-', '_').replace('.', '_')}"
+
+                        # Create circuit port
+                        port = signal_pin.create_port(
+                            name=port_name,
+                            reference=reference_pins,
+                            is_circuit_port=True
+                        )
+
+                        print(f"      [OK] Created circuit port: {port_name}")
+                        total_ports_created += 1
+
+                    except Exception as port_error:
+                        print(f"      [ERROR] Failed to create port: {port_error}")
+                        failed_ports += 1
+                else:
+                    print(f"      [ERROR] No reference pins found")
+                    failed_ports += 1
+
+                print()
+
+        # Print summary
+        print("-" * 70)
+        print("PORT CREATION SUMMARY")
+        print("-" * 70)
+        print(f"Total signal nets processed: {len(endpoint_pads)}")
+        print(f"Ports created successfully: {total_ports_created}")
+        print(f"Failed port creations: {failed_ports}")
+        print("-" * 70)
+        print()
+
+        return True
+
+    except Exception as e:
+        print(f"[ERROR] Failed to create ports: {e}")
+        import traceback
+        traceback.print_exc()
+        return False
 
 
 def execute_cuts_on_clone(edbpath, edbversion, cut_data_list, grpc=False):
