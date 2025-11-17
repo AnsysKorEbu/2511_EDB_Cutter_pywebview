@@ -893,6 +893,134 @@ def remove_and_create_ports(edb, cut_data):
         return False
 
 
+def create_gap_ports_for_signal_nets(edb, cut_data):
+    """
+    Create vertical gap ports at cutout edge intersections for signal nets.
+
+    Args:
+        edb: Opened pyedb.Edb object
+        cut_data: Cut data dictionary containing intersection_results from modify_traces
+
+    Returns:
+        bool: True if successful, False otherwise
+    """
+    try:
+        print("=" * 70)
+        print("EDB Cutter - Creating Gap Ports at Cutout Edges")
+        print("=" * 70)
+
+        # Get intersection results from modify_traces
+        intersection_results = cut_data.get('intersection_results', {})
+        if not intersection_results:
+            print("[WARNING] No intersection results found. Skipping gap port creation.")
+            print()
+            return True
+
+        # Get selected signal nets
+        selected_nets = cut_data.get('selected_nets', {})
+        signal_nets = selected_nets.get('signal', [])
+
+        if not signal_nets:
+            print("[WARNING] No signal nets selected. Skipping gap port creation.")
+            print()
+            return True
+
+        print(f"Signal nets to process: {len(signal_nets)}")
+        print(f"Nets with intersections: {len(intersection_results)}")
+        print()
+
+        # Track port creation
+        total_ports_created = 0
+        failed_ports = 0
+        skipped_ports = 0
+
+        # Create gap port for each signal net
+        for net_name in signal_nets:
+            if net_name not in intersection_results:
+                print(f"Net: {net_name}")
+                print(f"  [SKIP] No intersections found with cutout edge")
+                print()
+                skipped_ports += 1
+                continue
+
+            intersections = intersection_results[net_name]
+            if not intersections:
+                print(f"Net: {net_name}")
+                print(f"  [SKIP] Empty intersection list")
+                print()
+                skipped_ports += 1
+                continue
+
+            print(f"Net: {net_name}")
+            print(f"  Intersections found: {len(intersections)}")
+
+            # Use first intersection point for gap port (net당 한 개만 생성)
+            first_intersection = intersections[0]
+            point_on_edge = first_intersection['intersection_point']
+
+            print(f"  Selected intersection point: [{point_on_edge[0]:.6f}, {point_on_edge[1]:.6f}] meters")
+
+            # Find polygon primitive for this net
+            try:
+                # Get all primitives (planes/polygons) for this net
+                net_polygons = [p for p in edb.modeler.primitives if p.net_name == net_name]
+
+                if not net_polygons:
+                    print(f"  [ERROR] No polygon primitives found for net {net_name}")
+                    failed_ports += 1
+                    print()
+                    continue
+
+                # Use the first polygon (or you can select based on layer/size)
+                polygon_prim = net_polygons[0]
+                prim_id = polygon_prim.edb_uid
+
+                print(f"  Found {len(net_polygons)} polygon(s) for net {net_name}")
+                print(f"  Using polygon: ID={prim_id}")
+
+                # Generate port name
+                port_name = f"GapPort_{net_name}"
+
+                # Create vertical gap port
+                edb.source_excitation.create_edge_port_vertical(
+                    prim_id=prim_id,
+                    point_on_edge=[str(point_on_edge[0]), str(point_on_edge[1])],
+                    port_name=port_name,
+                    impedance=50,
+                    hfss_type="Gap"
+                )
+
+                print(f"  [OK] Created gap port: {port_name}")
+                total_ports_created += 1
+
+            except Exception as port_error:
+                print(f"  [ERROR] Failed to create gap port: {port_error}")
+                import traceback
+                traceback.print_exc()
+                failed_ports += 1
+
+            print()
+
+        # Print summary
+        print("-" * 70)
+        print("GAP PORT CREATION SUMMARY")
+        print("-" * 70)
+        print(f"Total signal nets: {len(signal_nets)}")
+        print(f"Gap ports created successfully: {total_ports_created}")
+        print(f"Failed port creations: {failed_ports}")
+        print(f"Skipped (no intersections): {skipped_ports}")
+        print("-" * 70)
+        print()
+
+        return True
+
+    except Exception as e:
+        print(f"[ERROR] Failed to create gap ports: {e}")
+        import traceback
+        traceback.print_exc()
+        return False
+
+
 def execute_cuts_on_clone(edbpath, edbversion, cut_data_list, grpc=False):
     """
     Execute multiple cutting operations on a single EDB clone.
@@ -940,39 +1068,44 @@ def execute_cuts_on_clone(edbpath, edbversion, cut_data_list, grpc=False):
 
         # Execute cut workflow in sequence
         # 1. Apply stackup
-        print("[1/6] Applying stackup...")
+        print("[1/7] Applying stackup...")
         apply_stackup(edb, cut_data)
         print()
 
         # 2. Apply cutout (remove traces outside polygon)
-        print("[2/6] Applying cutout...")
+        print("[2/7] Applying cutout...")
         apply_cutout(edb, cut_data)
         print()
 
         # 3. Find endpoint pads for selected signal nets
-        print("[3/6] Finding endpoint pads for selected nets...")
+        print("[3/7] Finding endpoint pads for selected nets...")
         find_endpoint_pads_for_selected_nets(edb, cut_data)
         print()
 
         # 4. Modify traces (find intersections)
-        print("[4/6] Finding and analyzing trace intersections...")
+        print("[4/7] Finding and analyzing trace intersections...")
         modify_traces(edb, cut_data)
         print()
 
-        # 5. Create circuit ports (only for endpoints inside polygon)
-        print("[5/6] Creating circuit ports...")
+        # 5. Create gap ports at cutout edges
+        print("[5/7] Creating gap ports at cutout edges...")
+        create_gap_ports_for_signal_nets(edb, cut_data)
+        print()
+
+        # 6. Create circuit ports (only for endpoints inside polygon)
+        print("[6/7] Creating circuit ports...")
         remove_and_create_ports(edb, cut_data)
         print()
 
-        # 6. Additional cut operations (future implementation)
-        print("[6/6] Additional cut operations...")
+        # 7. Additional cut operations (future implementation)
+        print("[7/7] Additional cut operations...")
         print("Cut data received:")
         print(f"  Type: {cut_data.get('type')}")
         print(f"  Points: {cut_data.get('points')}")
         print(f"  ID: {cut_data.get('id')}")
         print(f"  Timestamp: {cut_data.get('timestamp')}")
         print()
-        print("[INFO] Cutout operation completed. Additional operations can be added here.")
+        print("[INFO] All cutting operations completed successfully.")
         print()
 
     # Close EDB once (after all cuts processed)
