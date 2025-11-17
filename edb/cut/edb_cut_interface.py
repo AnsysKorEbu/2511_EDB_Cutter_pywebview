@@ -264,6 +264,23 @@ def modify_traces(edb, cut_data):
             print(f"  Point {idx}: [{pt[0]:.6f}, {pt[1]:.6f}]")
         print()
 
+        # Get selected nets from cut_data
+        selected_nets_dict = cut_data.get('selected_nets', {'signal': [], 'power': []})
+        signal_nets = selected_nets_dict.get('signal', [])
+        power_nets = selected_nets_dict.get('power', [])
+
+        # Combine signal and power nets into a single list
+        selected_nets = signal_nets + power_nets
+
+        if selected_nets:
+            print(f"Filtering for selected nets only:")
+            print(f"  Signal nets: {len(signal_nets)} ({', '.join(signal_nets) if signal_nets else 'none'})")
+            print(f"  Power nets: {len(power_nets)} ({', '.join(power_nets) if power_nets else 'none'})")
+            print(f"  Total selected nets: {len(selected_nets)}")
+        else:
+            print("[WARNING] No nets selected - will search all nets")
+        print()
+
         from pyedb.modeler.geometry_operators import GeometryOperators
         from ansys.edb.core.utility.value import Value
 
@@ -288,6 +305,10 @@ def modify_traces(edb, cut_data):
             # Skip traces without net name
             if not net_name:
                 net_name = "NO_NET"
+
+            # Filter: Skip traces not in selected nets list (if nets are selected)
+            if selected_nets and net_name not in selected_nets:
+                continue
 
             trace_found = False
 
