@@ -10,6 +10,7 @@ let layersMap = new Map();
 
 // Net highlighting
 let highlightedNets = new Set(); // Set of net names to highlight
+let powerNetsSet = new Set(); // Set of power/ground net names for special highlighting
 
 // View state
 let viewState = {
@@ -190,6 +191,23 @@ function loadData(data) {
 
     updateLayerList();
     resetView();
+
+    // Load power nets list
+    loadPowerNets();
+}
+
+// Load power net names for special highlighting
+function loadPowerNets() {
+    powerNetsSet.clear();
+
+    // Get power nets from netsManager if available
+    if (window.netsManager && window.netsManager.netsData) {
+        const powerNets = window.netsManager.netsData.power || [];
+        powerNets.forEach(netName => {
+            powerNetsSet.add(netName);
+        });
+        console.log(`Loaded ${powerNetsSet.size} power nets for special highlighting`);
+    }
 }
 
 // Update layer list UI
@@ -339,10 +357,13 @@ function render() {
                 // Determine if this plane should be highlighted
                 const highlighted = isHighlighting && isNetHighlighted(plane.net);
                 const dimmed = isHighlighting && !highlighted;
+                const isPowerNet = powerNetsSet.has(plane.net);
 
                 // Set fill style based on highlight state
-                if (highlighted) {
-                    ctx.fillStyle = '#FFFF00CC'; // Bright yellow for highlighted
+                if (highlighted && isPowerNet) {
+                    ctx.fillStyle = '#87CEEBCC'; // Light blue for highlighted power nets (SkyBlue with opacity)
+                } else if (highlighted) {
+                    ctx.fillStyle = '#FFFF00CC'; // Bright yellow for highlighted signal nets
                 } else if (dimmed) {
                     ctx.fillStyle = layer.color + '10'; // Very transparent for dimmed (hex 10 = ~6% opacity)
                 } else {
@@ -363,10 +384,14 @@ function render() {
                 // Determine if this plane should be highlighted
                 const highlighted = isHighlighting && isNetHighlighted(plane.net);
                 const dimmed = isHighlighting && !highlighted;
+                const isPowerNet = powerNetsSet.has(plane.net);
 
                 // Set stroke style based on highlight state
-                if (highlighted) {
-                    ctx.strokeStyle = '#FFFF00'; // Bright yellow border for highlighted
+                if (highlighted && isPowerNet) {
+                    ctx.strokeStyle = '#4682B4'; // Steel blue border for highlighted power nets
+                    ctx.lineWidth = 2.5; // Thicker border
+                } else if (highlighted) {
+                    ctx.strokeStyle = '#FFFF00'; // Bright yellow border for highlighted signal nets
                     ctx.lineWidth = 2.5; // Thicker border
                 } else if (dimmed) {
                     ctx.strokeStyle = '#00000010'; // Very faint border for dimmed (hex 10 = ~6% opacity)
@@ -431,10 +456,13 @@ function render() {
                         // Determine trace color based on highlight state
                         const highlighted = isHighlighting && isNetHighlighted(trace.net);
                         const dimmed = isHighlighting && !highlighted;
+                        const isPowerNet = powerNetsSet.has(trace.net);
 
                         let traceColor;
-                        if (highlighted) {
-                            traceColor = '#FFFF00'; // Bright yellow for highlighted
+                        if (highlighted && isPowerNet) {
+                            traceColor = '#87CEEB'; // Light blue for highlighted power nets
+                        } else if (highlighted) {
+                            traceColor = '#FFFF00'; // Bright yellow for highlighted signal nets
                         } else if (dimmed) {
                             traceColor = layer.color + '15'; // Very faint for dimmed (hex 15 = ~8% opacity)
                         } else {
@@ -477,10 +505,13 @@ function render() {
                     // Determine via color based on highlight state
                     const highlighted = isHighlighting && isNetHighlighted(via.net);
                     const dimmed = isHighlighting && !highlighted;
+                    const isPowerNet = powerNetsSet.has(via.net);
 
                     let viaColor;
-                    if (highlighted) {
-                        viaColor = '#FFFF00CC'; // Bright yellow with opacity
+                    if (highlighted && isPowerNet) {
+                        viaColor = '#87CEEBCC'; // Light blue for highlighted power nets with opacity
+                    } else if (highlighted) {
+                        viaColor = '#FFFF00CC'; // Bright yellow for highlighted signal nets with opacity
                     } else if (dimmed) {
                         viaColor = layer.color + '15'; // Very faint for dimmed
                     } else {

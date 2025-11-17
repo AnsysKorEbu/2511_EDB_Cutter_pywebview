@@ -200,6 +200,77 @@ def apply_stackup(edb, cut_data):
     pass
 
 
+def apply_cutout(edb, cut_data):
+    """
+    Apply cutout operation using polygon boundary to remove traces outside the region.
+
+    Args:
+        edb: Opened pyedb.Edb object
+        cut_data: Cut data dictionary containing polygon points and selected nets
+
+    Returns:
+        bool: True if successful, False otherwise
+    """
+    try:
+        print("=" * 70)
+        print("EDB Cutter - Applying Cutout")
+        print("=" * 70)
+
+        # Get polygon coordinates (custom extent)
+        polygon_points = cut_data.get('points', [])
+        if not polygon_points or len(polygon_points) < 3:
+            print("[WARNING] No valid polygon found. Skipping cutout.")
+            print()
+            return True
+
+        print(f"Polygon points: {len(polygon_points)}")
+        for idx, pt in enumerate(polygon_points):
+            print(f"  Point {idx}: [{pt[0]:.6f}, {pt[1]:.6f}] meters")
+        print()
+
+        # Get selected nets
+        selected_nets = cut_data.get('selected_nets', {})
+        signal_nets = selected_nets.get('signal', [])
+        power_nets = selected_nets.get('power', [])
+
+        if not signal_nets and not power_nets:
+            print("[WARNING] No nets selected. Skipping cutout.")
+            print()
+            return True
+
+        print(f"Signal nets: {len(signal_nets)} ({', '.join(signal_nets) if signal_nets else 'none'})")
+        print(f"Reference nets (power): {len(power_nets)} ({', '.join(power_nets) if power_nets else 'none'})")
+        print()
+
+        # Execute cutout
+        print("Executing cutout operation...")
+        print("This will remove all traces outside the polygon boundary")
+        print()
+
+        try:
+            edb.cutout(
+                signal_nets=signal_nets if signal_nets else None,
+                reference_nets=power_nets if power_nets else None,
+                custom_extent=polygon_points,
+                custom_extent_units="meter"  # Coordinates are in meters
+            )
+            print("[OK] Cutout operation completed successfully")
+            print()
+            return True
+
+        except Exception as cutout_error:
+            print(f"[ERROR] Cutout operation failed: {cutout_error}")
+            import traceback
+            traceback.print_exc()
+            return False
+
+    except Exception as e:
+        print(f"[ERROR] Failed to apply cutout: {e}")
+        import traceback
+        traceback.print_exc()
+        return False
+
+
 def get_line_intersection(a1, a2, b1, b2):
     """
     Calculate exact intersection point of two line segments.
@@ -228,6 +299,45 @@ def get_line_intersection(a1, a2, b1, b2):
     x = x1 + t * (x2 - x1)
     y = y1 + t * (y2 - y1)
     return [x, y]
+
+
+def is_point_in_polygon(point, polygon_points):
+    """
+    Check if a point is inside a polygon using ray casting algorithm.
+
+    Args:
+        point: Point coordinates [x, y]
+        polygon_points: List of polygon vertex coordinates [[x1, y1], [x2, y2], ...]
+
+    Returns:
+        bool: True if point is inside polygon, False otherwise
+    """
+    if not polygon_points or len(polygon_points) < 3:
+        return False
+
+    x, y = point
+    n = len(polygon_points)
+    inside = False
+
+    # Ray casting algorithm: cast a ray from point to the right (+x direction)
+    # Count how many times it crosses the polygon edges
+    p1x, p1y = polygon_points[0]
+
+    for i in range(1, n + 1):
+        p2x, p2y = polygon_points[i % n]
+
+        # Check if ray crosses this edge
+        if y > min(p1y, p2y):
+            if y <= max(p1y, p2y):
+                if x <= max(p1x, p2x):
+                    if p1y != p2y:
+                        xinters = (y - p1y) * (p2x - p1x) / (p2y - p1y) + p1x
+                    if p1x == p2x or x <= xinters:
+                        inside = not inside
+
+        p1x, p1y = p2x, p2y
+
+    return inside
 
 
 def modify_traces(edb, cut_data):
@@ -664,6 +774,17 @@ def remove_and_create_ports(edb, cut_data):
         print(f"Total power pins collected: {len(all_power_pins)}")
         print()
 
+        # Get polygon coordinates for region checking
+        polygon_points = cut_data.get('points', [])
+        if not polygon_points or len(polygon_points) < 3:
+            print("[WARNING] No valid polygon found in cut_data. Creating ports for all endpoints.")
+            use_polygon_filter = False
+        else:
+            use_polygon_filter = True
+            print(f"Polygon region defined with {len(polygon_points)} points")
+            print("Only endpoints inside polygon will have ports created")
+            print()
+
         # Track port creation
         total_ports_created = 0
         failed_ports = 0
@@ -681,6 +802,16 @@ def remove_and_create_ports(edb, cut_data):
                 print(f"  [{idx}/{len(endpoints)}] Signal pin: {pin_name}")
                 print(f"      Position: [{pin_position[0]:.6f}, {pin_position[1]:.6f}]")
                 print(f"      Component: {component_name}")
+
+                # Check if endpoint is inside polygon region
+                if use_polygon_filter:
+                    is_inside = is_point_in_polygon(pin_position, polygon_points)
+                    if not is_inside:
+                        print(f"      [SKIP] Endpoint outside polygon region - no port created")
+                        print()
+                        continue
+                    else:
+                        print(f"      [OK] Endpoint inside polygon region")
 
                 # Find reference power pins
                 reference_pins = []
@@ -807,34 +938,39 @@ def execute_cuts_on_clone(edbpath, edbversion, cut_data_list, grpc=False):
 
         # Execute cut workflow in sequence
         # 1. Apply stackup
-        print("[1/5] Applying stackup...")
+        print("[1/6] Applying stackup...")
         apply_stackup(edb, cut_data)
         print()
 
-        # 2. Find endpoint pads for selected signal nets
-        print("[2/5] Finding endpoint pads for selected nets...")
+        # 2. Apply cutout (remove traces outside polygon)
+        print("[2/6] Applying cutout...")
+        apply_cutout(edb, cut_data)
+        print()
+
+        # 3. Find endpoint pads for selected signal nets
+        print("[3/6] Finding endpoint pads for selected nets...")
         find_endpoint_pads_for_selected_nets(edb, cut_data)
         print()
 
-        # 3. Modify traces
-        print("[3/5] Finding and analyzing traces...")
+        # 4. Modify traces (find intersections)
+        print("[4/6] Finding and analyzing trace intersections...")
         modify_traces(edb, cut_data)
         print()
 
-        # 4. Remove and create ports
-        print("[4/5] Removing and creating ports...")
+        # 5. Create circuit ports (only for endpoints inside polygon)
+        print("[5/6] Creating circuit ports...")
         remove_and_create_ports(edb, cut_data)
         print()
 
-        # 5. Execute actual cut (to be implemented)
-        print("[5/5] Executing cut operation...")
+        # 6. Additional cut operations (future implementation)
+        print("[6/6] Additional cut operations...")
         print("Cut data received:")
         print(f"  Type: {cut_data.get('type')}")
         print(f"  Points: {cut_data.get('points')}")
         print(f"  ID: {cut_data.get('id')}")
         print(f"  Timestamp: {cut_data.get('timestamp')}")
         print()
-        print("[TODO] Actual cutting operation to be implemented")
+        print("[INFO] Cutout operation completed. Additional operations can be added here.")
         print()
 
     # Close EDB once (after all cuts processed)
