@@ -210,6 +210,9 @@ def apply_cutout(edb, cut_data):
             )
             print("[OK] Cutout operation completed successfully")
 
+            # Initialize gap_port_info for storing edge intersection data
+            cut_data['gap_port_info'] = []
+
             # 특정 primitive에 대해 잘린 좌표 얻기
             for prim in edb.modeler.primitives:
                 if prim.net_name in signal_nets:
@@ -243,6 +246,16 @@ def apply_cutout(edb, cut_data):
                                     print(f"  끝점:   [{edge[1][0]:.9f}, {edge[1][1]:.9f}] meters")
                                     print(f"  중심점: [{midpoint[0]:.9f}, {midpoint[1]:.9f}] meters")
                                 print("=" * 50)
+
+                                # Store edge intersections info for gap port creation
+                                if edge_intersections:
+                                    gap_info = {
+                                        'net_name': prim.net_name,
+                                        'prim_id': prim.id,
+                                        'edge_intersections': edge_intersections
+                                    }
+                                    cut_data['gap_port_info'].append(gap_info)
+                                    print(f"[DEBUG] Stored gap port info for {prim.net_name}, primitive ID: {prim.id}")
 
 
             return True
@@ -787,48 +800,112 @@ def remove_and_create_ports(edb, cut_data):
 
 def create_gap_ports(edb, cut_data):
     """
-    Collect edge info -> create gap port on edge
+    Create gap ports on cutout edges using stored edge intersection information.
 
     Args:
         edb: Opened pyedb.Edb object
-        cut_data: Cut data dictionary containing endpoint_pads and selected_nets
+        cut_data: Cut data dictionary containing gap_port_info and selected_nets
 
     Returns:
         bool: True if successful, False otherwise
     """
     try:
-        print(f"[DEBUG] Creating Gap Port . . .")
-        print(f"[DEBUG] 0. Export to AEDT")
+        print("=" * 70)
+        print("EDB Cutter - Creating Gap Ports")
+        print("=" * 70)
 
+        # 1. Get gap port info from cut_data
+        gap_port_info = cut_data.get('gap_port_info', [])
+        if not gap_port_info:
+            print("[WARNING] No gap port info found. Skipping gap port creation.")
+            print()
+            return True
 
-
-        print(f"[DEBUG] 1. Get Polygon")
-        # Get selected nets
+        # 2. Get reference layer from selected_nets
         selected_nets = cut_data.get('selected_nets', {})
-        signal_nets = selected_nets.get('signal', [])
-        power_nets = selected_nets.get('power', [])
+        reference_layer = selected_nets.get('reference_layer')
 
-        if len(signal_nets)>0:
-            for net_name in signal_nets:
-                net = edb.nets[net_name]
-                primitives = edb.modeler.get_primitives(net_name=net_name)
+        if not reference_layer:
+            print("[ERROR] No reference layer selected. Cannot create gap ports.")
+            print("Please select a reference layer in the GUI (Nets tab -> Reference Layer for Gap Ports)")
+            print()
+            return False
 
-                print(f"[DEBUG] 2. Get Edge")
-                # Edge 위의 점 지정 (edge 중간점 권장)
-                edge_point = [9.45-3, -10.03e-3]
+        print(f"Reference layer: {reference_layer}")
+        print(f"Gap port candidates: {len(gap_port_info)} primitives")
+        print()
 
-                print(f"[DEBUG] 3. Create Port")
-                # Edge port 생성
-                edb.source_excitation.create_edge_port_on_polygon(
-                    polygon=primitives[15],
-                    terminal_point=edge_point,
-                    reference_layer="wir2"
-                )
+        # 3. Create gap ports for each primitive's edge intersections
+        total_ports_created = 0
+        total_ports_failed = 0
 
+        for gap_info in gap_port_info:
+            net_name = gap_info['net_name']
+            prim_id = gap_info['prim_id']
+            edge_intersections = gap_info['edge_intersections']
 
-        pass
+            print(f"Processing net: {net_name}")
+            print(f"  Primitive ID: {prim_id}")
+            print(f"  Edge intersections: {len(edge_intersections)}")
+
+            # 4. Re-fetch primitive by ID (prim object cannot be serialized)
+            prim = None
+            for p in edb.modeler.primitives:
+                if p.id == prim_id:
+                    prim = p
+                    break
+
+            if not prim:
+                print(f"  [WARNING] Primitive {prim_id} not found. Skipping.")
+                print()
+                continue
+
+            # 5. Create gap port for each edge intersection
+            for idx, (edge, midpoint) in enumerate(edge_intersections, 1):
+                try:
+                    # Generate unique port name
+                    port_name = f"GapPort_{net_name}_{prim_id}_{idx}"
+
+                    print(f"  [{idx}/{len(edge_intersections)}] Creating gap port: {port_name}")
+                    print(f"      Edge: [{edge[0][0]:.9f}, {edge[0][1]:.9f}] -> [{edge[1][0]:.9f}, {edge[1][1]:.9f}]")
+                    print(f"      Terminal point (midpoint): [{midpoint[0]:.9f}, {midpoint[1]:.9f}]")
+                    print(f"      Reference layer: {reference_layer}")
+
+                    # Create edge port on polygon
+                    edb.source_excitation.create_edge_port_on_polygon(
+                        polygon=prim,               # Re-fetched primitive
+                        terminal_point=midpoint,    # Midpoint from edge_intersections
+                        reference_layer=reference_layer  # From GUI selection
+                    )
+
+                    print(f"      [OK] Gap port created successfully")
+                    total_ports_created += 1
+
+                except Exception as port_error:
+                    print(f"      [ERROR] Failed to create gap port: {port_error}")
+                    import traceback
+                    traceback.print_exc()
+                    total_ports_failed += 1
+
+            print()
+
+        # Print summary
+        print("-" * 70)
+        print("GAP PORT CREATION SUMMARY")
+        print("-" * 70)
+        print(f"Total primitives processed: {len(gap_port_info)}")
+        print(f"Gap ports created successfully: {total_ports_created}")
+        print(f"Failed gap port creations: {total_ports_failed}")
+        print("-" * 70)
+        print()
+
+        return True
+
     except Exception as e:
-        print(f"[ERROR] {e}")
+        print(f"[ERROR] Failed to create gap ports: {e}")
+        import traceback
+        traceback.print_exc()
+        return False
 
 
 
