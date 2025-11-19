@@ -660,12 +660,12 @@ def create_gap_ports(edb, cut_data):
         if len(signal_nets)>0:
             for net_name in signal_nets:
                 net = edb.nets[net_name]
-                primitives = net.primitives
-                # for prim in primitives:
-                #     if prim.type == "polygon":
-                #         # 원시 EDB point 리스트
-                #         raw_points = prim.points_raw
-                #
+                primitives = edb.modeler.get_primitives(net_name=net_name)
+                for prim in primitives:
+                    if prim.type == "polygon":
+                        # 원시 EDB point 리스트
+                        raw_points = prim.points_raw
+
                 #         # Arc를 segment로 변환한 (x, y) 좌표
                 #         x_coords, y_coords = prim.points(arc_segments=6)
                 #
@@ -680,7 +680,7 @@ def create_gap_ports(edb, cut_data):
                 print(f"[DEBUG] 3. Create Port")
                 # Edge port 생성
                 edb.source_excitation.create_edge_port_on_polygon(
-                    polygon=target_poly,
+                    polygon=primitives[15],
                     terminal_point=edge_point,
                     reference_layer="wir2"
                 )

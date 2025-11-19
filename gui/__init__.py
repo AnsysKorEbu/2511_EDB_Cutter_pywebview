@@ -332,24 +332,15 @@ class Api:
                 json.dump(batch_data, batch_file, indent=2)
 
             try:
-                # Run edb.cut package as subprocess with batch file (real-time output)
+                # Run edb.cut package as subprocess with batch file
                 grpc_str = "True" if self.grpc else "False"
-                process = subprocess.Popen(
+                result = subprocess.run(
                     [str(python_exe), "-u", "-m", "edb.cut", self.edb_path, self.edb_version, batch_file_path, grpc_str],
                     cwd=Path.cwd(),
-                    stdout=subprocess.PIPE,
-                    stderr=subprocess.STDOUT,
-                    text=True,
-                    bufsize=1,  # Line buffered
-                    universal_newlines=True
+                    timeout=600  # 10 minutes timeout
                 )
 
-                # Stream output in real-time
-                for line in process.stdout:
-                    print(line, end='')
-
-                # Wait for process to complete
-                return_code = process.wait(timeout=600)  # 10 minutes timeout
+                return_code = result.returncode
 
                 if return_code != 0:
                     error_msg = f"Cut execution failed with code {return_code}"
