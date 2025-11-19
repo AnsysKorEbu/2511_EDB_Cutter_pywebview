@@ -6,6 +6,7 @@ It loads cut data and calls the edb_cut_interface module.
 """
 import sys
 import json
+import shutil
 from pathlib import Path
 from .edb_cut_interface import clone_edbs_for_cuts, execute_cuts_on_clone
 
@@ -120,6 +121,20 @@ if __name__ == "__main__":
                 cloned_paths = clone_edbs_for_cuts(original_edb_path, num_clones, edb_version, grpc)
                 print(f"[OK] Successfully created {len(cloned_paths)} EDB clones")
                 print()
+
+                # Copy batch file to Results directory
+                results_dir = Path(cloned_paths[0]).parent
+                batch_filename = f"batch_{Path(input_file_path).name}"
+                batch_dest = results_dir / batch_filename
+
+                try:
+                    shutil.copy2(input_file_path, batch_dest)
+                    print(f"[OK] Batch file copied to: {batch_dest}")
+                    print()
+                except Exception as copy_error:
+                    print(f"[WARNING] Failed to copy batch file: {copy_error}")
+                    print()
+
             except Exception as clone_error:
                 print(f"[ERROR] Failed to clone EDB files: {clone_error}")
                 import traceback
