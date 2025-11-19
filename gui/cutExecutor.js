@@ -18,10 +18,6 @@ async function openCutExecutor() {
     const modal = document.getElementById('cutExecutorModal');
     const cutListContainer = document.getElementById('executorCutList');
 
-    // Clear previous selection when opening modal
-    cutExecutor.selectedCutIds = [];
-    cutExecutor.isExecuting = false;
-
     // Show modal
     modal.classList.remove('hidden');
 
@@ -36,8 +32,15 @@ async function openCutExecutor() {
                     <p class="empty-hint">Create cuts using Cut Mode first</p>
                 </div>
             `;
+            // Clear selection only when there are no cuts
+            cutExecutor.selectedCutIds = [];
+            cutExecutor.isExecuting = false;
             return;
         }
+
+        // Auto-select all cuts in order when opening modal
+        cutExecutor.selectedCutIds = cuts.map(cut => cut.id);
+        cutExecutor.isExecuting = false;
 
         // Generate cut list HTML
         cutListContainer.innerHTML = cuts.map(cut => `
@@ -54,6 +57,9 @@ async function openCutExecutor() {
                 </div>
             </div>
         `).join('');
+
+        // Update UI to show all cuts are selected
+        updateCutOrderDisplay();
 
         // Update execute button state
         updateExecuteButton();

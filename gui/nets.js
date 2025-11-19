@@ -93,6 +93,13 @@ class NetsManager {
 
         // Initialize event handlers
         this.initEventHandlers();
+
+        // Auto-select all nets on initial load
+        const checkboxes = document.querySelectorAll('.net-checkbox:checked');
+        checkboxes.forEach(checkbox => {
+            this.selectedNets.add(checkbox.dataset.net);
+        });
+        console.log(`[NetsManager] Auto-selected ${this.selectedNets.size} nets`);
     }
 
     /**
@@ -122,7 +129,8 @@ class NetsManager {
                 <label class="net-label">
                     <input type="checkbox" class="net-checkbox"
                            data-net="${netName}"
-                           data-type="${type}">
+                           data-type="${type}"
+                           checked>
                     <span class="net-name" title="${netName}">${netName}</span>
                 </label>
             </div>
@@ -320,6 +328,14 @@ class NetsManager {
         });
 
         console.log(`[NetsManager] Updated layer dropdown with ${layerNames.length} layers`);
+
+        // Auto-select the last layer
+        if (layerNames.length > 0) {
+            const lastLayer = layerNames[layerNames.length - 1];
+            select.value = lastLayer;
+            this.selectedReferenceLayer = lastLayer;
+            console.log(`[NetsManager] Auto-selected last layer: ${lastLayer}`);
+        }
     }
 }
 
