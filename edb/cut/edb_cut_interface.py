@@ -198,13 +198,8 @@ def apply_cutout(edb, cut_data):
             netlist = edb.nets.netlist
             filtered_netlist = [n for n in netlist if not signal_nets or n not in signal_nets]
 
-            # cutout 전에 reference_nets의 primitives 저장
-            before_cutout = {}
-            after_cutout = {}
-            for net_name in signal_nets:
-                net = edb.nets.nets[net_name]
-                before_cutout[net_name] = edb.modeler.get_primitives(net_name=net_name)
-
+            from ansys.edb.core.geometry.polygon_data import PolygonData as GrpcPolygonData
+            extent_poly = GrpcPolygonData(points=polygon_points)
 
             edb.cutout(
                 signal_nets=filtered_netlist,
@@ -215,10 +210,24 @@ def apply_cutout(edb, cut_data):
             )
             print("[OK] Cutout operation completed successfully")
 
-            # cutout 후 비교
-            for net_name in signal_nets:
-                after_cutout[net_name] = edb.modeler.get_primitives(net_name=net_name)
-                # before_cutout과 after_cutout 비교하여 변경사항 확인
+            # 특정 primitive에 대해 잘린 좌표 얻기
+            for prim in edb.modeler.primitives:
+                if prim.net_name in signal_nets:
+                    # 1. 교차 타입 확인 (0=교차없음, 1=완전포함, 2=역포함, 3=부분교차)
+                    int_type = extent_poly.intersection_type(prim.polygon_data).value
+
+                    if int_type in [3]:  # 부분 교차하는 경우만
+                        # 2. 실제 잘린 polygon 리스트 얻기
+                        clipped_polys = extent_poly.intersect([extent_poly], [prim.polygon_data])
+
+                        # 3. 각 잘린 polygon의 좌표 추출
+                        for clipped_poly in clipped_polys:
+                            if clipped_poly.points:
+                                coords = [[pt.x.value, pt.y.value] for pt in clipped_poly.points]
+                                print(f"잘린 단면 좌표 ({len(coords)}개 점):")
+                                for pt in coords:
+                                    print(f"  {pt}")
+
 
             return True
 
