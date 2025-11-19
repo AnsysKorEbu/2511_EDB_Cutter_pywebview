@@ -189,11 +189,19 @@ function loadData(data) {
     document.getElementById('layerCount').textContent = layersMap.size;
     document.getElementById('pointCount').textContent = totalPoints.toLocaleString();
 
+    // Export layersMap to window for access from other modules
+    window.layersMap = layersMap;
+
     updateLayerList();
     resetView();
 
     // Load power nets list
     loadPowerNets();
+
+    // Update layer dropdown in Nets tab if netsManager is available
+    if (window.netsManager) {
+        window.netsManager.updateLayerDropdown();
+    }
 }
 
 // Load power net names for special highlighting

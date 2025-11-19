@@ -289,6 +289,38 @@ class NetsManager {
             reference_layer: this.selectedReferenceLayer
         };
     }
+
+    /**
+     * Update layer dropdown options after layersMap is loaded
+     */
+    updateLayerDropdown() {
+        const select = document.getElementById('referenceLayerSelect');
+        if (!select) {
+            console.log('[NetsManager] Reference layer select not found');
+            return;
+        }
+
+        if (!window.layersMap || window.layersMap.size === 0) {
+            console.log('[NetsManager] LayersMap not available yet');
+            return;
+        }
+
+        // Clear existing options except the first one
+        while (select.options.length > 1) {
+            select.remove(1);
+        }
+
+        // Add layer options
+        const layerNames = Array.from(window.layersMap.keys());
+        layerNames.forEach(layerName => {
+            const option = document.createElement('option');
+            option.value = layerName;
+            option.textContent = layerName;
+            select.appendChild(option);
+        });
+
+        console.log(`[NetsManager] Updated layer dropdown with ${layerNames.length} layers`);
+    }
 }
 
 // Export for use in main.js

@@ -7,7 +7,7 @@ It loads cut data and calls the edb_cut_interface module.
 import sys
 import json
 from pathlib import Path
-from .edb_cut_interface import execute_cut, clone_edbs_for_cuts, execute_cuts_on_clone
+from .edb_cut_interface import clone_edbs_for_cuts, execute_cuts_on_clone
 
 
 def load_cut_data(cut_file_path):
