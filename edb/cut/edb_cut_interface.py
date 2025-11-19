@@ -228,6 +228,22 @@ def apply_cutout(edb, cut_data):
                                 for pt in coords:
                                     print(f"  {pt}")
 
+                                # Find cutout edge intersections
+                                print(f"\n=== 정확한 cutout 지점 분석 ===")
+                                edge_intersections = find_cutout_edge_intersections(
+                                    coords,
+                                    polygon_points,
+                                    tolerance=1e-6
+                                )
+
+                                print(f"발견된 교차 지점: {len(edge_intersections)}개")
+                                for idx, (edge, midpoint) in enumerate(edge_intersections, 1):
+                                    print(f"\n[{idx}] Edge:")
+                                    print(f"  시작점: [{edge[0][0]:.9f}, {edge[0][1]:.9f}] meters")
+                                    print(f"  끝점:   [{edge[1][0]:.9f}, {edge[1][1]:.9f}] meters")
+                                    print(f"  중심점: [{midpoint[0]:.9f}, {midpoint[1]:.9f}] meters")
+                                print("=" * 50)
+
 
             return True
 
@@ -242,6 +258,114 @@ def apply_cutout(edb, cut_data):
         import traceback
         traceback.print_exc()
         return False
+
+
+def point_to_line_segment_distance(point, line_start, line_end):
+    """
+    Calculate the shortest distance from a point to a line segment.
+
+    Args:
+        point: [x, y] coordinates
+        line_start: [x, y] coordinates of line segment start
+        line_end: [x, y] coordinates of line segment end
+
+    Returns:
+        float: Shortest distance from point to line segment
+    """
+    px, py = point
+    x1, y1 = line_start
+    x2, y2 = line_end
+
+    # Calculate line segment length squared
+    dx = x2 - x1
+    dy = y2 - y1
+    length_sq = dx * dx + dy * dy
+
+    if length_sq == 0:
+        # Line segment is actually a point
+        return ((px - x1) ** 2 + (py - y1) ** 2) ** 0.5
+
+    # Calculate parameter t (0 <= t <= 1) for closest point on line segment
+    # t represents position along line: 0 = start, 1 = end
+    t = max(0, min(1, ((px - x1) * dx + (py - y1) * dy) / length_sq))
+
+    # Calculate closest point on line segment
+    closest_x = x1 + t * dx
+    closest_y = y1 + t * dy
+
+    # Calculate distance from point to closest point
+    return ((px - closest_x) ** 2 + (py - closest_y) ** 2) ** 0.5
+
+
+def find_cutout_edge_intersections(coords, polygon_points, tolerance=1e-6):
+    """
+    Find points in coords that are very close to polygon_points edges,
+    and calculate the midpoint of touching points for each edge.
+
+    Args:
+        coords: List of coordinates after cutout [[x, y], ...]
+        polygon_points: List of polygon boundary coordinates [[x, y], ...]
+        tolerance: Distance threshold for considering a point "touching" an edge (default: 1e-6 meters)
+
+    Returns:
+        list: List of tuples (edge, midpoint) where:
+            - edge: [[x1, y1], [x2, y2]] - the polygon edge
+            - midpoint: [x, y] - midpoint between first and last touching point on this edge
+    """
+    # Filter out invalid coordinates (very large values that cause overflow)
+    MAX_COORD_VALUE = 1e10  # Reasonable maximum for coordinate values
+    valid_coords = []
+
+    for coord in coords:
+        if len(coord) >= 2:
+            x, y = coord[0], coord[1]
+            if abs(x) < MAX_COORD_VALUE and abs(y) < MAX_COORD_VALUE:
+                valid_coords.append(coord)
+            else:
+                print(f"[WARNING] Skipping invalid coordinate: [{x}, {y}]")
+
+    print(f"[DEBUG] Total coords: {len(coords)}, Valid coords: {len(valid_coords)}")
+
+    # 1. Generate all edges from polygon_points (closed polygon)
+    edges = []
+    n = len(polygon_points)
+
+    for i in range(n):
+        start = polygon_points[i]
+        end = polygon_points[(i + 1) % n]  # Connect last point to first
+        edges.append([start, end])
+
+    # 2. For each edge, find coords points that are close to it
+    results = []
+
+    for edge in edges:
+        touching_points = []
+
+        for coord in valid_coords:  # Use filtered valid_coords instead of coords
+            # Calculate distance from coord to edge
+            dist = point_to_line_segment_distance(coord, edge[0], edge[1])
+
+            if dist < tolerance:
+                touching_points.append(coord)
+
+        # 3. If there are touching points, calculate midpoint
+        if len(touching_points) > 0:
+            if len(touching_points) == 1:
+                # Only one point touching this edge
+                midpoint = touching_points[0]
+            else:
+                # Calculate midpoint between first and last touching point
+                first = touching_points[0]
+                last = touching_points[-1]
+                midpoint = [
+                    (first[0] + last[0]) / 2,
+                    (first[1] + last[1]) / 2
+                ]
+
+            # Store as tuple (edge, midpoint)
+            results.append((edge, midpoint))
+
+    return results
 
 
 def is_point_in_polygon(point, polygon_points):
