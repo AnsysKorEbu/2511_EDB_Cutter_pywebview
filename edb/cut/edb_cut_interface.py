@@ -638,6 +638,61 @@ def remove_and_create_ports(edb, cut_data):
         traceback.print_exc()
         return False
 
+def create_gap_ports(edb, cut_data):
+    """
+    Collect edge info -> create gap port on edge
+
+    Args:
+        edb: Opened pyedb.Edb object
+        cut_data: Cut data dictionary containing endpoint_pads and selected_nets
+
+    Returns:
+        bool: True if successful, False otherwise
+    """
+    try:
+        print(f"[DEBUG] Creating Gap Port . . .")
+        print(f"[DEBUG] 1. Get Polygon")
+        # Get selected nets
+        selected_nets = cut_data.get('selected_nets', {})
+        signal_nets = selected_nets.get('signal', [])
+        power_nets = selected_nets.get('power', [])
+
+        if len(signal_nets)>0:
+            for net_name in signal_nets:
+                net = edb.nets[net_name]
+                primitives = net.primitives
+                # for prim in primitives:
+                #     if prim.type == "polygon":
+                #         # 원시 EDB point 리스트
+                #         raw_points = prim.points_raw
+                #
+                #         # Arc를 segment로 변환한 (x, y) 좌표
+                #         x_coords, y_coords = prim.points(arc_segments=6)
+                #
+                # # Polygon primitive 가져오기
+                # poly_list = [p for p in edb.layout.primitives if p.primitive_type.value == 2]
+                # target_poly = poly_list[0]
+
+                print(f"[DEBUG] 2. Get Edge")
+                # Edge 위의 점 지정 (edge 중간점 권장)
+                edge_point = [9.45-3, -10.03e-3]
+
+                print(f"[DEBUG] 3. Create Port")
+                # Edge port 생성
+                edb.source_excitation.create_edge_port_on_polygon(
+                    polygon=target_poly,
+                    terminal_point=edge_point,
+                    reference_layer="wir2"
+                )
+
+
+        pass
+    except Exception as e:
+        print(f"[ERROR] {e}")
+
+
+
+
 def execute_cuts_on_clone(edbpath, edbversion, cut_data_list, grpc=False):
     """
     Execute multiple cutting operations on a single EDB clone.
@@ -704,8 +759,13 @@ def execute_cuts_on_clone(edbpath, edbversion, cut_data_list, grpc=False):
         remove_and_create_ports(edb, cut_data)
         print()
 
-        # 5. Additional cut operations (future implementation)
-        print("[5/5] Additional cut operations...")
+        # 5. Create circuit ports (only for endpoints inside polygon)
+        print("[5/5] Creating gap ports...")
+        create_gap_ports(edb, cut_data)
+        print()
+
+        # 6. Additional cut operations (future implementation)
+        print("[6/5] Additional cut operations...")
         print("Cut data received:")
         print(f"  Type: {cut_data.get('type')}")
         print(f"  Points: {cut_data.get('points')}")
