@@ -961,14 +961,14 @@ def execute_cuts_on_clone(edbpath, edbversion, cut_data_list, grpc=False):
         apply_stackup(edb, cut_data)
         print()
 
-        # 2. Apply cutout (remove traces outside polygon)
-        print("[2/5] Applying cutout...")
-        apply_cutout(edb, cut_data)
+        # 2. Find endpoint pads for selected signal nets
+        print("[2/5] Finding endpoint pads for selected nets...")
+        find_endpoint_pads_for_selected_nets(edb, cut_data)
         print()
 
-        # 3. Find endpoint pads for selected signal nets
-        print("[3/5] Finding endpoint pads for selected nets...")
-        find_endpoint_pads_for_selected_nets(edb, cut_data)
+        # 3. Apply cutout (remove traces outside polygon)
+        print("[3/5] Applying cutout...")
+        apply_cutout(edb, cut_data)
         print()
 
         # 4. Create circuit ports (only for endpoints inside polygon)
