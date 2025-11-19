@@ -197,6 +197,15 @@ def apply_cutout(edb, cut_data):
         try:
             netlist = edb.nets.netlist
             filtered_netlist = [n for n in netlist if not signal_nets or n not in signal_nets]
+
+            # cutout 전에 reference_nets의 primitives 저장
+            before_cutout = {}
+            after_cutout = {}
+            for net_name in signal_nets:
+                net = edb.nets.nets[net_name]
+                before_cutout[net_name] = edb.modeler.get_primitives(net_name=net_name)
+
+
             edb.cutout(
                 signal_nets=filtered_netlist,
                 reference_nets=signal_nets if signal_nets else [],
@@ -205,7 +214,12 @@ def apply_cutout(edb, cut_data):
                 custom_extent_units="meter"  # Coordinates are in meters
             )
             print("[OK] Cutout operation completed successfully")
-            print()
+
+            # cutout 후 비교
+            for net_name in signal_nets:
+                after_cutout[net_name] = edb.modeler.get_primitives(net_name=net_name)
+                # before_cutout과 after_cutout 비교하여 변경사항 확인
+
             return True
 
         except Exception as cutout_error:
@@ -651,20 +665,24 @@ def create_gap_ports(edb, cut_data):
     """
     try:
         print(f"[DEBUG] Creating Gap Port . . .")
-        print(f"[DEBUG] 1. Get Polygon")
-        # Get selected nets
-        selected_nets = cut_data.get('selected_nets', {})
-        signal_nets = selected_nets.get('signal', [])
-        power_nets = selected_nets.get('power', [])
+        print(f"[DEBUG] 0. Export to AEDT")
 
-        if len(signal_nets)>0:
-            for net_name in signal_nets:
-                net = edb.nets[net_name]
-                primitives = edb.modeler.get_primitives(net_name=net_name)
-                for prim in primitives:
-                    if prim.type == "polygon":
-                        # 원시 EDB point 리스트
-                        raw_points = prim.points_raw
+
+
+        print(f"[DEBUG] 1. Get Polygon")
+        # # Get selected nets
+        # selected_nets = cut_data.get('selected_nets', {})
+        # signal_nets = selected_nets.get('signal', [])
+        # power_nets = selected_nets.get('power', [])
+        #
+        # if len(signal_nets)>0:
+        #     for net_name in signal_nets:
+        #         net = edb.nets[net_name]
+        #         primitives = edb.modeler.get_primitives(net_name=net_name)
+        #         for prim in primitives:
+        #             if prim.type == "polygon":
+        #                 # 원시 EDB point 리스트
+        #                 raw_points = prim.points_raw
 
                 #         # Arc를 segment로 변환한 (x, y) 좌표
                 #         x_coords, y_coords = prim.points(arc_segments=6)
@@ -672,18 +690,18 @@ def create_gap_ports(edb, cut_data):
                 # # Polygon primitive 가져오기
                 # poly_list = [p for p in edb.layout.primitives if p.primitive_type.value == 2]
                 # target_poly = poly_list[0]
-
-                print(f"[DEBUG] 2. Get Edge")
-                # Edge 위의 점 지정 (edge 중간점 권장)
-                edge_point = [9.45-3, -10.03e-3]
-
-                print(f"[DEBUG] 3. Create Port")
-                # Edge port 생성
-                edb.source_excitation.create_edge_port_on_polygon(
-                    polygon=primitives[15],
-                    terminal_point=edge_point,
-                    reference_layer="wir2"
-                )
+                #
+                # print(f"[DEBUG] 2. Get Edge")
+                # # Edge 위의 점 지정 (edge 중간점 권장)
+                # edge_point = [9.45-3, -10.03e-3]
+                #
+                # print(f"[DEBUG] 3. Create Port")
+                # # Edge port 생성
+                # edb.source_excitation.create_edge_port_on_polygon(
+                #     polygon=primitives[15],
+                #     terminal_point=edge_point,
+                #     reference_layer="wir2"
+                # )
 
 
         pass
