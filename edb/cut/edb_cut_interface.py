@@ -482,6 +482,107 @@ def find_endpoint_pads(edb, net_name):
         return []
 
 
+def calculate_point_distance(pt1, pt2):
+    """
+    Calculate Euclidean distance between two points.
+
+    Args:
+        pt1: First point [x, y]
+        pt2: Second point [x, y]
+
+    Returns:
+        float: Euclidean distance
+    """
+    dx = pt2[0] - pt1[0]
+    dy = pt2[1] - pt1[1]
+    return (dx * dx + dy * dy) ** 0.5
+
+
+def find_net_extreme_endpoints(edb, net_name, tolerance=1e-3):
+    """
+    Find the two farthest endpoints of a net.
+
+    Strategy:
+    1. Collect all path endpoints (start and end of each center_line)
+    2. Merge points within tolerance distance (treat as connected)
+    3. Find the two farthest points among merged endpoints
+
+    Args:
+        edb: Opened pyedb.Edb object
+        net_name: Name of the net to analyze
+        tolerance: Distance threshold for merging close points (default: 1e-3 meters)
+
+    Returns:
+        dict or None: {
+            'start': [x, y] coordinates of one extreme endpoint,
+            'end': [x, y] coordinates of other extreme endpoint,
+            'distance': float distance between them,
+            'total_paths': int number of paths in net,
+            'merged_endpoints': int number of unique endpoints after merging
+        }
+    """
+    # Get all paths for this net
+    paths = edb.modeler.get_primitives(net_name=net_name, prim_type="path")
+
+    if not paths:
+        return None
+
+    # 1. Collect all endpoints
+    endpoints = []
+    for path in paths:
+        if len(path.center_line) >= 2:
+            endpoints.append(path.center_line[0])   # start
+            endpoints.append(path.center_line[-1])  # end
+
+    if len(endpoints) < 2:
+        return None
+
+    # 2. Merge close points (within tolerance)
+    merged = []
+    used = [False] * len(endpoints)
+
+    for i, pt in enumerate(endpoints):
+        if used[i]:
+            continue
+
+        # Find all points close to this one
+        cluster = [pt]
+        used[i] = True
+
+        for j in range(i+1, len(endpoints)):
+            if not used[j]:
+                if calculate_point_distance(pt, endpoints[j]) < tolerance:
+                    cluster.append(endpoints[j])
+                    used[j] = True
+
+        # Average the cluster to get merged point
+        avg_x = sum(p[0] for p in cluster) / len(cluster)
+        avg_y = sum(p[1] for p in cluster) / len(cluster)
+        merged.append([avg_x, avg_y])
+
+    # 3. Find two farthest points
+    max_dist = 0
+    farthest_pair = None
+
+    for i, pt1 in enumerate(merged):
+        for pt2 in merged[i+1:]:
+            dist = calculate_point_distance(pt1, pt2)
+            if dist > max_dist:
+                max_dist = dist
+                farthest_pair = (pt1, pt2)
+
+    if farthest_pair:
+        return {
+            'start': farthest_pair[0],
+            'end': farthest_pair[1],
+            'distance': max_dist,
+            'total_paths': len(paths),
+            'merged_endpoints': len(merged)
+        }
+
+    return None
+
+
 def find_endpoint_pads_for_selected_nets(edb, cut_data):
     try:
 
@@ -509,22 +610,28 @@ def find_endpoint_pads_for_selected_nets(edb, cut_data):
             cut_data['endpoint_pads'] = {}
             return True
 
-        for net_name in signal_nets:
-            net_paths = edb.modeler.get_primitives(
-                net_name=net_name,
-                prim_type="path"
-            )
-            for path in net_paths:
-                # center_line은 [[x, y], ...] 형태의 리스트
-                center_line = path.center_line
+        # Find extreme endpoints for each net
+        print("=" * 70)
+        print("Finding Net Extreme Endpoints (tolerance: 1e-3 meters)")
+        print("=" * 70)
+        print()
 
-                if len(center_line) >= 2:
-                    start_point = center_line[0]  # [x, y]
-                    end_point = center_line[-1]  # [x, y]
+        for idx, net_name in enumerate(signal_nets, 1):
+            print(f"[{idx}/{len(signal_nets)}] Analyzing net: {net_name}")
 
-                    print(f"Path ID: {path.id}")
-                    print(f"Start: {start_point}")
-                    print(f"End: {end_point}")
+            # Find extreme endpoints
+            net_info = find_net_extreme_endpoints(edb, net_name, tolerance=1e-3)
+
+            if net_info:
+                print(f"  Total paths: {net_info['total_paths']}")
+                print(f"  Unique endpoints after merging: {net_info['merged_endpoints']}")
+                print(f"  Start: [{net_info['start'][0]:.9f}, {net_info['start'][1]:.9f}] m")
+                print(f"  End:   [{net_info['end'][0]:.9f}, {net_info['end'][1]:.9f}] m")
+                print(f"  Distance: {net_info['distance']:.9f} m")
+            else:
+                print(f"  [WARNING] Could not find endpoints for this net")
+
+            print()
 
 
 
