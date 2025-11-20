@@ -489,19 +489,6 @@ def find_endpoint_pads_for_selected_nets(edb, cut_data):
         print("EDB Cutter - Finding Endpoint Pads for Selected Nets")
         print("=" * 70)
 
-        # Get cut polyline points
-        cut_points = cut_data.get('points', [])
-        if not cut_points or len(cut_points) < 2:
-            print("[WARNING] No valid cut points found. Cannot determine farthest endpoints.")
-            cut_data['endpoint_pads'] = {}
-            return True
-
-        # Calculate cut line direction (from first to last point)
-        cut_start = cut_points[0]
-        cut_end = cut_points[-1]
-        print(f"Cut line: Start [{cut_start[0]:.6f}, {cut_start[1]:.6f}] -> End [{cut_end[0]:.6f}, {cut_end[1]:.6f}]")
-        print()
-
         # Get selected nets from cut_data
         selected_nets = cut_data.get('selected_nets', {})
         print(f"[DEBUG] cut_data keys: {list(cut_data.keys())}")
@@ -513,6 +500,41 @@ def find_endpoint_pads_for_selected_nets(edb, cut_data):
         print(f"[DEBUG] Type of signal_nets: {type(signal_nets)}")
         print(f"[DEBUG] Length of signal_nets: {len(signal_nets) if signal_nets else 0}")
 
+
+
+        # Get cut polyline points
+        cut_points = cut_data.get('points', [])
+        if not cut_points or len(cut_points) < 2:
+            print("[WARNING] No valid cut points found. Cannot determine farthest endpoints.")
+            cut_data['endpoint_pads'] = {}
+            return True
+
+        for net_name in signal_nets:
+            net_paths = edb.modeler.get_primitives(
+                net_name=net_name,
+                prim_type="path"
+            )
+            for path in net_paths:
+                # center_line은 [[x, y], ...] 형태의 리스트
+                center_line = path.center_line
+
+                if len(center_line) >= 2:
+                    start_point = center_line[0]  # [x, y]
+                    end_point = center_line[-1]  # [x, y]
+
+                    print(f"Path ID: {path.id}")
+                    print(f"Start: {start_point}")
+                    print(f"End: {end_point}")
+
+
+
+
+
+        # Calculate cut line direction (from first to last point)
+        cut_start = cut_points[0]
+        cut_end = cut_points[-1]
+        print(f"Cut line: Start [{cut_start[0]:.6f}, {cut_start[1]:.6f}] -> End [{cut_end[0]:.6f}, {cut_end[1]:.6f}]")
+        print()
         if not signal_nets:
             print("[WARNING] No signal nets selected. Skipping endpoint finding.")
             print()
