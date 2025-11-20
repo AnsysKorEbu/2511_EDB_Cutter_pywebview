@@ -979,9 +979,16 @@ def remove_and_create_ports(edb, cut_data):
             print(f"  Endpoints: {len(endpoints)}")
 
             for idx, signal_pin in enumerate(endpoints, 1):
-                pin_name = signal_pin.name
-                pin_position = signal_pin.position
-                component_name = signal_pin.component.name if signal_pin.component else "None"
+                # Check if pad is still valid after cutout
+                try:
+                    pin_name = signal_pin.name
+                    pin_position = signal_pin.position
+                    component_name = signal_pin.component.name if signal_pin.component else "None"
+                except (AttributeError, RuntimeError, Exception) as e:
+                    print(f"  [{idx}/{len(endpoints)}] [SKIP] Pad invalid after cutout (deleted by cutout operation)")
+                    print(f"      Error: {e}")
+                    print()
+                    continue
 
                 print(f"  [{idx}/{len(endpoints)}] Signal pin: {pin_name}")
                 print(f"      Position: [{pin_position[0]:.6f}, {pin_position[1]:.6f}]")
@@ -1002,10 +1009,16 @@ def remove_and_create_ports(edb, cut_data):
 
                 # Strategy 1: Find power pins in the same component
                 if signal_pin.component:
-                    component_power_pins = [
-                        pin for pin in all_power_pins
-                        if pin.component and pin.component.name == component_name
-                    ]
+                    component_power_pins = []
+                    for pin in all_power_pins:
+                        try:
+                            # Check if power pin is still valid
+                            if pin.component and pin.component.name == component_name:
+                                component_power_pins.append(pin)
+                        except (AttributeError, RuntimeError, Exception):
+                            # Skip invalid power pins (deleted by cutout)
+                            continue
+
                     if component_power_pins:
                         reference_pins = component_power_pins
                         print(f"      Found {len(reference_pins)} power pins in same component")
@@ -1014,22 +1027,38 @@ def remove_and_create_ports(edb, cut_data):
                 if not reference_pins:
                     print(f"      No power pins in component, finding nearest pins...")
 
-                    # Calculate distance to each power pin
+                    # Calculate distance to each power pin (skip invalid pins)
                     def calculate_distance(pin):
-                        pos = pin.position
-                        dx = pos[0] - pin_position[0]
-                        dy = pos[1] - pin_position[1]
-                        return (dx*dx + dy*dy) ** 0.5
+                        try:
+                            pos = pin.position
+                            dx = pos[0] - pin_position[0]
+                            dy = pos[1] - pin_position[1]
+                            return (dx*dx + dy*dy) ** 0.5
+                        except (AttributeError, RuntimeError, Exception):
+                            # Return infinite distance for invalid pins
+                            return float('inf')
 
-                    # Sort power pins by distance
-                    sorted_power_pins = sorted(all_power_pins, key=calculate_distance)
+                    # Filter out invalid power pins
+                    valid_power_pins = []
+                    for pin in all_power_pins:
+                        try:
+                            _ = pin.position  # Test if pin is valid
+                            valid_power_pins.append(pin)
+                        except (AttributeError, RuntimeError, Exception):
+                            continue
 
-                    # Use closest 3 power pins as reference
-                    reference_pins = sorted_power_pins[:3]
+                    if valid_power_pins:
+                        # Sort power pins by distance
+                        sorted_power_pins = sorted(valid_power_pins, key=calculate_distance)
 
-                    if reference_pins:
-                        nearest_distance = calculate_distance(reference_pins[0])
-                        print(f"      Using {len(reference_pins)} nearest power pins (closest: {nearest_distance:.6f}m)")
+                        # Use closest 3 power pins as reference
+                        reference_pins = sorted_power_pins[:3]
+
+                        if reference_pins:
+                            nearest_distance = calculate_distance(reference_pins[0])
+                            print(f"      Using {len(reference_pins)} nearest power pins (closest: {nearest_distance:.6f}m)")
+                    else:
+                        print(f"      [WARNING] No valid power pins found (all deleted by cutout)")
 
                 # Create circuit port
                 if reference_pins:
