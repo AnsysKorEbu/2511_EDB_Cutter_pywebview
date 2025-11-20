@@ -498,6 +498,46 @@ def calculate_point_distance(pt1, pt2):
     return (dx * dx + dy * dy) ** 0.5
 
 
+def find_nearest_pad_to_point(edb, net_name, point, max_distance=1e-2):
+    """
+    Find the nearest pad (is_pin=True) to a given point on a specific net.
+
+    Args:
+        edb: Opened pyedb.Edb object
+        net_name: Name of the net
+        point: [x, y] coordinates to search around
+        max_distance: Maximum search distance in meters (default: 1e-2 = 10mm)
+
+    Returns:
+        tuple: (PadstackInstance or None, distance in meters)
+    """
+    try:
+        padstacks = edb.padstacks.get_instances(net_name=net_name)
+
+        nearest_pad = None
+        min_distance = float('inf')
+
+        for pad in padstacks:
+            # Only consider component pins
+            if pad.is_pin:
+                pos = pad.position
+                dist = calculate_point_distance(point, pos)
+
+                if dist < min_distance:
+                    min_distance = dist
+                    nearest_pad = pad
+
+        # Check if within max_distance
+        if nearest_pad and min_distance <= max_distance:
+            return nearest_pad, min_distance
+        else:
+            return None, min_distance
+
+    except Exception as e:
+        print(f"[WARNING] Error finding nearest pad for net '{net_name}': {e}")
+        return None, float('inf')
+
+
 def find_net_extreme_endpoints(edb, net_name, tolerance=1e-3):
     """
     Find the two farthest endpoints of a net.
@@ -610,121 +650,90 @@ def find_endpoint_pads_for_selected_nets(edb, cut_data):
             cut_data['endpoint_pads'] = {}
             return True
 
-        # Find extreme endpoints for each net
+        # Find extreme endpoints and nearest pads for each net
         print("=" * 70)
-        print("Finding Net Extreme Endpoints (tolerance: 1e-3 meters)")
+        print("Finding Endpoint Pads Based on Net Extreme Points")
         print("=" * 70)
         print()
 
-        for idx, net_name in enumerate(signal_nets, 1):
-            print(f"[{idx}/{len(signal_nets)}] Analyzing net: {net_name}")
-
-            # Find extreme endpoints
-            net_info = find_net_extreme_endpoints(edb, net_name, tolerance=1e-3)
-
-            if net_info:
-                print(f"  Total paths: {net_info['total_paths']}")
-                print(f"  Unique endpoints after merging: {net_info['merged_endpoints']}")
-                print(f"  Start: [{net_info['start'][0]:.9f}, {net_info['start'][1]:.9f}] m")
-                print(f"  End:   [{net_info['end'][0]:.9f}, {net_info['end'][1]:.9f}] m")
-                print(f"  Distance: {net_info['distance']:.9f} m")
-            else:
-                print(f"  [WARNING] Could not find endpoints for this net")
-
-            print()
-
-
-
-
-
-        # Calculate cut line direction (from first to last point)
-        cut_start = cut_points[0]
-        cut_end = cut_points[-1]
-        print(f"Cut line: Start [{cut_start[0]:.6f}, {cut_start[1]:.6f}] -> End [{cut_end[0]:.6f}, {cut_end[1]:.6f}]")
-        print()
-        if not signal_nets:
-            print("[WARNING] No signal nets selected. Skipping endpoint finding.")
-            print()
-            cut_data['endpoint_pads'] = {}
-            return True
-
-        print(f"Number of selected signal nets: {len(signal_nets)}")
-        print()
-
-        # Dictionary to store endpoint results: {net_name: [two_farthest_pin_endpoints]}
+        # Dictionary to store endpoint results: {net_name: [endpoint_pads]}
         endpoint_results = {}
         total_endpoints = 0
 
-        # Process each signal net
         for idx, net_name in enumerate(signal_nets, 1):
             print(f"[{idx}/{len(signal_nets)}] Processing net: {net_name}")
 
-            # Find endpoints for this net (already filtered for is_pin)
-            endpoints = find_endpoint_pads(edb, net_name)
+            # Step 1: Find extreme endpoints of the net (tolerance 1e-3 for merging)
+            net_info = find_net_extreme_endpoints(edb, net_name, tolerance=1e-3)
 
-            if endpoints:
-                print(f"  Found {len(endpoints)} pin endpoint(s)")
+            if not net_info:
+                print(f"  [WARNING] Could not find endpoints for this net")
+                print()
+                continue
 
-                if len(endpoints) >= 2:
-                    # Calculate projection of each endpoint along cut line direction
-                    def project_on_cut_line(endpoint):
-                        """Project endpoint position onto cut line direction"""
-                        pos = endpoint.position
-                        # Vector from cut_start to cut_end
-                        dx = cut_end[0] - cut_start[0]
-                        dy = cut_end[1] - cut_start[1]
-                        # Vector from cut_start to endpoint
-                        px = pos[0] - cut_start[0]
-                        py = pos[1] - cut_start[1]
-                        # Projection parameter t
-                        line_length_sq = dx * dx + dy * dy
-                        if line_length_sq < 1e-10:
-                            return 0.0
-                        t = (px * dx + py * dy) / line_length_sq
-                        return t
+            print(f"  Total paths: {net_info['total_paths']}")
+            print(f"  Unique endpoints after merging: {net_info['merged_endpoints']}")
+            print(f"  Start point: [{net_info['start'][0]:.6f}, {net_info['start'][1]:.6f}] m")
+            print(f"  End point:   [{net_info['end'][0]:.6f}, {net_info['end'][1]:.6f}] m")
+            print(f"  Distance between extremes: {net_info['distance']:.6f} m")
+            print()
 
-                    # Calculate projections for all endpoints
-                    projections = [(ep, project_on_cut_line(ep)) for ep in endpoints]
+            # Step 2: Find nearest pads to each extreme endpoint
+            endpoint_pads = []
 
-                    # Sort by projection value
-                    projections.sort(key=lambda x: x[1])
+            # Find pad near start point
+            start_pad, start_dist = find_nearest_pad_to_point(
+                edb, net_name, net_info['start'], max_distance=1e-2
+            )
 
-                    # Select the two farthest (min and max projection)
-                    farthest_two = [projections[0][0], projections[-1][0]]
-
-                    endpoint_results[net_name] = farthest_two
-                    total_endpoints += 2
-
-                    print(f"  Selected 2 farthest pin endpoints:")
-                    for ep_idx, endpoint in enumerate(farthest_two, 1):
-                        pos = endpoint.position
-                        comp_name = endpoint.component.name if endpoint.component else "None"
-                        proj_value = projections[0][1] if ep_idx == 1 else projections[-1][1]
-
-                        print(f"    [{ep_idx}] {endpoint.name}")
-                        print(f"        Position: [{pos[0]:.6f}, {pos[1]:.6f}] meters")
-                        print(f"        Component: {comp_name}")
-                        print(f"        Projection: {proj_value:.6f}")
-
-                elif len(endpoints) == 1:
-                    # Only one pin endpoint found
-                    endpoint_results[net_name] = endpoints
-                    total_endpoints += 1
-                    print(f"  [WARNING] Only 1 pin endpoint found, using it")
-
-                    endpoint = endpoints[0]
-                    pos = endpoint.position
-                    comp_name = endpoint.component.name if endpoint.component else "None"
-                    print(f"    [1] {endpoint.name}")
-                    print(f"        Position: [{pos[0]:.6f}, {pos[1]:.6f}] meters")
-                    print(f"        Component: {comp_name}")
-
-                else:
-                    print(f"  [WARNING] No pin endpoints found for net '{net_name}'")
+            if start_pad:
+                endpoint_pads.append(start_pad)
+                pos = start_pad.position
+                comp_name = start_pad.component.name if start_pad.component else "None"
+                print(f"  [START] Found nearest pad: {start_pad.name}")
+                print(f"      Position: [{pos[0]:.6f}, {pos[1]:.6f}] m")
+                print(f"      Component: {comp_name}")
+                print(f"      Distance from extreme point: {start_dist:.6f} m")
             else:
-                print(f"  [WARNING] No pin endpoints found for net '{net_name}'")
+                print(f"  [START] No pad found within 10mm of start point")
 
             print()
+
+            # Find pad near end point
+            end_pad, end_dist = find_nearest_pad_to_point(
+                edb, net_name, net_info['end'], max_distance=1e-2
+            )
+
+            if end_pad:
+                # Check if it's the same pad as start (avoid duplicates)
+                if not start_pad or end_pad.id != start_pad.id:
+                    endpoint_pads.append(end_pad)
+                    pos = end_pad.position
+                    comp_name = end_pad.component.name if end_pad.component else "None"
+                    print(f"  [END] Found nearest pad: {end_pad.name}")
+                    print(f"      Position: [{pos[0]:.6f}, {pos[1]:.6f}] m")
+                    print(f"      Component: {comp_name}")
+                    print(f"      Distance from extreme point: {end_dist:.6f} m")
+                else:
+                    print(f"  [END] Same pad as start point - skipped")
+            else:
+                print(f"  [END] No pad found within 10mm of end point")
+
+            print()
+
+            # Store results
+            if endpoint_pads:
+                endpoint_results[net_name] = endpoint_pads
+                total_endpoints += len(endpoint_pads)
+                print(f"  [OK] Found {len(endpoint_pads)} endpoint pad(s) for this net")
+            else:
+                print(f"  [WARNING] No endpoint pads found for this net")
+
+            print()
+
+
+
+
 
         # Print summary
         print("-" * 70)
