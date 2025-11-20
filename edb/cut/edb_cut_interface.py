@@ -483,6 +483,144 @@ def find_endpoint_pads(edb, net_name):
 
 
 def find_endpoint_pads_for_selected_nets(edb, cut_data):
+    try:
+
+        print("=" * 70)
+        print("EDB Cutter - Finding Endpoint Pads for Selected Nets")
+        print("=" * 70)
+
+        # Get cut polyline points
+        cut_points = cut_data.get('points', [])
+        if not cut_points or len(cut_points) < 2:
+            print("[WARNING] No valid cut points found. Cannot determine farthest endpoints.")
+            cut_data['endpoint_pads'] = {}
+            return True
+
+        # Calculate cut line direction (from first to last point)
+        cut_start = cut_points[0]
+        cut_end = cut_points[-1]
+        print(f"Cut line: Start [{cut_start[0]:.6f}, {cut_start[1]:.6f}] -> End [{cut_end[0]:.6f}, {cut_end[1]:.6f}]")
+        print()
+
+        # Get selected nets from cut_data
+        selected_nets = cut_data.get('selected_nets', {})
+        print(f"[DEBUG] cut_data keys: {list(cut_data.keys())}")
+        print(f"[DEBUG] selected_nets from cut_data: {selected_nets}")
+        print(f"[DEBUG] Type of selected_nets: {type(selected_nets)}")
+
+        signal_nets = selected_nets.get('signal', [])
+        print(f"[DEBUG] signal_nets extracted: {signal_nets}")
+        print(f"[DEBUG] Type of signal_nets: {type(signal_nets)}")
+        print(f"[DEBUG] Length of signal_nets: {len(signal_nets) if signal_nets else 0}")
+
+        if not signal_nets:
+            print("[WARNING] No signal nets selected. Skipping endpoint finding.")
+            print()
+            cut_data['endpoint_pads'] = {}
+            return True
+
+        print(f"Number of selected signal nets: {len(signal_nets)}")
+        print()
+
+        # Dictionary to store endpoint results: {net_name: [two_farthest_pin_endpoints]}
+        endpoint_results = {}
+        total_endpoints = 0
+
+        # Process each signal net
+        for idx, net_name in enumerate(signal_nets, 1):
+            print(f"[{idx}/{len(signal_nets)}] Processing net: {net_name}")
+
+            # Find endpoints for this net (already filtered for is_pin)
+            endpoints = find_endpoint_pads(edb, net_name)
+
+            if endpoints:
+                print(f"  Found {len(endpoints)} pin endpoint(s)")
+
+                if len(endpoints) >= 2:
+                    # Calculate projection of each endpoint along cut line direction
+                    def project_on_cut_line(endpoint):
+                        """Project endpoint position onto cut line direction"""
+                        pos = endpoint.position
+                        # Vector from cut_start to cut_end
+                        dx = cut_end[0] - cut_start[0]
+                        dy = cut_end[1] - cut_start[1]
+                        # Vector from cut_start to endpoint
+                        px = pos[0] - cut_start[0]
+                        py = pos[1] - cut_start[1]
+                        # Projection parameter t
+                        line_length_sq = dx * dx + dy * dy
+                        if line_length_sq < 1e-10:
+                            return 0.0
+                        t = (px * dx + py * dy) / line_length_sq
+                        return t
+
+                    # Calculate projections for all endpoints
+                    projections = [(ep, project_on_cut_line(ep)) for ep in endpoints]
+
+                    # Sort by projection value
+                    projections.sort(key=lambda x: x[1])
+
+                    # Select the two farthest (min and max projection)
+                    farthest_two = [projections[0][0], projections[-1][0]]
+
+                    endpoint_results[net_name] = farthest_two
+                    total_endpoints += 2
+
+                    print(f"  Selected 2 farthest pin endpoints:")
+                    for ep_idx, endpoint in enumerate(farthest_two, 1):
+                        pos = endpoint.position
+                        comp_name = endpoint.component.name if endpoint.component else "None"
+                        proj_value = projections[0][1] if ep_idx == 1 else projections[-1][1]
+
+                        print(f"    [{ep_idx}] {endpoint.name}")
+                        print(f"        Position: [{pos[0]:.6f}, {pos[1]:.6f}] meters")
+                        print(f"        Component: {comp_name}")
+                        print(f"        Projection: {proj_value:.6f}")
+
+                elif len(endpoints) == 1:
+                    # Only one pin endpoint found
+                    endpoint_results[net_name] = endpoints
+                    total_endpoints += 1
+                    print(f"  [WARNING] Only 1 pin endpoint found, using it")
+
+                    endpoint = endpoints[0]
+                    pos = endpoint.position
+                    comp_name = endpoint.component.name if endpoint.component else "None"
+                    print(f"    [1] {endpoint.name}")
+                    print(f"        Position: [{pos[0]:.6f}, {pos[1]:.6f}] meters")
+                    print(f"        Component: {comp_name}")
+
+                else:
+                    print(f"  [WARNING] No pin endpoints found for net '{net_name}'")
+            else:
+                print(f"  [WARNING] No pin endpoints found for net '{net_name}'")
+
+            print()
+
+        # Print summary
+        print("-" * 70)
+        print("ENDPOINT FINDING SUMMARY")
+        print("-" * 70)
+        print(f"Total nets processed: {len(signal_nets)}")
+        print(f"Nets with pin endpoints found: {len(endpoint_results)}")
+        print(f"Total pin endpoints selected: {total_endpoints}")
+        print("-" * 70)
+        print()
+
+        # Store results in cut_data for later use (e.g., port creation)
+        cut_data['endpoint_pads'] = endpoint_results
+
+        return True
+
+    except Exception as e:
+        print(f"[ERROR] Failed to find endpoint pads: {e}")
+        import traceback
+        traceback.print_exc()
+        cut_data['endpoint_pads'] = {}
+        return False
+
+
+def find_endpoint_pads_for_selected_nets_bu(edb, cut_data):
     """
     Find endpoint pads for user-selected signal nets from GUI.
     Selects the two farthest is_pin endpoints relative to the cut line.
