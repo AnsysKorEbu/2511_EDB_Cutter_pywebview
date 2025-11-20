@@ -498,18 +498,19 @@ def calculate_point_distance(pt1, pt2):
     return (dx * dx + dy * dy) ** 0.5
 
 
-def find_nearest_pad_to_point(edb, net_name, point, max_distance=1e-2):
+def find_nearest_pad_to_point(edb, net_name, point):
     """
     Find the nearest pad (is_pin=True) to a given point on a specific net.
+    No distance limit - always returns the closest pad.
 
     Args:
         edb: Opened pyedb.Edb object
         net_name: Name of the net
         point: [x, y] coordinates to search around
-        max_distance: Maximum search distance in meters (default: 1e-2 = 10mm)
 
     Returns:
         tuple: (PadstackInstance or None, distance in meters)
+               Returns (None, inf) if no pins found on the net
     """
     try:
         padstacks = edb.padstacks.get_instances(net_name=net_name)
@@ -520,6 +521,13 @@ def find_nearest_pad_to_point(edb, net_name, point, max_distance=1e-2):
         for pad in padstacks:
             # Only consider component pins
             if pad.is_pin:
+                # Skip UnnamedODBPadstack (invalid/unnamed pads from ODB)
+                try:
+                    if pad.padstack_def and pad.padstack_def.name == 'UnnamedODBPadstack':
+                        continue
+                except (AttributeError, Exception):
+                    pass  # If padstack_def is not accessible, continue anyway
+
                 pos = pad.position
                 dist = calculate_point_distance(point, pos)
 
@@ -527,11 +535,7 @@ def find_nearest_pad_to_point(edb, net_name, point, max_distance=1e-2):
                     min_distance = dist
                     nearest_pad = pad
 
-        # Check if within max_distance
-        if nearest_pad and min_distance <= max_distance:
-            return nearest_pad, min_distance
-        else:
-            return None, min_distance
+        return nearest_pad, min_distance
 
     except Exception as e:
         print(f"[WARNING] Error finding nearest pad for net '{net_name}': {e}")
@@ -683,7 +687,7 @@ def find_endpoint_pads_for_selected_nets(edb, cut_data):
 
             # Find pad near start point
             start_pad, start_dist = find_nearest_pad_to_point(
-                edb, net_name, net_info['start'], max_distance=1e-2
+                edb, net_name, net_info['start']
             )
 
             if start_pad:
@@ -695,13 +699,13 @@ def find_endpoint_pads_for_selected_nets(edb, cut_data):
                 print(f"      Component: {comp_name}")
                 print(f"      Distance from extreme point: {start_dist:.6f} m")
             else:
-                print(f"  [START] No pad found within 10mm of start point")
+                print(f"  [START] No pin found on this net")
 
             print()
 
             # Find pad near end point
             end_pad, end_dist = find_nearest_pad_to_point(
-                edb, net_name, net_info['end'], max_distance=1e-2
+                edb, net_name, net_info['end']
             )
 
             if end_pad:
@@ -717,7 +721,7 @@ def find_endpoint_pads_for_selected_nets(edb, cut_data):
                 else:
                     print(f"  [END] Same pad as start point - skipped")
             else:
-                print(f"  [END] No pad found within 10mm of end point")
+                print(f"  [END] No pin found on this net")
 
             print()
 
@@ -730,10 +734,6 @@ def find_endpoint_pads_for_selected_nets(edb, cut_data):
                 print(f"  [WARNING] No endpoint pads found for this net")
 
             print()
-
-
-
-
 
         # Print summary
         print("-" * 70)
@@ -906,6 +906,31 @@ def find_endpoint_pads_for_selected_nets_bu(edb, cut_data):
         return False
 
 
+def is_valid_padstack(pad):
+    """
+    Check if padstack instance is still valid after cutout operation.
+
+    Args:
+        pad: PadstackInstance object
+
+    Returns:
+        bool: True if valid, False if deleted/invalid
+    """
+    try:
+        # Test multiple properties/methods to ensure object is truly valid
+        _ = pad.name
+        _ = pad.position
+        _ = pad.id  # This will fail if underlying C++ object is null
+
+        # Skip UnnamedODBPadstack (invalid/unnamed pads from ODB)
+        if pad.padstack_def and pad.padstack_def.name == 'UnnamedODBPadstack':
+            return False
+
+        return True
+    except (AttributeError, RuntimeError, Exception):
+        return False
+
+
 def remove_and_create_ports(edb, cut_data):
     """
     Remove existing ports and create circuit ports for signal endpoints with power net references.
@@ -926,6 +951,45 @@ def remove_and_create_ports(edb, cut_data):
         endpoint_pads = cut_data.get('endpoint_pads', {})
         if not endpoint_pads:
             print("[WARNING] No endpoint pads found. Skipping port creation.")
+            print()
+            return True
+
+        # Validate endpoints before processing (filter out pads deleted by cutout)
+        print("Validating endpoint pads after cutout...")
+        valid_endpoint_pads = {}
+        stats = {
+            'total_nets': 0,
+            'nets_with_2': 0,
+            'nets_with_1': 0,
+            'nets_with_0': 0
+        }
+
+        for net_name, endpoints in endpoint_pads.items():
+            stats['total_nets'] += 1
+
+            # Filter valid endpoints (not deleted by cutout)
+            valid_endpoints = [ep for ep in endpoints if is_valid_padstack(ep)]
+
+            if len(valid_endpoints) == 2:
+                stats['nets_with_2'] += 1
+                valid_endpoint_pads[net_name] = valid_endpoints
+            elif len(valid_endpoints) == 1:
+                stats['nets_with_1'] += 1
+                valid_endpoint_pads[net_name] = valid_endpoints
+            else:
+                stats['nets_with_0'] += 1
+                print(f"  [SKIP] Net '{net_name}': No valid endpoints (both deleted by cutout)")
+
+        print(f"  Nets with 2 valid endpoints: {stats['nets_with_2']}")
+        print(f"  Nets with 1 valid endpoint: {stats['nets_with_1']}")
+        print(f"  Nets with 0 valid endpoints (skipped): {stats['nets_with_0']}")
+        print()
+
+        # Use only validated endpoints
+        endpoint_pads = valid_endpoint_pads
+
+        if not endpoint_pads:
+            print("[WARNING] No valid endpoint pads remaining after validation. Skipping port creation.")
             print()
             return True
 
@@ -979,16 +1043,10 @@ def remove_and_create_ports(edb, cut_data):
             print(f"  Endpoints: {len(endpoints)}")
 
             for idx, signal_pin in enumerate(endpoints, 1):
-                # Check if pad is still valid after cutout
-                try:
-                    pin_name = signal_pin.name
-                    pin_position = signal_pin.position
-                    component_name = signal_pin.component.name if signal_pin.component else "None"
-                except (AttributeError, RuntimeError, Exception) as e:
-                    print(f"  [{idx}/{len(endpoints)}] [SKIP] Pad invalid after cutout (deleted by cutout operation)")
-                    print(f"      Error: {e}")
-                    print()
-                    continue
+                # Endpoints are pre-validated, safe to access properties
+                pin_name = signal_pin.name
+                pin_position = signal_pin.position
+                component_name = signal_pin.component.name if signal_pin.component else "None"
 
                 print(f"  [{idx}/{len(endpoints)}] Signal pin: {pin_name}")
                 print(f"      Position: [{pin_position[0]:.6f}, {pin_position[1]:.6f}]")
