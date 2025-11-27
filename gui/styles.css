@@ -18,6 +18,7 @@ body {
 
 .sidebar {
     width: 300px;
+    flex-shrink: 0;
     background: #252526;
     border-right: 1px solid #3e3e42;
     padding: 20px;
