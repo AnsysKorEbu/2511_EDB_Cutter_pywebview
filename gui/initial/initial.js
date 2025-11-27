@@ -111,9 +111,20 @@ async function loadAnsysVersions() {
  */
 async function browseFolder() {
     try {
-        const path = await pywebview.api.select_edb_folder();
+        let path = await pywebview.api.select_edb_folder();
 
         if (path) {
+            // Clean path: remove edb.def if present and trailing slashes
+            if (path.endsWith('edb.def')) {
+                // Extract parent folder
+                const parts = path.split(/[/\\]/);
+                parts.pop(); // Remove 'edb.def'
+                path = parts.join('\\');
+            }
+
+            // Remove trailing slashes
+            path = path.replace(/[/\\]+$/, '');
+
             state.edbPath = path;
             document.getElementById('edbPath').value = path;
             validateSettings();
@@ -204,6 +215,11 @@ async function saveAndStart() {
     }
 
     try {
+        // Update state from UI before saving
+        state.edbVersion = document.getElementById('edbVersion').value;
+        state.grpc = document.getElementById('grpc').checked;
+        state.overwrite = document.getElementById('overwrite').checked;
+
         showLoading('Saving settings...');
 
         const result = await pywebview.api.save_settings(

@@ -85,6 +85,14 @@ class InitialApi:
 
         if result and len(result) > 0:
             path = result[0]
+
+            # Remove edb.def if accidentally included
+            if path.endswith('edb.def'):
+                path = str(Path(path).parent)
+
+            # Ensure path doesn't have trailing slashes or backslashes
+            path = path.rstrip('/\\')
+
             # Check if it's a .aedb folder
             if path.endswith('.aedb'):
                 return path
