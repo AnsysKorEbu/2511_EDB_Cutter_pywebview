@@ -10,11 +10,8 @@ if __name__ == "__main__":
         # Get EDB version from command line argument (default: "2025.1")
         edb_version = sys.argv[2] if len(sys.argv) > 2 else "2025.1"
 
-        # If path ends with .aedb, append edb.def
-        if edb_path.endswith('.aedb'):
-            edb_path = str(Path(edb_path) / 'edb.def')
-
+        # Use .aedb path directly (no need to append edb.def)
         interface(edbpath=edb_path, edbversion=edb_version)
     else:
         # Default path if no argument provided
-        interface(edbpath=r"C:\Python_Code\2511_EDB_Cutter_pywebview\source\example\part2_otherstackup.aedb\edb.def")
+        interface(edbpath=r"C:\Python_Code\2511_EDB_Cutter_pywebview\source\example\part2_otherstackup.aedb")

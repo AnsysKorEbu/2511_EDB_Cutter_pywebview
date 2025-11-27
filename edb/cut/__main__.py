@@ -56,12 +56,8 @@ if __name__ == "__main__":
     input_file_path = sys.argv[3]
     grpc = sys.argv[4].lower() == 'true' if len(sys.argv) > 4 else False
 
-    # Keep original path for cloning
+    # Use .aedb path directly (no need to append edb.def)
     original_edb_path = edb_path
-
-    # If path ends with .aedb, append edb.def for execute_cut
-    if edb_path.endswith('.aedb'):
-        edb_path = str(Path(edb_path) / 'edb.def')
 
     print("=" * 70)
     print("EDB Cutter Subprocess")

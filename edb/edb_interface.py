@@ -4,7 +4,7 @@ from edb import edb_extract, edb_saver
 
 
 def interface(
-    edbpath=r"C:\Python_Code\FPCB_XSection_Map\source\B6_CTC_REV02_1208.aedb\edb.def",
+    edbpath=r"C:\Python_Code\FPCB_XSection_Map\source\B6_CTC_REV02_1208.aedb",
     edbversion="2025.1",
     output_dir="source",
     save_data=True
@@ -13,7 +13,7 @@ def interface(
     Extract EDB data and optionally save to compressed JSON files.
 
     Args:
-        edbpath: Path to EDB file
+        edbpath: Path to EDB folder (.aedb)
         edbversion: AEDT version (default: "2025.1")
         output_dir: Directory to save extracted data (default: "source")
         save_data: Whether to save data to files (default: True)
@@ -22,7 +22,7 @@ def interface(
         Dictionary with extracted data: {'planes', 'traces', 'components'}
     """
     # Extract EDB folder name from path
-    edb_folder_name = Path(edbpath).parent.name
+    edb_folder_name = Path(edbpath).name
 
     # Create EDB-specific output directory
     edb_output_dir = Path(output_dir) / edb_folder_name
