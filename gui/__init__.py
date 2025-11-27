@@ -389,4 +389,4 @@ def start_gui(edb_path, edb_version="2025.1", grpc=False):
     )
 
     # Start GUI
-    webview.start(debug=True)
+    webview.start()

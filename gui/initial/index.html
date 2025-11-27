@@ -1,0 +1,78 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>EDB Cutter - Initial Setup</title>
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+    <div class="setup-container">
+        <div class="setup-card">
+            <div class="setup-header">
+                <h1>EDB Cutter - Initial Setup</h1>
+                <p class="subtitle">Configure your EDB extraction settings</p>
+            </div>
+
+            <div class="setup-body">
+                <!-- EDB Path Section -->
+                <div class="form-group">
+                    <label class="form-label">EDB Path</label>
+                    <div class="input-with-buttons">
+                        <input type="text" id="edbPath" class="form-input" placeholder="Select .aedb folder" readonly>
+                        <button class="btn-browse" onclick="browseFolder()">📁 Select .aedb Folder</button>
+                    </div>
+                </div>
+
+                <!-- EDB Version Section -->
+                <div class="form-group">
+                    <label class="form-label">EDB Version</label>
+                    <select id="edbVersion" class="form-select" onchange="validateSettings()">
+                        <option value="">Loading versions...</option>
+                    </select>
+                    <p class="form-hint" id="versionHint">Detecting installed ANSYS versions...</p>
+                </div>
+
+                <!-- gRPC Section -->
+                <div class="form-group">
+                    <label class="checkbox-label">
+                        <input type="checkbox" id="grpc" checked onchange="validateSettings()">
+                        <span>Enable gRPC</span>
+                    </label>
+                    <p class="form-hint">Recommended for better performance</p>
+                </div>
+
+                <!-- Overwrite Section -->
+                <div class="form-group">
+                    <label class="checkbox-label">
+                        <input type="checkbox" id="overwrite">
+                        <span>Overwrite existing data</span>
+                    </label>
+                    <p class="form-hint">Re-extract preprocessing data if already exists</p>
+                </div>
+
+                <!-- Validation Status -->
+                <div class="validation-status hidden" id="validationStatus">
+                    <div class="status-icon" id="statusIcon">✓</div>
+                    <div class="status-message" id="statusMessage">Configuration is valid</div>
+                </div>
+            </div>
+
+            <div class="setup-footer">
+                <button class="btn-primary" id="saveButton" onclick="saveAndStart()" disabled>
+                    💾 Save & Load Data
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <div class="loading-overlay hidden" id="loadingOverlay">
+        <div class="loading-content">
+            <div class="spinner"></div>
+            <p id="loadingMessage">Initializing...</p>
+        </div>
+    </div>
+
+    <script src="initial.js"></script>
+</body>
+</html>

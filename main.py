@@ -6,17 +6,31 @@ and displays it in a GUI for region selection and cutting.
 """
 import subprocess
 import sys
+import json
 from pathlib import Path
 from gui import start_gui
+from gui.initial_gui import start_initial_gui
 
-# EDB folder path (modify this to your .aedb folder)
-# EDB_PATH = r"C:\Python_Code\FPCB_XSection_Map\source\B6_CTC_REV02_1208.aedb"
-# EDB_PATH = r"C:\Python_Code\2511_EDB_Cutter_pywebview\source\example\org_design.aedb"
-# EDB_PATH = r"C:\Python_Code\2511_EDB_Cutter_pywebview\source\example\part2_otherstackup.aedb"
-EDB_PATH = r"C:\Python_Code\2511_EDB_Cutter_pywebview\source\example\none_port_design.aedb"
-EDB_VERSION = "2025.2"
-grpc = True
-OVERWRITE = False
+def load_settings():
+    """
+    Load settings from config/settings.json
+
+    Returns:
+        dict: Settings dictionary or None if file doesn't exist
+    """
+    config_file = Path('config') / 'settings.json'
+
+    if not config_file.exists():
+        return None
+
+    try:
+        with open(config_file, 'r', encoding='utf-8') as f:
+            settings = json.load(f)
+        return settings
+    except Exception as e:
+        print(f"[WARNING] Failed to load settings: {e}")
+        return None
+
 
 def check_extracted_data_exists(edb_path):
     """
@@ -46,7 +60,7 @@ def check_extracted_data_exists(edb_path):
     return len(json_gz_files) > 0
 
 
-def extract_edb_data(edb_path):
+def extract_edb_data(edb_path, edb_version):
     """
     Extract EDB data using subprocess.
 
@@ -55,10 +69,13 @@ def extract_edb_data(edb_path):
 
     Args:
         edb_path: Path to EDB file or folder
+        edb_version: EDB version string (e.g., "2025.2")
     """
     print("=" * 70)
     print("Step 1: Extracting EDB Data")
     print("=" * 70)
+    print(f"EDB Path: {edb_path}")
+    print(f"EDB Version: {edb_version}\n")
 
     # Get python executable path
     python_exe = Path(".venv/Scripts/python.exe")
@@ -72,7 +89,7 @@ def extract_edb_data(edb_path):
     # capture_output=False allows real-time output to console
     try:
         result = subprocess.run(
-            [str(python_exe), "-m", "edb", edb_path, EDB_VERSION],
+            [str(python_exe), "-m", "edb", edb_path, edb_version],
             cwd=Path.cwd(),
             timeout=300  # 5 minutes timeout
         )
@@ -96,22 +113,43 @@ def main():
     print("=" * 70)
     print("EDB Cutter - GUI Application")
     print("=" * 70)
-    print(f"EDB Path: {EDB_PATH}\n")
 
-    # Step 1: Extract data using subprocess
-    if OVERWRITE or not check_extracted_data_exists(EDB_PATH):
-        extract_edb_data(EDB_PATH)
+    # Step 1: Always show Initial Setup GUI
+    print("Opening Initial Setup GUI...\n")
+
+    # Start Initial GUI to get settings (will load previous settings if available)
+    settings = start_initial_gui()
+
+    if settings is None:
+        print("[INFO] Setup cancelled by user. Exiting.")
+        sys.exit(0)
+
+    print("\n[OK] Settings configured successfully!")
+    print(f"  - EDB Path: {settings['edb_path']}")
+    print(f"  - EDB Version: {settings['edb_version']}")
+    print(f"  - gRPC: {settings['grpc']}")
+    print(f"  - Overwrite: {settings['overwrite']}\n")
+
+    # Extract settings
+    edb_path = settings['edb_path']
+    edb_version = settings['edb_version']
+    grpc = settings['grpc']
+    overwrite = settings['overwrite']
+
+    # Step 2: Extract data using subprocess
+    if overwrite or not check_extracted_data_exists(edb_path):
+        extract_edb_data(edb_path, edb_version)
     else:
         print("=" * 70)
         print("Step 1: Skipping EDB extraction (data exists)")
         print("=" * 70)
         print("[OK] Using existing EDB data\n")
 
-    # Step 2: Start GUI
+    # Step 3: Start Main GUI
     print("=" * 70)
-    print("Step 2: Starting GUI")
+    print("Step 2: Starting Main GUI")
     print("=" * 70)
-    start_gui(EDB_PATH, EDB_VERSION, grpc)
+    start_gui(edb_path, edb_version, grpc)
 
 
 if __name__ == "__main__":
