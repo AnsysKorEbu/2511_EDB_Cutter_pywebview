@@ -63,52 +63,86 @@ def extract_trace_positions(edb=None):
     return traces_data
 
 def extract_via_positions(edb=None):
+    """
+    Extract via positions with optimized bulk processing.
+    Pre-caches padstack definitions and minimizes property access per via.
+    """
+    # Step 1: Pre-cache padstack definitions to avoid repeated lookups
+    print("Caching padstack definitions...")
+    padstack_cache = {}
+    for def_name, pdef in edb.padstacks.definitions.items():
+        try:
+            # Try to get hole diameter from padstack definition
+            hole_diameter = None
+            if hasattr(pdef, 'hole_properties'):
+                try:
+                    hole_diameter = pdef.hole_properties[0]
+                except:
+                    pass
+
+            padstack_cache[def_name] = {
+                'hole_diameter': hole_diameter
+            }
+        except:
+            padstack_cache[def_name] = {'hole_diameter': None}
+
+    # Step 2: Get all vias at once (PyEDB internally caches this)
+    print("Fetching all vias...")
+    all_vias = list(edb.padstacks.vias.values())
+    print(f"Processing {len(all_vias)} vias...")
+
+    # Step 3: Process vias with minimal property access
     vias_data = []
-    for via in edb.padstacks.vias.values():
-        # Get via padstack definition for accurate hole/pad size
-        padstack_def = via.padstack_definition
+    for via in all_vias:
+        # Get layer range once and extract start/stop from it
+        layer_range = via.layer_range_names  # Single gRPC call
+        start_layer = layer_range[0] if layer_range else None
+        stop_layer = layer_range[-1] if layer_range else None
 
-        # Get bounding box for width/height calculation
-        bbox = via.bounding_box  # [[x_min, y_min], [x_max, y_max]]
+        # Get padstack definition name
+        padstack_def_name = via.padstack_definition
+        cached_def = padstack_cache.get(padstack_def_name, {})
+        hole_diameter = cached_def.get('hole_diameter')
 
-        # Calculate width and height from bounding box
-        width = 0.0  # Default 0
-        height = 0.0  # Default 0
-        radius = 0.0  # Default 0
+        # Calculate dimensions
+        width = 0.0
+        height = 0.0
+        radius = 0.0
+        is_circular = True  # Default to circular
 
-        if bbox and len(bbox) >= 2:
-            width = abs(bbox[1][0] - bbox[0][0])
-            height = abs(bbox[1][1] - bbox[0][1])
-            radius = max(width, height) / 2
+        # Try to use cached hole diameter first (faster)
+        if hole_diameter:
+            radius = hole_diameter / 2
+            width = hole_diameter
+            height = hole_diameter
+            is_circular = True
+        else:
+            # Fall back to bounding box (slower)
+            bbox = via.bounding_box
+            if bbox and len(bbox) >= 2:
+                width = abs(bbox[1][0] - bbox[0][0])
+                height = abs(bbox[1][1] - bbox[0][1])
+                radius = max(width, height) / 2
 
-        # Check if via is circular or rectangular based on aspect ratio
-        # If width/height ratio > 1.5, it's rectangular
-        aspect_ratio = max(width, height) / min(width, height) if min(width, height) > 0 else 1.0
-        is_circular = aspect_ratio < 1.5
-
-        # Try to get hole diameter from padstack definition for circular vias
-        if is_circular and padstack_def and hasattr(padstack_def, 'hole_properties'):
-            try:
-                hole_diameter = padstack_def.hole_properties[0]  # Hole diameter in meters
-                radius = hole_diameter / 2
-                width = hole_diameter
-                height = hole_diameter
-            except:
-                pass  # Use bounding box values
+                # Check if rectangular based on aspect ratio
+                aspect_ratio = max(width, height) / min(width, height) if min(width, height) > 0 else 1.0
+                is_circular = aspect_ratio < 1.5
 
         via_info = {
             'name': via.aedt_name,
-            'position': via.position,  # [x, y] 좌표 (미터 단위)
+            'position': via.position,  # [x, y] 좌표 (미터 단위) - cached internally
             'net': via.net_name,
-            'start_layer': via.start_layer,
-            'stop_layer': via.stop_layer,
-            'layer_range_names': via.layer_range_names,  # start~stop 사이의 모든 레이어
+            'start_layer': start_layer,
+            'stop_layer': stop_layer,
+            'layer_range_names': layer_range,  # Already fetched
             'radius': radius,  # via 반지름 (미터 단위) - circular일 때 사용
             'width': width,   # via 너비 (미터 단위)
             'height': height,  # via 높이 (미터 단위)
             'is_circular': is_circular,  # True: 원형, False: 직사각형
         }
         vias_data.append(via_info)
+
+    print(f"Completed via extraction: {len(vias_data)} vias")
     return vias_data
 
 def extract_net_names(edb=None):
