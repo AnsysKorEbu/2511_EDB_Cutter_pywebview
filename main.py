@@ -90,8 +90,7 @@ def extract_edb_data(edb_path, edb_version):
     try:
         result = subprocess.run(
             [str(python_exe), "-m", "edb", edb_path, edb_version],
-            cwd=Path.cwd(),
-            timeout=300  # 5 minutes timeout
+            cwd=Path.cwd()
         )
 
         if result.returncode != 0:
@@ -100,9 +99,6 @@ def extract_edb_data(edb_path, edb_version):
 
         print("\n[OK] Data extraction completed successfully!\n")
 
-    except subprocess.TimeoutExpired:
-        print("\n[ERROR] Data extraction timed out (>5 minutes)")
-        sys.exit(1)
     except Exception as e:
         print(f"\n[ERROR] Failed to run data extraction: {e}")
         sys.exit(1)

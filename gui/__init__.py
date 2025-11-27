@@ -336,8 +336,7 @@ class Api:
                 grpc_str = "True" if self.grpc else "False"
                 result = subprocess.run(
                     [str(python_exe), "-u", "-m", "edb.cut", self.edb_path, self.edb_version, batch_file_path, grpc_str],
-                    cwd=Path.cwd(),
-                    timeout=600  # 10 minutes timeout
+                    cwd=Path.cwd()
                 )
 
                 return_code = result.returncode
@@ -359,10 +358,6 @@ class Api:
                 except Exception as cleanup_error:
                     print(f"[WARNING] Failed to clean up batch file: {cleanup_error}")
 
-        except subprocess.TimeoutExpired:
-            error_msg = "Cut execution timed out (>10 minutes)"
-            print(f"\n[ERROR] {error_msg}")
-            return {'success': False, 'error': error_msg}
         except Exception as e:
             error_msg = f"Failed to execute cuts: {str(e)}"
             print(f"\n[ERROR] {error_msg}")
