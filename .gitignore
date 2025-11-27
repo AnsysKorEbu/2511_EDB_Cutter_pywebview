@@ -27,3 +27,4 @@ Results/
 *.bak
 *test*
 nul
+*settings.json

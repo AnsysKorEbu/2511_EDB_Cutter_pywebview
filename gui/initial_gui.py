@@ -4,7 +4,6 @@ Initial GUI for EDB Cutter - Settings Configuration
 import os
 import json
 import webview
-from webview.window import FileDialog
 from pathlib import Path
 
 
@@ -241,9 +240,9 @@ def start_initial_gui():
         'EDB Cutter - Initial Setup',
         html_file.as_uri(),
         js_api=api,
-        width=600,
-        height=620,
-        resizable=False
+        width=650,
+        height=750,
+        resizable=True
     )
 
     # Set window reference in API

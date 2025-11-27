@@ -12,55 +12,45 @@ body {
     display: flex;
     align-items: center;
     justify-content: center;
-    padding: 10px;
-    overflow: hidden;
+    padding: 20px;
 }
 
 .setup-container {
     width: 100%;
     max-width: 600px;
-    max-height: 100vh;
-    display: flex;
-    flex-direction: column;
 }
 
 .setup-card {
     background: #252526;
     border-radius: 12px;
     box-shadow: 0 8px 32px rgba(0, 0, 0, 0.5);
-    overflow: hidden;
+    overflow: visible;
     border: 1px solid #3e3e42;
-    display: flex;
-    flex-direction: column;
-    max-height: calc(100vh - 20px);
 }
 
 .setup-header {
     background: #1e1e1e;
-    padding: 20px;
+    padding: 24px;
     border-bottom: 2px solid #0e639c;
-    flex-shrink: 0;
 }
 
 .setup-header h1 {
-    font-size: 20px;
+    font-size: 22px;
     color: #9cdcfe;
-    margin-bottom: 6px;
+    margin-bottom: 8px;
 }
 
 .subtitle {
-    font-size: 13px;
+    font-size: 14px;
     color: #858585;
 }
 
 .setup-body {
-    padding: 20px;
-    overflow-y: auto;
-    flex: 1;
+    padding: 24px;
 }
 
 .form-group {
-    margin-bottom: 16px;
+    margin-bottom: 20px;
 }
 
 .form-label {
@@ -184,10 +174,10 @@ body {
 .validation-status {
     display: flex;
     align-items: center;
-    gap: 10px;
-    padding: 10px 12px;
+    gap: 12px;
+    padding: 12px 14px;
     border-radius: 6px;
-    margin-top: 12px;
+    margin-top: 16px;
     transition: all 0.3s;
 }
 
@@ -230,20 +220,19 @@ body {
 }
 
 .setup-footer {
-    padding: 15px 20px;
+    padding: 20px 24px;
     background: #1e1e1e;
     border-top: 1px solid #3e3e42;
-    flex-shrink: 0;
 }
 
 .btn-primary {
     width: 100%;
-    padding: 12px 20px;
+    padding: 14px 20px;
     background: #0e639c;
     color: white;
     border: none;
     border-radius: 6px;
-    font-size: 14px;
+    font-size: 15px;
     font-weight: 500;
     cursor: pointer;
     transition: all 0.2s;
