@@ -349,7 +349,22 @@ class Api:
                 count = len(cut_ids)
                 success_msg = f"{count} cut{'s' if count > 1 else ''} executed successfully!"
                 print(f"\n[OK] {success_msg}\n")
-                return {'success': True}
+
+                # Get results folder path for analysis GUI
+                # The subprocess creates Results/{edb_name}_{timestamp}/ folder
+                # Find the most recently modified folder in Results/
+                results_folder = None
+                results_base = Path('Results')
+                if results_base.exists():
+                    # Get all subdirectories in Results/
+                    result_dirs = [d for d in results_base.iterdir() if d.is_dir()]
+                    if result_dirs:
+                        # Sort by modification time and get the most recent
+                        latest_dir = max(result_dirs, key=lambda d: d.stat().st_mtime)
+                        results_folder = str(latest_dir)
+                        print(f"[DEBUG] Results folder for analysis: {results_folder}")
+
+                return {'success': True, 'results_folder': results_folder}
 
             finally:
                 # Clean up temporary batch file
@@ -360,6 +375,89 @@ class Api:
 
         except Exception as e:
             error_msg = f"Failed to execute cuts: {str(e)}"
+            print(f"\n[ERROR] {error_msg}")
+            import traceback
+            traceback.print_exc()
+            return {'success': False, 'error': error_msg}
+
+    def browse_results_folder_for_analysis(self):
+        """
+        Open folder browser to select a Results folder for analysis.
+
+        Returns:
+            dict: {'success': bool, 'folder': str, 'error': str}
+        """
+        try:
+            import tkinter as tk
+            from tkinter import filedialog
+
+            root = tk.Tk()
+            root.withdraw()
+            root.attributes('-topmost', True)
+
+            # Set initial directory to Results folder if it exists
+            initial_dir = Path('Results').resolve() if Path('Results').exists() else Path.cwd()
+
+            folder_path = filedialog.askdirectory(
+                title='Select Results Folder for Analysis',
+                initialdir=str(initial_dir)
+            )
+
+            root.destroy()
+
+            if folder_path:
+                print(f"[INFO] Selected folder for analysis: {folder_path}")
+                return {'success': True, 'folder': folder_path}
+            else:
+                print("[INFO] No folder selected")
+                return {'success': False, 'error': 'No folder selected'}
+
+        except Exception as e:
+            error_msg = f"Failed to open folder browser: {str(e)}"
+            print(f"[ERROR] {error_msg}")
+            import traceback
+            traceback.print_exc()
+            return {'success': False, 'error': error_msg}
+
+    def launch_analysis_gui_window(self, results_folder):
+        """
+        Launch analysis GUI as a separate subprocess (non-blocking).
+
+        This avoids Path object serialization issues by launching
+        the Analysis GUI in a completely separate process.
+
+        Args:
+            results_folder: Path to Results/{name}_{timestamp}/ folder (as string)
+
+        Returns:
+            dict: {'success': bool}
+        """
+        try:
+            import subprocess
+
+            print(f"\n[INFO] Launching Analysis GUI as subprocess")
+            print(f"Results folder: {results_folder}")
+
+            # Get python executable path
+            python_exe = Path(".venv/Scripts/python.exe")
+
+            if not python_exe.exists():
+                return {
+                    'success': False,
+                    'error': 'Python executable not found at .venv/Scripts/python.exe'
+                }
+
+            # Launch analysis GUI via edb.analysis.gui_launcher
+            subprocess.Popen(
+                [str(python_exe), "-m", "edb.analysis.gui_launcher", str(results_folder)],
+                cwd=Path.cwd()
+            )
+
+            print("[OK] Analysis GUI subprocess launched")
+            return {'success': True}
+
+        except Exception as e:
+            error_msg = f"Failed to launch Analysis GUI: {str(e)}"
             print(f"\n[ERROR] {error_msg}")
             import traceback
             traceback.print_exc()
@@ -384,4 +482,38 @@ def start_gui(edb_path, edb_version="2025.1", grpc=False):
     )
 
     # Start GUI
+    webview.start()
+
+
+def launch_analysis_gui(results_folder, edb_version="2025.1", grpc=False):
+    """
+    Launch analysis GUI window after cutting completes.
+
+    This function is called in a separate thread from the main GUI
+    to avoid blocking the cutter interface.
+
+    Args:
+        results_folder: Path to Results/{name}_{timestamp}/ folder
+        edb_version: EDB version string (e.g., "2025.1")
+        grpc: Use gRPC mode for analysis
+    """
+    from gui.analysis.analysis_gui import AnalysisApi
+
+    # Create API instance for analysis GUI
+    api = AnalysisApi(results_folder, edb_version, grpc)
+
+    # Get HTML file path
+    html_file = Path(__file__).parent / 'analysis' / 'index.html'
+
+    # Create window
+    window = webview.create_window(
+        'EDB Analysis - Touchstone Generator',
+        html_file.as_uri(),
+        js_api=api,
+        width=900,
+        height=700,
+        resizable=True
+    )
+
+    # Start GUI (this will block until window is closed)
     webview.start()

@@ -1,0 +1,68 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>EDB Analysis - Touchstone Generator</title>
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+    <div class="container">
+        <!-- Header -->
+        <header class="header">
+            <h1>EDB Analysis - Touchstone Generator</h1>
+            <p class="subtitle">Generate S-parameter files for cut designs</p>
+        </header>
+
+        <!-- Info Section -->
+        <section class="info-section">
+            <div class="info-item full-width">
+                <span class="label">Results Folder:</span>
+                <span class="value" id="resultsFolder">Loading...</span>
+                <button class="btn-secondary" onclick="browseFolder()" title="Browse and select a different Results folder">
+                    Browse Folder
+                </button>
+            </div>
+            <div class="info-item">
+                <span class="label">Total Designs:</span>
+                <span class="value" id="totalDesigns">0</span>
+            </div>
+        </section>
+
+        <!-- File List Section -->
+        <section class="file-list-section">
+            <div class="section-header">
+                <h2>Design Files (.aedb)</h2>
+                <button class="btn-primary" id="analyzeAllBtn" onclick="analyzeAll()">
+                    Analyze All
+                </button>
+            </div>
+
+            <div id="fileList" class="file-list">
+                <div class="loading">
+                    <span>Loading design files...</span>
+                </div>
+            </div>
+        </section>
+
+        <!-- Progress Section -->
+        <section id="progressSection" class="progress-section hidden">
+            <h3>Analysis Progress</h3>
+            <div class="progress-bar-container">
+                <div id="progressBar" class="progress-fill"></div>
+            </div>
+            <p id="progressText">0 / 0 completed</p>
+        </section>
+
+        <!-- Results Section -->
+        <section id="resultsSection" class="results-section hidden">
+            <h2>Generated Touchstone Files</h2>
+            <div id="resultsList" class="results-list">
+                <!-- Dynamically populated -->
+            </div>
+        </section>
+    </div>
+
+    <script src="analysis.js"></script>
+</body>
+</html>

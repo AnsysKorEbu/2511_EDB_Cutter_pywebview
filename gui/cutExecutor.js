@@ -238,10 +238,21 @@ async function executeSelectedCut() {
                 </div>
             `;
 
-            // Close modal after delay
-            setTimeout(() => {
-                closeCutExecutor();
-            }, 2000);
+            // Prompt to open analysis GUI if results folder is available
+            if (result.results_folder) {
+                setTimeout(async () => {
+                    const openAnalysis = await customConfirm('Cutting complete! Open Analysis GUI to generate Touchstone files?');
+                    if (openAnalysis) {
+                        await window.pywebview.api.launch_analysis_gui_window(result.results_folder);
+                    }
+                    closeCutExecutor();
+                }, 1500);
+            } else {
+                // Close modal after delay if no results folder
+                setTimeout(() => {
+                    closeCutExecutor();
+                }, 2000);
+            }
 
         } else {
             // Show error message

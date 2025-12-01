@@ -238,6 +238,25 @@ async function initNetsManager() {
     }
 }
 
+/**
+ * Open Analysis GUI
+ * Opens a folder browser to select a Results folder and launches the Analysis GUI
+ */
+async function openAnalysisGui() {
+    try {
+        // Use tkinter folder browser to select Results folder
+        const result = await window.pywebview.api.browse_results_folder_for_analysis();
+
+        if (result && result.success && result.folder) {
+            // Launch analysis GUI with selected folder
+            await window.pywebview.api.launch_analysis_gui_window(result.folder);
+        }
+    } catch (error) {
+        console.error('Failed to open Analysis GUI:', error);
+        await customAlert('Failed to open Analysis GUI: ' + (error.message || error));
+    }
+}
+
 // Initialize when pywebview is ready
 window.addEventListener('pywebviewready', function() {
     console.log('PyWebView ready!');
