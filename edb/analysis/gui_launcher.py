@@ -15,6 +15,8 @@ from pathlib import Path
 
 if __name__ == "__main__":
     results_folder = sys.argv[1] if len(sys.argv) > 1 else None
+    edb_version = sys.argv[2] if len(sys.argv) > 2 else "2025.1"
+    grpc = sys.argv[3].lower() == 'true' if len(sys.argv) > 3 else False
 
     if not results_folder:
         # Show folder browser if no folder provided
@@ -48,10 +50,11 @@ if __name__ == "__main__":
         sys.exit(1)
 
     print(f"Launching Analysis GUI for: {results_folder}")
+    print(f"EDB Version: {edb_version}")
+    print(f"gRPC Mode: {grpc}")
 
     # Import and launch Analysis GUI
     from gui import launch_analysis_gui
 
-    # Launch with default EDB version and gRPC settings
-    # These can be made configurable via command line args if needed
-    launch_analysis_gui(results_folder, edb_version="2025.1", grpc=False)
+    # Launch with EDB version and gRPC settings from command line
+    launch_analysis_gui(results_folder, edb_version=edb_version, grpc=grpc)

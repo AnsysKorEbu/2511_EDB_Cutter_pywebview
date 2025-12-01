@@ -437,6 +437,8 @@ class Api:
 
             print(f"\n[INFO] Launching Analysis GUI as subprocess")
             print(f"Results folder: {results_folder}")
+            print(f"EDB Version: {self.edb_version}")
+            print(f"gRPC Mode: {self.grpc}")
 
             # Get python executable path
             python_exe = Path(".venv/Scripts/python.exe")
@@ -447,9 +449,10 @@ class Api:
                     'error': 'Python executable not found at .venv/Scripts/python.exe'
                 }
 
-            # Launch analysis GUI via edb.analysis.gui_launcher
+            # Launch analysis GUI via edb.analysis.gui_launcher with edb_version and grpc
+            grpc_str = "True" if self.grpc else "False"
             subprocess.Popen(
-                [str(python_exe), "-m", "edb.analysis.gui_launcher", str(results_folder)],
+                [str(python_exe), "-m", "edb.analysis.gui_launcher", str(results_folder), self.edb_version, grpc_str],
                 cwd=Path.cwd()
             )
 
