@@ -84,6 +84,9 @@ def run_siwave_analysis(aedb_path, edb_version, output_path, grpc=False):
 
         print(f"[DEBUG] create_exec_file returned: {result}")
 
+        siw_path = edb.solve_siwave()
+        print(f"[DEBUG] run : {siw_path}")
+
         # Close EDB
         edb.close()
         print("[OK] EDB closed")
