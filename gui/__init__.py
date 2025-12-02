@@ -297,12 +297,6 @@ class Api:
                     return {'success': False, 'error': f'Cut file not found: {cut_id}'}
                 cut_files.append(str(cut_file.resolve()))
 
-            # Get python executable path
-            python_exe = Path(".venv/Scripts/python.exe")
-
-            if not python_exe.exists():
-                return {'success': False, 'error': 'Python executable not found'}
-
             logger.info(f"\n{'=' * 70}")
             logger.info(f"Executing cuts: {', '.join(cut_ids)}")
             logger.info(f"{'=' * 70}")
@@ -334,9 +328,10 @@ class Api:
 
             try:
                 # Run edb.cut package as subprocess with batch file
+                import sys
                 grpc_str = "True" if self.grpc else "False"
                 result = subprocess.run(
-                    [str(python_exe), "-u", "-m", "edb.cut", self.edb_path, self.edb_version, batch_file_path, grpc_str],
+                    [sys.executable, "-u", "-m", "edb.cut", self.edb_path, self.edb_version, batch_file_path, grpc_str],
                     cwd=Path.cwd()
                 )
 
@@ -435,25 +430,17 @@ class Api:
         """
         try:
             import subprocess
+            import sys
 
             logger.info(f"\n[INFO] Launching Analysis GUI as subprocess")
             logger.info(f"Results folder: {results_folder}")
             logger.info(f"EDB Version: {self.edb_version}")
             logger.info(f"gRPC Mode: {self.grpc}")
 
-            # Get python executable path
-            python_exe = Path(".venv/Scripts/python.exe")
-
-            if not python_exe.exists():
-                return {
-                    'success': False,
-                    'error': 'Python executable not found at .venv/Scripts/python.exe'
-                }
-
             # Launch analysis GUI via edb.analysis.gui_launcher with edb_version and grpc
             grpc_str = "True" if self.grpc else "False"
             subprocess.Popen(
-                [str(python_exe), "-m", "edb.analysis.gui_launcher", str(results_folder), self.edb_version, grpc_str],
+                [sys.executable, "-m", "edb.analysis.gui_launcher", str(results_folder), self.edb_version, grpc_str],
                 cwd=Path.cwd()
             )
 

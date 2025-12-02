@@ -110,20 +110,12 @@ class AnalysisApi:
             logger.info(f"Output: {output_path}")
             logger.info(f"{'=' * 70}")
 
-            # Get python executable path
-            python_exe = Path(".venv/Scripts/python.exe")
-
-            if not python_exe.exists():
-                return {
-                    'success': False,
-                    'error': 'Python executable not found at .venv/Scripts/python.exe'
-                }
-
             # Run analysis subprocess
+            import sys
             grpc_str = "True" if self.grpc else "False"
             result = subprocess.run(
                 [
-                    str(python_exe),
+                    sys.executable,
                     "-u",
                     "-m",
                     "edb.analysis",

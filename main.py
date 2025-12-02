@@ -78,19 +78,11 @@ def extract_edb_data(edb_path, edb_version):
     logger.info(f"EDB Path: {edb_path}")
     logger.info(f"EDB Version: {edb_version}")
 
-    # Get python executable path
-    python_exe = Path(".venv/Scripts/python.exe")
-
-    if not python_exe.exists():
-        logger.error(f"Python executable not found: {python_exe}")
-        logger.error("Please ensure virtual environment is set up correctly.")
-        sys.exit(1)
-
     # Run edb package as subprocess with EDB_PATH and EDB_VERSION as arguments
     # capture_output=False allows real-time output to console
     try:
         result = subprocess.run(
-            [str(python_exe), "-m", "edb", edb_path, edb_version],
+            [sys.executable, "-m", "edb", edb_path, edb_version],
             cwd=Path.cwd()
         )
 
