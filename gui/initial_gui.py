@@ -5,6 +5,7 @@ import os
 import json
 import webview
 from pathlib import Path
+from util.logger_module import logger
 
 
 class InitialApi:
@@ -34,7 +35,7 @@ class InitialApi:
 
             return settings
         except Exception as e:
-            print(f"[WARNING] Failed to load previous settings: {e}")
+            logger.warning(f"Failed to load previous settings: {e}")
             return {}
 
     def get_ansys_versions(self):
@@ -58,7 +59,7 @@ class InitialApi:
 
                         versions[formatted] = value
                 except Exception as e:
-                    print(f"Error parsing version from {key}: {e}")
+                    logger.info(f"Error parsing version from {key}: {e}")
                     continue
 
         # Sort versions in descending order (newest first)
@@ -240,7 +241,7 @@ def start_initial_gui():
     html_file = Path(__file__).parent / 'initial' / 'index.html'
 
     if not html_file.exists():
-        print(f"Error: Initial GUI HTML not found at {html_file}")
+        logger.info(f"Error: Initial GUI HTML not found at {html_file}")
         return None
 
     # Create window
@@ -270,7 +271,7 @@ if __name__ == '__main__':
     """Test the initial GUI"""
     settings = start_initial_gui()
     if settings:
-        print("Settings saved:")
+        logger.info("Settings saved:")
         print(json.dumps(settings, indent=2))
     else:
-        print("Settings not saved (cancelled)")
+        logger.info("Settings not saved (cancelled)")

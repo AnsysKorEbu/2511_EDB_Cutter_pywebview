@@ -26,7 +26,7 @@ if __name__ == "__main__":
         root = tk.Tk()
         root.withdraw()  # Hide the root window
 
-        print("Please select a Results folder...")
+        logger.info("Please select a Results folder...")
 
         results_folder = filedialog.askdirectory(
             title='Select Results Folder (e.g., Results/design_20251201_143000/)',
@@ -36,25 +36,26 @@ if __name__ == "__main__":
         root.destroy()
 
         if not results_folder:
-            print("No folder selected. Exiting.")
+            logger.info("No folder selected. Exiting.")
             sys.exit(1)
 
     # Verify the folder exists
     results_path = Path(results_folder)
     if not results_path.exists():
-        print(f"Error: Folder does not exist: {results_folder}")
+        logger.info(f"Error: Folder does not exist: {results_folder}")
         sys.exit(1)
 
     if not results_path.is_dir():
-        print(f"Error: Path is not a directory: {results_folder}")
+        logger.info(f"Error: Path is not a directory: {results_folder}")
         sys.exit(1)
 
-    print(f"Launching Analysis GUI for: {results_folder}")
-    print(f"EDB Version: {edb_version}")
-    print(f"gRPC Mode: {grpc}")
+    logger.info(f"Launching Analysis GUI for: {results_folder}")
+    logger.info(f"EDB Version: {edb_version}")
+    logger.info(f"gRPC Mode: {grpc}")
 
     # Import and launch Analysis GUI
     from gui import launch_analysis_gui
+from util.logger_module import logger
 
     # Launch with EDB version and gRPC settings from command line
     launch_analysis_gui(results_folder, edb_version=edb_version, grpc=grpc)

@@ -26,11 +26,11 @@ class AnalysisApi:
         self.grpc = grpc
         self.aedb_files = self._discover_aedb_files()
 
-        print(f"Analysis GUI initialized")
-        print(f"Results folder: {self.results_folder_str}")
-        print(f"EDB version: {self.edb_version}")
-        print(f"gRPC mode: {self.grpc}")
-        print(f"Found {len(self.aedb_files)} .aedb files")
+        logger.info(f"Analysis GUI initialized")
+        logger.info(f"Results folder: {self.results_folder_str}")
+        logger.info(f"EDB version: {self.edb_version}")
+        logger.info(f"gRPC mode: {self.grpc}")
+        logger.info(f"Found {len(self.aedb_files)} .aedb files")
 
     def _discover_aedb_files(self):
         """
@@ -43,7 +43,7 @@ class AnalysisApi:
         results_folder = Path(self.results_folder_str)
 
         if not results_folder.exists():
-            print(f"[WARNING] Results folder does not exist: {results_folder}")
+            logger.warning(f"Results folder does not exist: {results_folder}")
             return aedb_files
 
         # Find all .aedb folders
@@ -53,7 +53,7 @@ class AnalysisApi:
                 try:
                     total_size = sum(f.stat().st_size for f in aedb_dir.rglob('*') if f.is_file())
                 except Exception as e:
-                    print(f"[WARNING] Failed to get size for {aedb_dir.name}: {e}")
+                    logger.warning(f"Failed to get size for {aedb_dir.name}: {e}")
                     total_size = 0
 
                 aedb_files.append({
@@ -104,10 +104,10 @@ class AnalysisApi:
             output_name = aedb_path.stem  # Remove .aedb extension
             output_path = analysis_folder / f"{output_name}.snp"
 
-            print(f"\n{'=' * 70}")
-            print(f"Analyzing: {aedb_name}")
-            print(f"Output: {output_path}")
-            print(f"{'=' * 70}")
+            logger.info(f"\n{'=' * 70}")
+            logger.info(f"Analyzing: {aedb_name}")
+            logger.info(f"Output: {output_path}")
+            logger.info(f"{'=' * 70}")
 
             # Get python executable path
             python_exe = Path(".venv/Scripts/python.exe")
@@ -144,7 +144,7 @@ class AnalysisApi:
 
             if result.returncode != 0:
                 error_msg = f"Analysis failed with return code {result.returncode}"
-                print(f"[ERROR] {error_msg}")
+                logger.error(f"{error_msg}")
                 return {
                     'success': False,
                     'error': error_msg,
@@ -167,7 +167,7 @@ class AnalysisApi:
             else:
                 output_file = touchstone_files[0]
 
-            print(f"[OK] Analysis complete: {output_file.name}")
+            logger.info(f"Analysis complete: {output_file.name}")
             print()
 
             return {
@@ -178,7 +178,7 @@ class AnalysisApi:
 
         except Exception as e:
             error_msg = f"Failed to analyze {aedb_name}: {str(e)}"
-            print(f"[ERROR] {error_msg}")
+            logger.error(f"{error_msg}")
             import traceback
             traceback.print_exc()
             return {
@@ -268,15 +268,15 @@ class AnalysisApi:
             root.destroy()
 
             if folder_path:
-                print(f"[INFO] Selected folder: {folder_path}")
+                logger.info(f"Selected folder: {folder_path}")
                 return {'success': True, 'folder': folder_path}
             else:
-                print("[INFO] No folder selected")
+                logger.info("[INFO] No folder selected")
                 return {'success': False, 'error': 'No folder selected'}
 
         except Exception as e:
             error_msg = f"Failed to open folder browser: {str(e)}"
-            print(f"[ERROR] {error_msg}")
+            logger.error(f"{error_msg}")
             import traceback
             traceback.print_exc()
             return {'success': False, 'error': error_msg}
@@ -309,7 +309,7 @@ class AnalysisApi:
             # Re-discover .aedb files in new folder
             self.aedb_files = self._discover_aedb_files()
 
-            print(f"[OK] Loaded {len(self.aedb_files)} .aedb files from: {folder_path}")
+            logger.info(f"Loaded {len(self.aedb_files)} .aedb files from: {folder_path}")
 
             return {
                 'success': True,
@@ -319,8 +319,9 @@ class AnalysisApi:
 
         except Exception as e:
             error_msg = f"Failed to load folder: {str(e)}"
-            print(f"[ERROR] {error_msg}")
+            logger.error(f"{error_msg}")
             import traceback
+from util.logger_module import logger
             traceback.print_exc()
             return {
                 'success': False,

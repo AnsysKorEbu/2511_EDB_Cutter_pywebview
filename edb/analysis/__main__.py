@@ -20,8 +20,8 @@ if __name__ == "__main__":
         sys.argv[4]: grpc (optional, "True" or "False", default: "False")
     """
     if len(sys.argv) < 4:
-        print("[ERROR] Insufficient arguments")
-        print("Usage: python -m edb.analysis <aedb_path> <edb_version> <output_path> [grpc]")
+        logger.info("[ERROR] Insufficient arguments")
+        logger.info("Usage: python -m edb.analysis <aedb_path> <edb_version> <output_path> [grpc]")
         sys.exit(1)
 
     aedb_path = sys.argv[1]
@@ -30,12 +30,12 @@ if __name__ == "__main__":
     grpc = sys.argv[4].lower() == 'true' if len(sys.argv) > 4 else False
 
     print("=" * 70)
-    print("EDB Analysis Subprocess")
+    logger.info("EDB Analysis Subprocess")
     print("=" * 70)
-    print(f"AEDB Path: {aedb_path}")
-    print(f"EDB Version: {edb_version}")
-    print(f"Output Path: {output_path}")
-    print(f"gRPC Mode: {grpc}")
+    logger.info(f"AEDB Path: {aedb_path}")
+    logger.info(f"EDB Version: {edb_version}")
+    logger.info(f"Output Path: {output_path}")
+    logger.info(f"gRPC Mode: {grpc}")
     print()
 
     try:
@@ -44,22 +44,23 @@ if __name__ == "__main__":
 
         if result['success']:
             print("=" * 70)
-            print("[SUCCESS] SIwave analysis completed successfully")
-            print(f"Output file: {result['output_file']}")
-            print(f"File size: {result.get('file_size', 0):,} bytes")
+            logger.info("[SUCCESS] SIwave analysis completed successfully")
+            logger.info(f"Output file: {result['output_file']}")
+            logger.info(f"File size: {result.get('file_size', 0):,} bytes")
             print("=" * 70)
             sys.exit(0)
         else:
             print("=" * 70)
-            print("[ERROR] SIwave analysis failed")
-            print(f"Error: {result.get('error', 'Unknown error')}")
+            logger.info("[ERROR] SIwave analysis failed")
+            logger.info(f"Error: {result.get('error', 'Unknown error')}")
             print("=" * 70)
             sys.exit(1)
 
     except Exception as e:
         print("=" * 70)
-        print(f"[ERROR] Unexpected error: {e}")
+        logger.error(f"Unexpected error: {e}")
         import traceback
+from util.logger_module import logger
         traceback.print_exc()
         print("=" * 70)
         sys.exit(1)

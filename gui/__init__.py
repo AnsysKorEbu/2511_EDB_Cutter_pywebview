@@ -3,6 +3,7 @@ GUI module for EDB Cutter using pywebview
 """
 import webview
 from pathlib import Path
+from util.logger_module import logger
 
 
 class Api:
@@ -41,7 +42,7 @@ class Api:
         try:
             from edb.edb_saver import load_all_edb_data
 
-            print(f"Loading EDB data from {self._edb_data_dir}...")
+            logger.info(f"Loading EDB data from {self._edb_data_dir}...")
             self.data = load_all_edb_data(str(self._edb_data_dir))
 
             return {
@@ -51,7 +52,7 @@ class Api:
                 'vias': len(self.data['vias']) if self.data['vias'] else 0
             }
         except Exception as e:
-            print(f"Error loading data: {e}")
+            logger.info(f"Error loading data: {e}")
             return {'error': str(e)}
 
     def get_planes_data(self):
@@ -59,12 +60,12 @@ class Api:
         try:
             if self.data is None or self.data.get('planes') is None:
                 from edb.edb_saver import load_all_edb_data
-                print(f"Loading EDB data from {self._edb_data_dir}...")
+                logger.info(f"Loading EDB data from {self._edb_data_dir}...")
                 self.data = load_all_edb_data(str(self._edb_data_dir))
 
             return self.data.get('planes', [])
         except Exception as e:
-            print(f"Error getting planes data: {e}")
+            logger.info(f"Error getting planes data: {e}")
             return []
 
     def get_vias_data(self):
@@ -72,12 +73,12 @@ class Api:
         try:
             if self.data is None or self.data.get('vias') is None:
                 from edb.edb_saver import load_all_edb_data
-                print(f"Loading EDB data from {self._edb_data_dir}...")
+                logger.info(f"Loading EDB data from {self._edb_data_dir}...")
                 self.data = load_all_edb_data(str(self._edb_data_dir))
 
             return self.data.get('vias', [])
         except Exception as e:
-            print(f"Error getting vias data: {e}")
+            logger.info(f"Error getting vias data: {e}")
             return []
 
     def get_traces_data(self):
@@ -85,12 +86,12 @@ class Api:
         try:
             if self.data is None or self.data.get('traces') is None:
                 from edb.edb_saver import load_all_edb_data
-                print(f"Loading EDB data from {self._edb_data_dir}...")
+                logger.info(f"Loading EDB data from {self._edb_data_dir}...")
                 self.data = load_all_edb_data(str(self._edb_data_dir))
 
             return self.data.get('traces', [])
         except Exception as e:
-            print(f"Error getting traces data: {e}")
+            logger.info(f"Error getting traces data: {e}")
             return []
 
     def get_nets_data(self):
@@ -98,12 +99,12 @@ class Api:
         try:
             if self.data is None or self.data.get('nets') is None:
                 from edb.edb_saver import load_all_edb_data
-                print(f"Loading EDB data from {self._edb_data_dir}...")
+                logger.info(f"Loading EDB data from {self._edb_data_dir}...")
                 self.data = load_all_edb_data(str(self._edb_data_dir))
 
             return self.data.get('nets', {'signal': [], 'power': []})
         except Exception as e:
-            print(f"Error getting nets data: {e}")
+            logger.info(f"Error getting nets data: {e}")
             return {'signal': [], 'power': []}
 
     def save_cut_data(self, cut_data):
@@ -129,10 +130,10 @@ class Api:
             with open(cut_file, 'w', encoding='utf-8') as f:
                 json.dump(cut_data, f, indent=2)
 
-            print(f"Cut data saved: {cut_file}")
+            logger.info(f"Cut data saved: {cut_file}")
             return {'success': True, 'id': cut_id, 'file': str(cut_file)}
         except Exception as e:
-            print(f"Error saving cut data: {e}")
+            logger.info(f"Error saving cut data: {e}")
             return {'success': False, 'error': str(e)}
 
     def get_cut_list(self):
@@ -167,11 +168,11 @@ class Api:
                         'filename': cut_file.name
                     })
                 except Exception as e:
-                    print(f"Error reading {cut_file}: {e}")
+                    logger.info(f"Error reading {cut_file}: {e}")
 
             return cuts
         except Exception as e:
-            print(f"Error getting cut list: {e}")
+            logger.info(f"Error getting cut list: {e}")
             return []
 
     def delete_cut(self, cut_id):
@@ -182,12 +183,12 @@ class Api:
 
             if cut_file.exists():
                 cut_file.unlink()
-                print(f"Deleted cut: {cut_file}")
+                logger.info(f"Deleted cut: {cut_file}")
                 return {'success': True}
             else:
                 return {'success': False, 'error': 'File not found'}
         except Exception as e:
-            print(f"Error deleting cut: {e}")
+            logger.info(f"Error deleting cut: {e}")
             return {'success': False, 'error': str(e)}
 
     def rename_cut(self, old_id, new_id):
@@ -233,11 +234,11 @@ class Api:
             # Delete old file
             old_file.unlink()
 
-            print(f"Renamed cut: {old_id} -> {new_id}")
+            logger.info(f"Renamed cut: {old_id} -> {new_id}")
             return {'success': True, 'new_id': new_id}
 
         except Exception as e:
-            print(f"Error renaming cut: {e}")
+            logger.info(f"Error renaming cut: {e}")
             return {'success': False, 'error': str(e)}
 
     def get_cut_data(self, cut_id):
@@ -254,7 +255,7 @@ class Api:
             else:
                 return None
         except Exception as e:
-            print(f"Error loading cut data: {e}")
+            logger.info(f"Error loading cut data: {e}")
             return None
 
     def execute_cuts(self, cut_ids, selected_nets=None):
@@ -302,17 +303,17 @@ class Api:
             if not python_exe.exists():
                 return {'success': False, 'error': 'Python executable not found'}
 
-            print(f"\n{'=' * 70}")
-            print(f"Executing cuts: {', '.join(cut_ids)}")
-            print(f"{'=' * 70}")
+            logger.info(f"\n{'=' * 70}")
+            logger.info(f"Executing cuts: {', '.join(cut_ids)}")
+            logger.info(f"{'=' * 70}")
 
             # Debug logging for selected nets
-            print(f"[DEBUG] Received selected_nets parameter: {selected_nets}")
+            logger.debug(f"Received selected_nets parameter: {selected_nets}")
             if selected_nets:
-                print(f"[DEBUG] Signal nets count: {len(selected_nets.get('signal', []))}")
-                print(f"[DEBUG] Power nets count: {len(selected_nets.get('power', []))}")
+                logger.debug(f"Signal nets count: {len(selected_nets.get('signal', []))}")
+                logger.debug(f"Power nets count: {len(selected_nets.get('power', []))}")
                 if selected_nets.get('signal'):
-                    print(f"[DEBUG] Signal nets: {selected_nets.get('signal')}")
+                    logger.debug(f"Signal nets: {selected_nets.get('signal')}")
             print()
 
             # Create batch JSON file with cut file paths and selected nets
@@ -343,12 +344,12 @@ class Api:
 
                 if return_code != 0:
                     error_msg = f"Cut execution failed with code {return_code}"
-                    print(f"[ERROR] {error_msg}")
+                    logger.error(f"{error_msg}")
                     return {'success': False, 'error': error_msg}
 
                 count = len(cut_ids)
                 success_msg = f"{count} cut{'s' if count > 1 else ''} executed successfully!"
-                print(f"\n[OK] {success_msg}\n")
+                logger.info(f"\n[OK] {success_msg}\n")
 
                 # Get results folder path for analysis GUI
                 # The subprocess creates Results/{edb_name}_{timestamp}/ folder
@@ -362,7 +363,7 @@ class Api:
                         # Sort by modification time and get the most recent
                         latest_dir = max(result_dirs, key=lambda d: d.stat().st_mtime)
                         results_folder = str(latest_dir)
-                        print(f"[DEBUG] Results folder for analysis: {results_folder}")
+                        logger.debug(f"Results folder for analysis: {results_folder}")
 
                 return {'success': True, 'results_folder': results_folder}
 
@@ -371,11 +372,11 @@ class Api:
                 try:
                     Path(batch_file_path).unlink()
                 except Exception as cleanup_error:
-                    print(f"[WARNING] Failed to clean up batch file: {cleanup_error}")
+                    logger.warning(f"Failed to clean up batch file: {cleanup_error}")
 
         except Exception as e:
             error_msg = f"Failed to execute cuts: {str(e)}"
-            print(f"\n[ERROR] {error_msg}")
+            logger.info(f"\n[ERROR] {error_msg}")
             import traceback
             traceback.print_exc()
             return {'success': False, 'error': error_msg}
@@ -406,15 +407,15 @@ class Api:
             root.destroy()
 
             if folder_path:
-                print(f"[INFO] Selected folder for analysis: {folder_path}")
+                logger.info(f"Selected folder for analysis: {folder_path}")
                 return {'success': True, 'folder': folder_path}
             else:
-                print("[INFO] No folder selected")
+                logger.info("[INFO] No folder selected")
                 return {'success': False, 'error': 'No folder selected'}
 
         except Exception as e:
             error_msg = f"Failed to open folder browser: {str(e)}"
-            print(f"[ERROR] {error_msg}")
+            logger.error(f"{error_msg}")
             import traceback
             traceback.print_exc()
             return {'success': False, 'error': error_msg}
@@ -435,10 +436,10 @@ class Api:
         try:
             import subprocess
 
-            print(f"\n[INFO] Launching Analysis GUI as subprocess")
-            print(f"Results folder: {results_folder}")
-            print(f"EDB Version: {self.edb_version}")
-            print(f"gRPC Mode: {self.grpc}")
+            logger.info(f"\n[INFO] Launching Analysis GUI as subprocess")
+            logger.info(f"Results folder: {results_folder}")
+            logger.info(f"EDB Version: {self.edb_version}")
+            logger.info(f"gRPC Mode: {self.grpc}")
 
             # Get python executable path
             python_exe = Path(".venv/Scripts/python.exe")
@@ -456,12 +457,12 @@ class Api:
                 cwd=Path.cwd()
             )
 
-            print("[OK] Analysis GUI subprocess launched")
+            logger.info("[OK] Analysis GUI subprocess launched")
             return {'success': True}
 
         except Exception as e:
             error_msg = f"Failed to launch Analysis GUI: {str(e)}"
-            print(f"\n[ERROR] {error_msg}")
+            logger.info(f"\n[ERROR] {error_msg}")
             import traceback
             traceback.print_exc()
             return {'success': False, 'error': error_msg}

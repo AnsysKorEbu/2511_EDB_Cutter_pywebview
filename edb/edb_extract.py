@@ -68,7 +68,7 @@ def extract_via_positions(edb=None):
     Pre-caches padstack definitions and minimizes property access per via.
     """
     # Step 1: Pre-cache padstack definitions to avoid repeated lookups
-    print("Caching padstack definitions...")
+    logger.info("Caching padstack definitions...")
     padstack_cache = {}
     for def_name, pdef in edb.padstacks.definitions.items():
         try:
@@ -87,9 +87,9 @@ def extract_via_positions(edb=None):
             padstack_cache[def_name] = {'hole_diameter': None}
 
     # Step 2: Get all vias at once (PyEDB internally caches this)
-    print("Fetching all vias...")
+    logger.info("Fetching all vias...")
     all_vias = list(edb.padstacks.vias.values())
-    print(f"Processing {len(all_vias)} vias...")
+    logger.info(f"Processing {len(all_vias)} vias...")
 
     # Step 3: Process vias with minimal property access
     vias_data = []
@@ -142,7 +142,7 @@ def extract_via_positions(edb=None):
         }
         vias_data.append(via_info)
 
-    print(f"Completed via extraction: {len(vias_data)} vias")
+    logger.info(f"Completed via extraction: {len(vias_data)} vias")
     return vias_data
 
 def extract_net_names(edb=None):

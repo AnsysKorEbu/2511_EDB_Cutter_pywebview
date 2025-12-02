@@ -1,6 +1,7 @@
 import pyedb
 from pathlib import Path
 from edb import edb_extract, edb_saver
+from util.logger_module import logger
 
 
 def interface(
@@ -27,39 +28,39 @@ def interface(
     # Create EDB-specific output directory
     edb_output_dir = Path(output_dir) / edb_folder_name
 
-    print("=" * 70)
-    print("EDB Data Extraction")
-    print("=" * 70)
-    print(f"EDB Path: {edbpath}")
-    print(f"EDB Folder Name: {edb_folder_name}")
-    print(f"Output Directory: {edb_output_dir}")
-    print(f"Version: {edbversion}\n")
+    logger.info("=" * 70)
+    logger.info("EDB Data Extraction")
+    logger.info("=" * 70)
+    logger.info(f"EDB Path: {edbpath}")
+    logger.info(f"EDB Folder Name: {edb_folder_name}")
+    logger.info(f"Output Directory: {edb_output_dir}")
+    logger.info(f"Version: {edbversion}")
 
     # Open EDB
-    print("Opening EDB...")
+    logger.info("Opening EDB...")
     edb = pyedb.Edb(edbpath=edbpath, version=edbversion)
-    print("[OK] EDB opened successfully\n")
+    logger.info("EDB opened successfully")
 
     # Extract data
-    print("Extracting data...")
+    logger.info("Extracting data...")
     planes_data = edb_extract.extract_plane_positions(edb)
-    print(f"  [OK] Planes: {len(planes_data)} items")
+    logger.info(f"  Planes: {len(planes_data)} items")
 
     traces_data = edb_extract.extract_trace_positions(edb)
-    print(f"  [OK] Traces: {len(traces_data)} items")
+    logger.info(f"  Traces: {len(traces_data)} items")
 
     components_data = edb_extract.extract_component_positions(edb)
-    print(f"  [OK] Components: {len(components_data)} items")
+    logger.info(f"  Components: {len(components_data)} items")
 
     vias_data = edb_extract.extract_via_positions(edb)
-    print(f"  [OK] Vias: {len(vias_data)} items")
+    logger.info(f"  Vias: {len(vias_data)} items")
 
     nets_data = edb_extract.extract_net_names(edb)
-    print(f"  [OK] Nets: {len(nets_data['signal'])} signal, {len(nets_data['power'])} power/ground\n")
+    logger.info(f"  Nets: {len(nets_data['signal'])} signal, {len(nets_data['power'])} power/ground")
 
     # Save data if requested
     if save_data:
-        print("Saving data to compressed JSON files...")
+        logger.info("Saving data to compressed JSON files...")
         results = edb_saver.save_edb_data(
             planes_data=planes_data,
             traces_data=traces_data,
@@ -68,15 +69,15 @@ def interface(
             nets_data=nets_data,
             output_dir=str(edb_output_dir)
         )
-        print(f"\n[OK] All data saved to '{edb_output_dir}/' directory")
+        logger.info(f"All data saved to '{edb_output_dir}/' directory")
 
         # Print summary
         total_size = sum(r['size_mb'] for r in results.values())
-        print(f"\nTotal size: {total_size:.2f} MB (compressed)")
+        logger.info(f"Total size: {total_size:.2f} MB (compressed)")
 
     # Close EDB
     edb.close()
-    print("\n[OK] EDB closed")
+    logger.info("EDB closed")
 
     return {
         'planes': planes_data,

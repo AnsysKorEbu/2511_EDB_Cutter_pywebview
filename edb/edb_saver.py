@@ -7,6 +7,7 @@ import json
 import gzip
 from pathlib import Path
 from typing import Dict, List, Any
+from util.logger_module import logger
 
 
 def save_edb_data(
@@ -63,7 +64,7 @@ def save_edb_data(
                 'items': item_count
             }
 
-            print(f"[OK] Saved: {filename} ({item_count} items, {results[filename]['size_mb']} MB)")
+            logger.info(f"Saved: {filename} ({item_count} items, {results[filename]['size_mb']} MB)")
 
     return results
 
@@ -87,13 +88,13 @@ def load_edb_data(filename: str, source_dir: str = 'source') -> Any:
     if not filepath.exists():
         raise FileNotFoundError(f"Data file not found: {filepath}")
 
-    print(f"Loading: {filename}...", end=' ')
+    logger.info(f"Loading: {filename}...")
 
     with gzip.open(filepath, 'rt', encoding='utf-8') as f:
         data = json.load(f)
 
     item_count = len(data) if isinstance(data, list) else len(data.keys())
-    print(f"[OK] Loaded {item_count} items")
+    logger.info(f"Loaded {item_count} items")
 
     return data
 
@@ -123,7 +124,7 @@ def load_all_edb_data(source_dir: str = 'source') -> Dict[str, Any]:
         if filepath.exists():
             result[key] = load_edb_data(filename, source_dir)
         else:
-            print(f"[WARN] {filename} not found, skipping...")
+            logger.warning(f"{filename} not found, skipping...")
             result[key] = None
 
     return result
@@ -131,9 +132,9 @@ def load_all_edb_data(source_dir: str = 'source') -> Dict[str, Any]:
 
 if __name__ == "__main__":
     # Example usage
-    print("=" * 70)
-    print("EDB Data Saver/Loader Test")
-    print("=" * 70)
+    logger.info("=" * 70)
+    logger.info("EDB Data Saver/Loader Test")
+    logger.info("=" * 70)
 
     # Test save
     test_planes = [
@@ -145,4 +146,4 @@ if __name__ == "__main__":
 
     # Test load
     loaded = load_edb_data('planes.json.gz')
-    print(f"\nLoaded data: {loaded}")
+    logger.info(f"Loaded data: {loaded}")
