@@ -10,6 +10,7 @@ import json
 from pathlib import Path
 from gui import start_gui
 from gui.initial_gui import start_initial_gui
+from util.logger_module import logger
 
 def load_settings():
     """
@@ -28,7 +29,7 @@ def load_settings():
             settings = json.load(f)
         return settings
     except Exception as e:
-        print(f"[WARNING] Failed to load settings: {e}")
+        logger.warning(f"Failed to load settings: {e}")
         return None
 
 
@@ -71,18 +72,18 @@ def extract_edb_data(edb_path, edb_version):
         edb_path: Path to EDB file or folder
         edb_version: EDB version string (e.g., "2025.2")
     """
-    print("=" * 70)
-    print("Step 1: Extracting EDB Data")
-    print("=" * 70)
-    print(f"EDB Path: {edb_path}")
-    print(f"EDB Version: {edb_version}\n")
+    logger.info("=" * 70)
+    logger.info("Step 1: Extracting EDB Data")
+    logger.info("=" * 70)
+    logger.info(f"EDB Path: {edb_path}")
+    logger.info(f"EDB Version: {edb_version}")
 
     # Get python executable path
     python_exe = Path(".venv/Scripts/python.exe")
 
     if not python_exe.exists():
-        print(f"[ERROR] Python executable not found: {python_exe}")
-        print("Please ensure virtual environment is set up correctly.")
+        logger.error(f"Python executable not found: {python_exe}")
+        logger.error("Please ensure virtual environment is set up correctly.")
         sys.exit(1)
 
     # Run edb package as subprocess with EDB_PATH and EDB_VERSION as arguments
@@ -94,37 +95,37 @@ def extract_edb_data(edb_path, edb_version):
         )
 
         if result.returncode != 0:
-            print(f"\n[ERROR] Data extraction failed with code {result.returncode}")
+            logger.error(f"Data extraction failed with code {result.returncode}")
             sys.exit(1)
 
-        print("\n[OK] Data extraction completed successfully!\n")
+        logger.info("Data extraction completed successfully!")
 
     except Exception as e:
-        print(f"\n[ERROR] Failed to run data extraction: {e}")
+        logger.error(f"Failed to run data extraction: {e}")
         sys.exit(1)
 
 
 def main():
     """Start EDB Cutter application"""
-    print("=" * 70)
-    print("EDB Cutter - GUI Application")
-    print("=" * 70)
+    logger.info("=" * 70)
+    logger.info("EDB Cutter - GUI Application")
+    logger.info("=" * 70)
 
     # Step 1: Always show Initial Setup GUI
-    print("Opening Initial Setup GUI...\n")
+    logger.info("Opening Initial Setup GUI...")
 
     # Start Initial GUI to get settings (will load previous settings if available)
     settings = start_initial_gui()
 
     if settings is None:
-        print("[INFO] Setup cancelled by user. Exiting.")
+        logger.info("Setup cancelled by user. Exiting.")
         sys.exit(0)
 
-    print("\n[OK] Settings configured successfully!")
-    print(f"  - EDB Path: {settings['edb_path']}")
-    print(f"  - EDB Version: {settings['edb_version']}")
-    print(f"  - gRPC: {settings['grpc']}")
-    print(f"  - Overwrite: {settings['overwrite']}\n")
+    logger.info("Settings configured successfully!")
+    logger.info(f"  - EDB Path: {settings['edb_path']}")
+    logger.info(f"  - EDB Version: {settings['edb_version']}")
+    logger.info(f"  - gRPC: {settings['grpc']}")
+    logger.info(f"  - Overwrite: {settings['overwrite']}")
 
     # Extract settings
     edb_path = settings['edb_path']
@@ -136,15 +137,15 @@ def main():
     if overwrite or not check_extracted_data_exists(edb_path):
         extract_edb_data(edb_path, edb_version)
     else:
-        print("=" * 70)
-        print("Step 1: Skipping EDB extraction (data exists)")
-        print("=" * 70)
-        print("[OK] Using existing EDB data\n")
+        logger.info("=" * 70)
+        logger.info("Step 1: Skipping EDB extraction (data exists)")
+        logger.info("=" * 70)
+        logger.info("Using existing EDB data")
 
     # Step 3: Start Main GUI
-    print("=" * 70)
-    print("Step 2: Starting Main GUI")
-    print("=" * 70)
+    logger.info("=" * 70)
+    logger.info("Step 2: Starting Main GUI")
+    logger.info("=" * 70)
     start_gui(edb_path, edb_version, grpc)
 
 
