@@ -5,6 +5,27 @@ import logging
 from datetime import datetime
 from pathlib import Path
 
+
+class ColoredFormatter(logging.Formatter):
+    """ANSI 색상 코드를 사용한 컬러 로그 포매터"""
+
+    # ANSI 색상 코드
+    COLORS = {
+        'DEBUG': '\033[90m',      # 회색
+        'INFO': '\033[92m',       # 초록색
+        'WARNING': '\033[93m',    # 노란색
+        'ERROR': '\033[91m',      # 빨간색
+        'CRITICAL': '\033[1;91m'  # 굵은 빨간색
+    }
+    RESET = '\033[0m'
+
+    def format(self, record):
+        # 원본 포맷 적용
+        log_message = super().format(record)
+        # 로그 레벨에 따른 색상 적용
+        color = self.COLORS.get(record.levelname, '')
+        return f"{color}{log_message}{self.RESET}"
+
 # 모듈 레벨에서 타임스탬프 한 번만 생성 (한 실행 세션에서 재사용)
 # 환경 변수에서 타임스탬프를 가져오거나, 없으면 새로 생성
 _LOG_TIMESTAMP = os.environ.get('EDB_CUTTER_LOG_TIMESTAMP', datetime.now().strftime('%Y%m%d_%H%M%S'))
@@ -55,6 +76,7 @@ def setup_logger(save_folder=None, log_filename=None):
     log_file = os.path.join(save_folder, log_filename)
     _LOG_FILE_PATH = str(Path(log_file).resolve())  # 절대 경로로 저장
     logger.setLevel(logging.DEBUG)
+    logger.propagate = False  # root logger로 전파 방지 (중복 로그 제거)
 
     # 파일 핸들러 (파일에 저장)
     fh = logging.FileHandler(log_file, encoding='utf-8')
@@ -62,9 +84,13 @@ def setup_logger(save_folder=None, log_filename=None):
     ch = logging.StreamHandler()
 
     # 포매터 설정
-    formatter = logging.Formatter('%(asctime)s - %(levelname)s - %(message)s')
-    fh.setFormatter(formatter)
-    ch.setFormatter(formatter)
+    # 파일: 순수 텍스트 (색상 코드 없음)
+    file_formatter = logging.Formatter('%(asctime)s - %(levelname)s - %(message)s')
+    fh.setFormatter(file_formatter)
+
+    # 콘솔: 색상 적용
+    console_formatter = ColoredFormatter('%(asctime)s - %(levelname)s - %(message)s')
+    ch.setFormatter(console_formatter)
 
     logger.addHandler(fh)
     logger.addHandler(ch)
