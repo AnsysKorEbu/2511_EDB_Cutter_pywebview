@@ -9,6 +9,7 @@ import json
 import shutil
 from pathlib import Path
 from .edb_cut_interface import clone_edbs_for_cuts, execute_cuts_on_clone
+from util.logger_module import logger
 
 
 def load_cut_data(cut_file_path):
@@ -298,6 +299,5 @@ if __name__ == "__main__":
     except Exception as e:
         logger.info(f"\n[ERROR] Unexpected error: {e}")
         import traceback
-from util.logger_module import logger
         traceback.print_exc()
         sys.exit(1)
