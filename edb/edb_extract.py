@@ -1,4 +1,5 @@
 import pyedb
+from util.logger_module import logger
 
 def extract_component_positions(edb=None):
     component_positions = {}

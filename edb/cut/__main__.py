@@ -60,14 +60,14 @@ if __name__ == "__main__":
     # Use .aedb path directly (no need to append edb.def)
     original_edb_path = edb_path
 
-    print("=" * 70)
+    logger.info("=" * 70)
     logger.info("EDB Cutter Subprocess")
-    print("=" * 70)
+    logger.info("=" * 70)
     logger.info(f"EDB Path: {edb_path}")
     logger.info(f"EDB Version: {edb_version}")
     logger.info(f"Input File: {input_file_path}")
     logger.info(f"gRPC Mode: {grpc}")
-    print()
+    logger.info("")
 
     try:
         # Load input file to detect mode
@@ -96,7 +96,7 @@ if __name__ == "__main__":
                 logger.info(f"Selected signal nets: {', '.join(selected_nets['signal'])}")
             else:
                 logger.info("No signal nets selected")
-            print()
+            logger.info("")
 
             # Determine cut type from first cut file
             first_cut_data = load_cut_data(cut_files[0])
@@ -112,12 +112,12 @@ if __name__ == "__main__":
             else:
                 num_clones = len(cut_files) + 1
                 logger.info(f"Creating {num_clones} EDB clones ({len(cut_files)} cuts + 1 segments)...")
-            print()
+            logger.info("")
 
             try:
                 cloned_paths = clone_edbs_for_cuts(original_edb_path, num_clones, edb_version, grpc)
                 logger.info(f"Successfully created {len(cloned_paths)} EDB clones")
-                print()
+                logger.info("")
 
                 # Copy batch file to Results directory
                 results_dir = Path(cloned_paths[0]).parent
@@ -127,10 +127,10 @@ if __name__ == "__main__":
                 try:
                     shutil.copy2(input_file_path, batch_dest)
                     logger.info(f"Batch file copied to: {batch_dest}")
-                    print()
+                    logger.info("")
                 except Exception as copy_error:
                     logger.warning(f"Failed to copy batch file: {copy_error}")
-                    print()
+                    logger.info("")
 
             except Exception as clone_error:
                 logger.error(f"Failed to clone EDB files: {clone_error}")
@@ -162,17 +162,17 @@ if __name__ == "__main__":
                         # Middle clones: adjacent cuts [i-1, i]
                         clone_cut_mapping.append([cut_files[i-1], cut_files[i]])
                         logger.info(f"  Clone {i+1}: {Path(cut_files[i-1]).stem}, {Path(cut_files[i]).stem}")
-            print()
+            logger.info("")
 
             all_success = True
             failed_cuts = []
 
             # Process each clone with its assigned cuts
             for i, (clone_path, assigned_cut_files) in enumerate(zip(cloned_paths, clone_cut_mapping), 1):
-                print("-" * 70)
+                logger.info("-" * 70)
                 logger.info(f"Processing Clone {i}/{num_clones}: {Path(clone_path).name}")
                 logger.info(f"Assigned cuts: {', '.join([Path(f).stem for f in assigned_cut_files])}")
-                print("-" * 70)
+                logger.info("-" * 70)
 
                 # Get edb.def path for this clone
                 clone_edb_path = str(Path(clone_path) / 'edb.def')
@@ -204,16 +204,16 @@ if __name__ == "__main__":
                     for cut_file_path in assigned_cut_files:
                         failed_cuts.append(f"{Path(cut_file_path).stem} (clone {i})")
 
-                print()
+                logger.info("")
 
             # Print final summary
-            print("=" * 70)
+            logger.info("=" * 70)
             if all_success:
                 logger.info(f"[SUCCESS] All {len(cut_files)} cuts completed successfully")
             else:
                 logger.info(f"[PARTIAL SUCCESS] {len(cut_files) - len(failed_cuts)}/{len(cut_files)} cuts completed")
                 logger.info(f"Failed cuts: {', '.join(failed_cuts)}")
-            print("=" * 70)
+            logger.info("=" * 70)
 
             sys.exit(0 if all_success else 1)
 
@@ -227,7 +227,7 @@ if __name__ == "__main__":
             # Add empty selected_nets for single mode (no batch file)
             if 'selected_nets' not in input_data:
                 input_data['selected_nets'] = {'signal': [], 'power': []}
-            print()
+            logger.info("")
 
             # Clone EDB files before processing cut
             # Polygon/Rectangle: 1 cut = 1 clone (defines a region)
@@ -238,12 +238,12 @@ if __name__ == "__main__":
             else:
                 num_clones = 2
                 logger.info(f"Creating {num_clones} EDB clones (1 cut → 2 segments)...")
-            print()
+            logger.info("")
 
             try:
                 cloned_paths = clone_edbs_for_cuts(original_edb_path, num_clones, edb_version, grpc)
                 logger.info(f"Successfully created {len(cloned_paths)} EDB clones")
-                print()
+                logger.info("")
             except Exception as clone_error:
                 logger.error(f"Failed to clone EDB files: {clone_error}")
                 import traceback
@@ -255,10 +255,10 @@ if __name__ == "__main__":
             all_success = True
 
             for i, clone_path in enumerate(cloned_paths, 1):
-                print("-" * 70)
+                logger.info("-" * 70)
                 logger.info(f"Processing Clone {i}/{num_clones}: {Path(clone_path).name}")
                 logger.info(f"Assigned cut: {cut_id}")
-                print("-" * 70)
+                logger.info("-" * 70)
 
                 # Get edb.def path for this clone
                 clone_edb_path = str(Path(clone_path) / 'edb.def')
@@ -277,17 +277,17 @@ if __name__ == "__main__":
                     logger.error(f"Failed to process clone {i}: {clone_error}")
                     all_success = False
 
-                print()
+                logger.info("")
 
             if all_success:
-                print("=" * 70)
+                logger.info("=" * 70)
                 logger.info("[SUCCESS] EDB cutting operation completed on all clones")
-                print("=" * 70)
+                logger.info("=" * 70)
                 sys.exit(0)
             else:
-                print("=" * 70)
+                logger.info("=" * 70)
                 logger.info("[ERROR] EDB cutting operation failed on one or more clones")
-                print("=" * 70)
+                logger.info("=" * 70)
                 sys.exit(1)
 
     except FileNotFoundError as e:

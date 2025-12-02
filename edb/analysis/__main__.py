@@ -6,7 +6,8 @@ It isolates pythonnet dependencies from the pywebview GUI.
 """
 import sys
 from pathlib import Path
-from .import run_siwave_analysis
+from util.logger_module import logger
+from . import run_siwave_analysis
 
 
 if __name__ == "__main__":
@@ -29,38 +30,37 @@ if __name__ == "__main__":
     output_path = sys.argv[3]
     grpc = sys.argv[4].lower() == 'true' if len(sys.argv) > 4 else False
 
-    print("=" * 70)
+    logger.info("=" * 70)
     logger.info("EDB Analysis Subprocess")
-    print("=" * 70)
+    logger.info("=" * 70)
     logger.info(f"AEDB Path: {aedb_path}")
     logger.info(f"EDB Version: {edb_version}")
     logger.info(f"Output Path: {output_path}")
     logger.info(f"gRPC Mode: {grpc}")
-    print()
+    logger.info("")
 
     try:
         # Run SIwave analysis
         result = run_siwave_analysis(aedb_path, edb_version, output_path, grpc)
 
         if result['success']:
-            print("=" * 70)
+            logger.info("=" * 70)
             logger.info("[SUCCESS] SIwave analysis completed successfully")
             logger.info(f"Output file: {result['output_file']}")
             logger.info(f"File size: {result.get('file_size', 0):,} bytes")
-            print("=" * 70)
+            logger.info("=" * 70)
             sys.exit(0)
         else:
-            print("=" * 70)
+            logger.info("=" * 70)
             logger.info("[ERROR] SIwave analysis failed")
             logger.info(f"Error: {result.get('error', 'Unknown error')}")
-            print("=" * 70)
+            logger.info("=" * 70)
             sys.exit(1)
 
     except Exception as e:
-        print("=" * 70)
+        logger.info("=" * 70)
         logger.error(f"Unexpected error: {e}")
         import traceback
-from util.logger_module import logger
         traceback.print_exc()
-        print("=" * 70)
+        logger.info("=" * 70)
         sys.exit(1)

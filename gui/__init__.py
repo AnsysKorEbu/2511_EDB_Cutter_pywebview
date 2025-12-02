@@ -314,7 +314,7 @@ class Api:
                 logger.debug(f"Power nets count: {len(selected_nets.get('power', []))}")
                 if selected_nets.get('signal'):
                     logger.debug(f"Signal nets: {selected_nets.get('signal')}")
-            print()
+            logger.info("")
 
             # Create batch JSON file with cut file paths and selected nets
             batch_data = {

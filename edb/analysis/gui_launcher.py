@@ -11,6 +11,7 @@ If no results_folder is provided, a folder browser dialog will open.
 """
 import sys
 from pathlib import Path
+from util.logger_module import logger
 
 
 if __name__ == "__main__":
@@ -55,7 +56,6 @@ if __name__ == "__main__":
 
     # Import and launch Analysis GUI
     from gui import launch_analysis_gui
-from util.logger_module import logger
 
     # Launch with EDB version and gRPC settings from command line
     launch_analysis_gui(results_folder, edb_version=edb_version, grpc=grpc)

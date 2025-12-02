@@ -272,6 +272,6 @@ if __name__ == '__main__':
     settings = start_initial_gui()
     if settings:
         logger.info("Settings saved:")
-        print(json.dumps(settings, indent=2))
+        logger.info(json.dumps(settings, indent=2))
     else:
         logger.info("Settings not saved (cancelled)")

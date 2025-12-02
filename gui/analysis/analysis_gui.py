@@ -6,6 +6,7 @@ Provides methods to discover .aedb files and run SIwave analysis.
 """
 import subprocess
 from pathlib import Path
+from util.logger_module import logger
 
 
 class AnalysisApi:
@@ -138,9 +139,9 @@ class AnalysisApi:
 
             # Print subprocess output
             if result.stdout:
-                print(result.stdout)
+                logger.info(result.stdout)
             if result.stderr:
-                print("[STDERR]", result.stderr)
+                logger.error(f"[STDERR] {result.stderr}")
 
             if result.returncode != 0:
                 error_msg = f"Analysis failed with return code {result.returncode}"
@@ -168,7 +169,7 @@ class AnalysisApi:
                 output_file = touchstone_files[0]
 
             logger.info(f"Analysis complete: {output_file.name}")
-            print()
+            logger.info("")
 
             return {
                 'success': True,
@@ -321,7 +322,6 @@ class AnalysisApi:
             error_msg = f"Failed to load folder: {str(e)}"
             logger.error(f"{error_msg}")
             import traceback
-from util.logger_module import logger
             traceback.print_exc()
             return {
                 'success': False,

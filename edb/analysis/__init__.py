@@ -7,6 +7,7 @@ It runs in a subprocess to avoid pythonnet conflicts with pywebview.
 import sys
 import traceback
 from pathlib import Path
+from util.logger_module import logger
 
 
 def run_siwave_analysis(aedb_path, edb_version, output_path, grpc=False):
@@ -59,11 +60,11 @@ def run_siwave_analysis(aedb_path, edb_version, output_path, grpc=False):
         # Ensure output directory exists
         output_path.parent.mkdir(parents=True, exist_ok=True)
 
-        print(f"Opening EDB: {edb_file}")
-        print(f"EDB Version: {edb_version}")
-        print(f"gRPC Mode: {grpc}")
-        print(f"Output Path: {output_path}")
-        print()
+        logger.info(f"Opening EDB: {edb_file}")
+        logger.info(f"EDB Version: {edb_version}")
+        logger.info(f"gRPC Mode: {grpc}")
+        logger.info(f"Output Path: {output_path}")
+        logger.info("")
 
         # Open EDB using pyedb (matches pattern from other edb files)
         edb = pyedb.Edb(
@@ -72,24 +73,24 @@ def run_siwave_analysis(aedb_path, edb_version, output_path, grpc=False):
             grpc=grpc
         )
 
-        print("[OK] EDB opened successfully")
+        logger.info("[OK] EDB opened successfully")
 
         # Configure SIwave for AC analysis and Touchstone export
-        print("Configuring SIwave analysis...")
+        logger.info("Configuring SIwave analysis...")
         result = edb.siwave.create_exec_file(
             add_ac=True,
             export_touchstone=True,
             touchstone_file_path=str(output_path)
         )
 
-        print(f"[DEBUG] create_exec_file returned: {result}")
+        logger.debug(f"[DEBUG] create_exec_file returned: {result}")
 
         siw_path = edb.solve_siwave()
-        print(f"[DEBUG] run : {siw_path}")
+        logger.debug(f"[DEBUG] run : {siw_path}")
 
         # Close EDB
         edb.close()
-        print("[OK] EDB closed")
+        logger.info("[OK] EDB closed")
 
         # Check if output file was created
         # SIwave auto-determines the extension based on port count (.s2p, .s4p, etc.)
@@ -118,10 +119,10 @@ def run_siwave_analysis(aedb_path, edb_version, output_path, grpc=False):
         generated_file = touchstone_files[0]
         file_size = generated_file.stat().st_size
 
-        print(f"[OK] Analysis complete!")
-        print(f"Generated file: {generated_file}")
-        print(f"File size: {file_size:,} bytes")
-        print()
+        logger.info(f"[OK] Analysis complete!")
+        logger.info(f"Generated file: {generated_file}")
+        logger.info(f"File size: {file_size:,} bytes")
+        logger.info("")
 
         return {
             'success': True,
@@ -132,8 +133,8 @@ def run_siwave_analysis(aedb_path, edb_version, output_path, grpc=False):
     except Exception as e:
         error_msg = f"Analysis failed: {str(e)}"
         error_traceback = traceback.format_exc()
-        print(f"\n[ERROR] {error_msg}")
-        print(error_traceback)
+        logger.error(f"\n[ERROR] {error_msg}")
+        logger.error(error_traceback)
         return {
             'success': False,
             'error': error_msg,
