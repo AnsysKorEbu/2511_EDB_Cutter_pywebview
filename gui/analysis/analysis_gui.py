@@ -105,7 +105,7 @@ class AnalysisApi:
             output_name = aedb_path.stem  # Remove .aedb extension
             output_path = analysis_folder / f"{output_name}.snp"
 
-            logger.info(f"\n{'=' * 70}")
+            logger.info(f"{'=' * 70}")
             logger.info(f"Analyzing: {aedb_name}")
             logger.info(f"Output: {output_path}")
             logger.info(f"{'=' * 70}")

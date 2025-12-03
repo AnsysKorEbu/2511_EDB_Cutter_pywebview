@@ -1123,14 +1123,15 @@ def remove_and_create_ports(edb, cut_data):
                 if reference_pins:
                     try:
                         # Generate port name: Port_{net_name}_{pin_name_cleaned}
-                        port_name = f"Port_{net_name}_{pin_name.replace('-', '_').replace('.', '_')}"
+                        port_name = f"{net_name}"
 
-                        # Create circuit port
                         port = signal_pin.create_port(
                             name=port_name,
                             reference=reference_pins,
                             is_circuit_port=True
                         )
+                        # Set positive terminal name explicitly
+                        port.name = port_name
 
                         logger.info(f"      [OK] Created circuit port: {port_name}")
                         total_ports_created += 1
@@ -1225,12 +1226,12 @@ def create_gap_ports(edb, cut_data):
                 continue
 
             # 5. Create gap port for each edge intersection
-            for idx, (edge, midpoint) in enumerate(edge_intersections, 1):
+            for idx, (edge, midpoint) in enumerate(edge_intersections):
                 try:
-                    # Generate unique port name
-                    port_name = f"GapPort_{net_name}_{prim_id}_{idx}"
+                    # Generate unique port name (0-based indexing: netname_0, netname_1, ...)
+                    port_name = f"{net_name}_{idx}"
 
-                    logger.info(f"  [{idx}/{len(edge_intersections)}] Creating gap port: {port_name}")
+                    logger.info(f"  [{idx+1}/{len(edge_intersections)}] Creating gap port: {port_name}")
                     logger.info(f"      Edge: [{edge[0][0]:.9f}, {edge[0][1]:.9f}] -> [{edge[1][0]:.9f}, {edge[1][1]:.9f}]")
                     logger.info(f"      Terminal point (midpoint): [{midpoint[0]:.9f}, {midpoint[1]:.9f}]")
                     logger.info(f"      Reference layer: {reference_layer}")
@@ -1239,7 +1240,8 @@ def create_gap_ports(edb, cut_data):
                     edb.source_excitation.create_edge_port_on_polygon(
                         polygon=prim,               # Re-fetched primitive
                         terminal_point=midpoint,    # Midpoint from edge_intersections
-                        reference_layer=reference_layer  # From GUI selection
+                        reference_layer=reference_layer,  # From GUI selection
+                        port_name=port_name         # Use net name-based port name
                     )
 
                     logger.info(f"      [OK] Gap port created successfully")

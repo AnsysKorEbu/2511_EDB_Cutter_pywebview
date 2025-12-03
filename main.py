@@ -61,7 +61,7 @@ def check_extracted_data_exists(edb_path):
     return len(json_gz_files) > 0
 
 
-def extract_edb_data(edb_path, edb_version):
+def extract_edb_data(edb_path, edb_version, grpc=True):
     """
     Extract EDB data using subprocess.
 
@@ -71,18 +71,21 @@ def extract_edb_data(edb_path, edb_version):
     Args:
         edb_path: Path to EDB file or folder
         edb_version: EDB version string (e.g., "2025.2")
+        grpc: Use gRPC mode (default: True)
     """
     logger.info("=" * 70)
     logger.info("Step 1: Extracting EDB Data")
     logger.info("=" * 70)
     logger.info(f"EDB Path: {edb_path}")
     logger.info(f"EDB Version: {edb_version}")
+    logger.info(f"gRPC Mode: {grpc}")
 
-    # Run edb package as subprocess with EDB_PATH and EDB_VERSION as arguments
+    # Run edb package as subprocess with EDB_PATH, EDB_VERSION, and gRPC flag
     # capture_output=False allows real-time output to console
     try:
+        grpc_str = "True" if grpc else "False"
         result = subprocess.run(
-            [sys.executable, "-m", "edb", edb_path, edb_version],
+            [sys.executable, "-m", "edb", edb_path, edb_version, grpc_str],
             cwd=Path.cwd()
         )
 
@@ -127,7 +130,7 @@ def main():
 
     # Step 2: Extract data using subprocess
     if overwrite or not check_extracted_data_exists(edb_path):
-        extract_edb_data(edb_path, edb_version)
+        extract_edb_data(edb_path, edb_version, grpc)
     else:
         logger.info("=" * 70)
         logger.info("Step 1: Skipping EDB extraction (data exists)")

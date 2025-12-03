@@ -8,7 +8,8 @@ def interface(
     edbpath=r"C:\Python_Code\FPCB_XSection_Map\source\B6_CTC_REV02_1208.aedb",
     edbversion="2025.1",
     output_dir="source",
-    save_data=True
+    save_data=True,
+    grpc=True
 ):
     """
     Extract EDB data and optionally save to compressed JSON files.
@@ -18,6 +19,7 @@ def interface(
         edbversion: AEDT version (default: "2025.1")
         output_dir: Directory to save extracted data (default: "source")
         save_data: Whether to save data to files (default: True)
+        grpc: Use gRPC mode (default: False)
 
     Returns:
         Dictionary with extracted data: {'planes', 'traces', 'components'}
@@ -38,7 +40,7 @@ def interface(
 
     # Open EDB
     logger.info("Opening EDB...")
-    edb = pyedb.Edb(edbpath=edbpath, version=edbversion)
+    edb = pyedb.Edb(edbpath=edbpath, version=edbversion, grpc=grpc)
     logger.info("EDB opened successfully")
 
     # Extract data
