@@ -28,3 +28,5 @@ Results/
 *test*
 nul
 *settings.json
+/output.s18p
+/stackup/rawdata.xlsx

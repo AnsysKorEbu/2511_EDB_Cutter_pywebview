@@ -1,0 +1,96 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Stackup Settings</title>
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+    <div class="container">
+        <!-- Header -->
+        <header class="header">
+            <h1>Stackup Settings</h1>
+            <p class="subtitle">Configure stackup sections for each cut</p>
+        </header>
+
+        <!-- Main Content -->
+        <main class="content">
+            <!-- Section 1: Excel File Selection -->
+            <section class="excel-section">
+                <h2>1. Select Stackup Excel File</h2>
+                <p class="section-description">Choose the Excel file containing stackup section definitions</p>
+
+                <div class="file-selector">
+                    <input
+                        type="text"
+                        id="excelFilePath"
+                        class="file-input"
+                        readonly
+                        placeholder="No file selected..."
+                    >
+                    <button onclick="browseExcelFile()" class="btn-browse">Browse...</button>
+                </div>
+
+                <!-- Analysis Result -->
+                <div id="analysisResult" class="analysis-result hidden">
+                    <div class="result-header">
+                        <span class="success-icon">✓</span>
+                        <span>Found <strong id="sectionCount">0</strong> sections:</span>
+                    </div>
+                    <ul id="sectionList" class="section-list"></ul>
+                </div>
+            </section>
+
+            <!-- Section 2: Cut-Section Mapping -->
+            <section class="mapping-section hidden" id="mappingSection">
+                <h2>2. Assign Sections to Cuts</h2>
+                <p class="section-description">Select one section for each cut (1:1 mapping)</p>
+
+                <div id="cutMappingList" class="cut-mapping-list">
+                    <!-- Dynamically populated by JavaScript -->
+                </div>
+
+                <div id="noMappingsMessage" class="no-mappings-message hidden">
+                    <p>No cuts found. Please create cuts first before configuring stackup.</p>
+                </div>
+            </section>
+
+            <!-- Loading Indicator -->
+            <div id="loadingIndicator" class="loading-indicator hidden">
+                <div class="spinner"></div>
+                <p>Processing...</p>
+            </div>
+
+            <!-- Error Message -->
+            <div id="errorMessage" class="error-message hidden">
+                <span class="error-icon">✗</span>
+                <span id="errorText"></span>
+            </div>
+        </main>
+
+        <!-- Footer Actions -->
+        <footer class="actions">
+            <button class="btn-secondary" onclick="closeWindow()">Cancel</button>
+            <button class="btn-primary" onclick="saveConfiguration()" id="saveBtn" disabled>Save Configuration</button>
+        </footer>
+    </div>
+
+    <!-- Custom Alert Dialog -->
+    <div id="customAlert" class="modal hidden">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3 id="alertTitle">Notice</h3>
+            </div>
+            <div class="modal-body">
+                <p id="alertMessage"></p>
+            </div>
+            <div class="modal-footer">
+                <button class="btn-primary" onclick="closeAlert()">OK</button>
+            </div>
+        </div>
+    </div>
+
+    <script src="settings.js"></script>
+</body>
+</html>

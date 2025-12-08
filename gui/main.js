@@ -256,6 +256,23 @@ async function openAnalysisGui() {
         await customAlert('Failed to open Analysis GUI: ' + (error.message || error));
     }
 }
+/**
+ * Open Stackup Settings window
+ * Launches a new window to configure stackup sections for cuts
+ */
+async function openStackupSettings() {
+    try {
+        const result = await window.pywebview.api.launch_stackup_settings_window();
+        
+        if (result && !result.success) {
+            await customAlert('Failed to open Stackup Settings: ' + (result.error || 'Unknown error'));
+        }
+    } catch (error) {
+        console.error('Failed to open Stackup Settings:', error);
+        await customAlert('Failed to open Stackup Settings: ' + (error.message || error));
+    }
+}
+
 
 // Initialize when pywebview is ready
 window.addEventListener('pywebviewready', function() {

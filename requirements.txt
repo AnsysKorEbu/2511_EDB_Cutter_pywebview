@@ -1,3 +1,4 @@
 pyedb
 pywebview
 numpy
+openpyxl
