@@ -80,11 +80,18 @@ def run_siwave_analysis(aedb_path, edb_version, output_path, grpc=False):
             stop_freq="10GHz",
             distribution="linear"
         )
+        syz_setup.use_si_settings = False
+        syz_setup.si_slider_position = 0
         logger.info("[OK] SYZ analysis added successfully")
 
         # Create execution file with SYZ options
         logger.info("Creating SIwave execution file with SYZ...")
-        exec_file = edb.siwave.create_exec_file(add_syz=True)
+        exec_file = edb.siwave.create_exec_file(
+            add_syz=True,
+            export_touchstone=True,
+            touchstone_file_path=r"C:\Python_Code\2511_EDB_Cutter_pywebview\Results\output.s18p"
+        )
+
         logger.info(f"[OK] Execution file created: {exec_file}")
 
         # Run SIwave solver
@@ -92,9 +99,6 @@ def run_siwave_analysis(aedb_path, edb_version, output_path, grpc=False):
         try:
             from pyedb.generic.process import SiwaveSolve
             import os
-
-            # Set environment variable to handle encoding issues
-            os.environ['PYTHONIOENCODING'] = 'utf-8'
 
             solver = SiwaveSolve(edb)
             result = solver.solve()
