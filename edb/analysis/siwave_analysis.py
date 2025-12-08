@@ -73,7 +73,7 @@ def run_siwave_analysis(aedb_path, edb_version, output_path, grpc=False):
 
         logger.info("[OK] EDB opened successfully")
 
-        # SYZ 분석 추가
+        # Add SYZ analysis
         logger.info("Adding SIwave SYZ analysis...")
         syz_setup = edb.siwave.add_siwave_syz_analysis(
             start_freq="1GHz",
@@ -82,12 +82,12 @@ def run_siwave_analysis(aedb_path, edb_version, output_path, grpc=False):
         )
         logger.info("[OK] SYZ analysis added successfully")
 
-        # SYZ 옵션이 포함된 실행 파일 생성
+        # Create execution file with SYZ options
         logger.info("Creating SIwave execution file with SYZ...")
         exec_file = edb.siwave.create_exec_file(add_syz=True)
         logger.info(f"[OK] Execution file created: {exec_file}")
 
-        # SIwave 솔버 실행
+        # Run SIwave solver
         logger.info("Running SIwave solver...")
         try:
             from pyedb.generic.process import SiwaveSolve
@@ -97,7 +97,8 @@ def run_siwave_analysis(aedb_path, edb_version, output_path, grpc=False):
             os.environ['PYTHONIOENCODING'] = 'utf-8'
 
             solver = SiwaveSolve(edb)
-            result = solver.solve_siwave(edb.edbpath, "SYZ")
+            result = solver.solve()
+            # result = solver.solve_siwave(edb.edbpath, "SYZ")
             logger.info(f"[OK] SIwave solver execution completed: {result}")
         except UnicodeDecodeError as ue:
             logger.warning(f"[WARNING] Unicode decode error during solver execution: {ue}")
