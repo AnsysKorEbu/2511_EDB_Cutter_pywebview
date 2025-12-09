@@ -275,38 +275,34 @@ def apply_cutout(edb, cut_data):
             # Initialize gap_port_info for storing edge intersection data
             cut_data['gap_port_info'] = []
 
-            # 특정 primitive에 대해 잘린 좌표 얻기
             for prim in edb.modeler.primitives:
                 if prim.net_name in signal_nets:
-                    # 1. 교차 타입 확인 (0=교차없음, 1=완전포함, 2=역포함, 3=부분교차)
                     int_type = extent_poly.intersection_type(prim.polygon_data).value
 
-                    if int_type in [3]:  # 부분 교차하는 경우만
-                        # 2. 실제 잘린 polygon 리스트 얻기
+                    if int_type in [3]:
                         clipped_polys = extent_poly.intersect([extent_poly], [prim.polygon_data])
 
-                        # 3. 각 잘린 polygon의 좌표 추출
                         for clipped_poly in clipped_polys:
                             if clipped_poly.points:
                                 coords = [[pt.x.value, pt.y.value] for pt in clipped_poly.points]
-                                logger.info(f"잘린 단면 좌표 ({len(coords)}개 점):")
+                                logger.info(f"Clipped coordinates ({len(coords)} points):")
                                 for pt in coords:
                                     logger.info(f"  {pt}")
 
                                 # Find cutout edge intersections
-                                logger.info(f"\n=== 정확한 cutout 지점 분석 ===")
+                                logger.info(f"\n=== Cutout Edge Analysis ===")
                                 edge_intersections = find_cutout_edge_intersections(
                                     coords,
                                     polygon_points,
                                     tolerance=1e-6
                                 )
 
-                                logger.info(f"발견된 교차 지점: {len(edge_intersections)}개")
+                                logger.info(f"Found edge intersections: {len(edge_intersections)}")
                                 for idx, (edge, midpoint) in enumerate(edge_intersections, 1):
                                     logger.info(f"\n[{idx}] Edge:")
-                                    logger.info(f"  시작점: [{edge[0][0]:.9f}, {edge[0][1]:.9f}] meters")
-                                    logger.info(f"  끝점:   [{edge[1][0]:.9f}, {edge[1][1]:.9f}] meters")
-                                    logger.info(f"  중심점: [{midpoint[0]:.9f}, {midpoint[1]:.9f}] meters")
+                                    logger.info(f"  Start: [{edge[0][0]:.9f}, {edge[0][1]:.9f}] meters")
+                                    logger.info(f"  End:   [{edge[1][0]:.9f}, {edge[1][1]:.9f}] meters")
+                                    logger.info(f"  Center: [{midpoint[0]:.9f}, {midpoint[1]:.9f}] meters")
                                 logger.info("=" * 50)
 
                                 # Store edge intersections info for gap port creation

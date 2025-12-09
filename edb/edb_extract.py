@@ -4,7 +4,7 @@ from util.logger_module import logger
 def extract_component_positions(edb=None):
     component_positions = {}
     for comp_name, comp in edb.components.instances.items():
-        position = comp.location  # [x, y] 좌표 (미터 단위)
+        position = comp.location  # [x, y]
         component_positions[comp_name] = position
 
     return component_positions
@@ -56,8 +56,8 @@ def extract_trace_positions(edb=None):
             'name': path.aedt_name,
             'layer': path.layer_name,
             'net': path.net_name,
-            'center_line': path.center_line,  # 중심선 좌표 리스트 [[x1,y1], [x2,y2], ...]
-            'width': path.width,               # 트레이스 폭 (미터 단위)
+            'center_line': path.center_line,  # [[x1,y1], [x2,y2], ...]
+            'width': path.width,
         }
         traces_data.append(trace_info)
 
@@ -131,15 +131,15 @@ def extract_via_positions(edb=None):
 
         via_info = {
             'name': via.aedt_name,
-            'position': via.position,  # [x, y] 좌표 (미터 단위) - cached internally
+            'position': via.position,  # [x, y] - cached internally
             'net': via.net_name,
             'start_layer': start_layer,
             'stop_layer': stop_layer,
             'layer_range_names': layer_range,  # Already fetched
-            'radius': radius,  # via 반지름 (미터 단위) - circular일 때 사용
-            'width': width,   # via 너비 (미터 단위)
-            'height': height,  # via 높이 (미터 단위)
-            'is_circular': is_circular,  # True: 원형, False: 직사각형
+            'radius': radius,
+            'width': width,
+            'height': height,
+            'is_circular': is_circular,
         }
         vias_data.append(via_info)
 
