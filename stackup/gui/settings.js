@@ -124,6 +124,12 @@ async function analyzeExcelFile() {
             // Load cuts and show mapping section
             await loadCuts();
 
+            // Enable export button after successful analysis
+            const exportBtn = document.getElementById('exportBtn');
+            if (exportBtn) {
+                exportBtn.disabled = false;
+            }
+
         } else {
             showError(result.error || 'Failed to analyze Excel file');
             hideAnalysisResult();
@@ -341,6 +347,54 @@ async function saveConfiguration() {
         console.error('Error saving configuration:', error);
         showError('Failed to save configuration');
         showLoading(false);
+    }
+}
+
+/**
+ * Export stackup data to Excel file
+ */
+async function exportStackupData() {
+    const exportBtn = document.getElementById('exportBtn');
+    const originalText = exportBtn.textContent;
+
+    try {
+        console.log('Exporting stackup data...');
+
+        // Update button state
+        exportBtn.disabled = true;
+        exportBtn.textContent = 'Exporting...';
+
+        showLoading(true);
+        hideError();
+
+        // Call Python API to export
+        const result = await window.pywebview.api.export_stackup_data();
+
+        showLoading(false);
+
+        if (result.success) {
+            console.log('Export completed successfully');
+            console.log('Output path:', result.output_path);
+            console.log('Rows exported:', result.rows_exported);
+
+            await showAlert(
+                'Success',
+                `Stackup data exported successfully!\n\nFile: ${result.output_path}\nRows exported: ${result.rows_exported}`
+            );
+
+        } else {
+            console.error('Export failed:', result.error);
+            showError(result.error || 'Failed to export stackup data');
+        }
+
+    } catch (error) {
+        console.error('Export error:', error);
+        showError(`Export error: ${error.message || error}`);
+        showLoading(false);
+    } finally {
+        // Restore button state
+        exportBtn.disabled = false;
+        exportBtn.textContent = originalText;
     }
 }
 

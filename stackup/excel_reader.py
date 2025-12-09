@@ -7,10 +7,104 @@ import re
 import os
 import sys
 from openpyxl import load_workbook
-from logger_module import logger
-from config import TIMESTAMPED_FOLDER, get_height_column
-from PySide6.QtWidgets import QApplication, QMessageBox
-from preprocessing import check_file_exists, find_real_value, sanitize_name
+from util.logger_module import logger
+
+
+# Configuration constants (adapted for this project)
+TIMESTAMPED_FOLDER = "./output"  # Default output folder for testing
+
+
+def get_height_column():
+    """Get the column number for material height/thickness."""
+    return 13
+
+
+def check_file_exists(filename):
+    """
+    Check if file exists and is readable.
+
+    Args:
+        filename: Path to file
+
+    Returns:
+        bool: True if file exists and is readable
+    """
+    if not os.path.exists(filename):
+        logger.error(f"File not found: {filename}")
+        return False
+
+    if not os.access(filename, os.R_OK):
+        logger.error(f"File not readable: {filename}")
+        return False
+
+    return True
+
+
+def find_real_value(ws, row, col):
+    """
+    Extract real value from Excel cell, handling merged cells.
+
+    Args:
+        ws: Openpyxl worksheet object
+        row: Row number (1-indexed)
+        col: Column number (1-indexed)
+
+    Returns:
+        Cell value or None if empty
+    """
+    try:
+        cell = ws.cell(row=row, column=col)
+        value = cell.value
+
+        # Handle merged cells
+        if value is None and hasattr(cell, 'coordinate'):
+            for merged_range in ws.merged_cells.ranges:
+                if cell.coordinate in merged_range:
+                    # Get value from top-left cell of merged range
+                    top_left = merged_range.start_cell
+                    value = ws.cell(row=top_left.row, column=top_left.column).value
+                    break
+
+        # Clean up string values
+        if isinstance(value, str):
+            value = value.strip()
+            if value == "":
+                return None
+
+        return value
+    except Exception as e:
+        logger.warning(f"Error reading cell ({row}, {col}): {e}")
+        return None
+
+
+def sanitize_name(name):
+    """
+    Sanitize material name for consistent formatting.
+
+    Args:
+        name: Material name string
+
+    Returns:
+        Sanitized name (lowercase, special chars replaced)
+    """
+    if name is None:
+        return ""
+
+    name = str(name).lower().strip()
+
+    # Replace special characters with underscores
+    name = re.sub(r'[^\w\s-]', '_', name)
+
+    # Replace whitespace with underscores
+    name = re.sub(r'\s+', '_', name)
+
+    # Remove consecutive underscores
+    name = re.sub(r'_+', '_', name)
+
+    # Remove leading/trailing underscores
+    name = name.strip('_')
+
+    return name
 
 # Constants for better readability
 MAIN_MATERIALS_KEYWORD = 'MAIN MATERIALS'

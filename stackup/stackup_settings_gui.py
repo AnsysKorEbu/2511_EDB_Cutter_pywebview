@@ -326,6 +326,87 @@ class StackupSettingsApi:
                 'error': error_msg
             }
 
+    def export_stackup_data(self) -> Dict:
+        """
+        Export stackup data from currently selected Excel file.
+
+        Opens a file save dialog for the user to choose export location,
+        then extracts stackup data and exports it to a formatted Excel file.
+
+        Returns:
+            {
+                'success': bool,
+                'output_path': str,        # Path to exported file (if successful)
+                'rows_exported': int,      # Number of data rows (if successful)
+                'error': str               # Error message (if failed)
+            }
+        """
+        try:
+            # Check if Excel file has been selected and analyzed
+            if not self.config or not self.config.get('excel_file'):
+                logger.warning("Export attempted without selecting Excel file")
+                return {
+                    'success': False,
+                    'error': 'No Excel file selected. Please analyze an Excel file first.'
+                }
+
+            source_excel = self.config['excel_file']
+            logger.info(f"Exporting stackup data from: {source_excel}")
+
+            # Import tkinter for file save dialog
+            from tkinter import Tk, filedialog
+            from datetime import datetime
+
+            # Create hidden Tk window
+            root = Tk()
+            root.withdraw()
+            root.attributes('-topmost', True)
+
+            # Generate default filename with timestamp
+            timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
+            default_filename = f"stackup_export_{timestamp}.xlsx"
+
+            # Open file save dialog
+            output_path = filedialog.asksaveasfilename(
+                title="Export Stackup Data",
+                defaultextension=".xlsx",
+                filetypes=[
+                    ("Excel files", "*.xlsx"),
+                    ("All files", "*.*")
+                ],
+                initialfile=default_filename
+            )
+
+            root.destroy()
+
+            # Check if user cancelled
+            if not output_path:
+                logger.info("Export cancelled by user")
+                return {
+                    'success': False,
+                    'error': 'Export cancelled by user'
+                }
+
+            # Perform export using stackup_exporter module
+            from stackup.stackup_exporter import export_stackup_to_excel
+
+            result = export_stackup_to_excel(source_excel, output_path)
+
+            if result['success']:
+                logger.info(f"Successfully exported to: {result['output_path']}")
+            else:
+                logger.error(f"Export failed: {result.get('error', 'Unknown error')}")
+
+            return result
+
+        except Exception as e:
+            error_msg = f"Unexpected error during export: {str(e)}"
+            logger.error(error_msg, exc_info=True)
+            return {
+                'success': False,
+                'error': error_msg
+            }
+
     def close(self) -> Dict:
         """
         Close the stackup settings window.
