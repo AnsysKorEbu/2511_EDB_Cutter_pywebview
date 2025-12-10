@@ -14,9 +14,21 @@ from util.logger_module import logger
 TIMESTAMPED_FOLDER = "./output"  # Default output folder for testing
 
 
-def get_height_column():
-    """Get the column number for material height/thickness."""
-    return 13
+def get_height_column(section_column=None):
+    """
+    Get the column number for material height/thickness.
+
+    Args:
+        section_column: Optional column number for a specific section.
+                       If provided, returns this value.
+                       Otherwise returns default column 13.
+
+    Returns:
+        int: Column number to use for height extraction
+    """
+    if section_column is not None:
+        return section_column
+    return 13  # Default column
 
 
 def check_file_exists(filename):
@@ -681,10 +693,25 @@ def _calculate_material_positions(layer_material_info):
     return layer_material_positions
 
 
-def _process_material_rows(ws, dk_df_dict, layer_material_info, layer_material_positions):
-    """Process each material row in the worksheet and create material entries."""
+def _process_material_rows(ws, dk_df_dict, layer_material_info, layer_material_positions, section_column=None):
+    """
+    Process each material row in the worksheet and create material entries.
+
+    Args:
+        ws: Worksheet object
+        dk_df_dict: Dk/Df data
+        layer_material_info: Layer material info
+        layer_material_positions: Layer material positions
+        section_column: Optional column number for height extraction
+
+    Returns:
+        list: Material entries
+    """
     current_row = 9
     result = []
+
+    # Determine which column to use for height
+    height_col = get_height_column(section_column)
 
     while True:
         check_value = ws.cell(row=current_row, column=5).value
@@ -694,7 +721,7 @@ def _process_material_rows(ws, dk_df_dict, layer_material_info, layer_material_p
         # Extract basic material information
         key_name = find_real_value(ws, current_row, 2)
         material_name = find_real_value(ws, current_row, 5)
-        height = find_real_value(ws, current_row, get_height_column())
+        height = find_real_value(ws, current_row, height_col)
 
         if height is None:
             current_row += 1
@@ -743,12 +770,15 @@ def _create_material_entry(ws, current_row, key_name, material_name, height,
     }
 
 
-def read_material_properties(filename):
+def read_material_properties(filename, section_column=None):
     """
     Read material properties from Excel file and match with Dk/Df values.
 
     Args:
         filename (str): Path to Excel file
+        section_column (int, optional): Column number for a specific section.
+                                       If provided, uses this column for height extraction.
+                                       Otherwise uses default column (13).
 
     Returns:
         list: Material properties with Dk/Df values and heights
@@ -768,8 +798,8 @@ def read_material_properties(filename):
     layer_material_info = read_layer_material(filename)
     layer_material_positions = _calculate_material_positions(layer_material_info)
 
-    # Process material rows
-    result = _process_material_rows(ws, dk_df_dict, layer_material_info, layer_material_positions)
+    # Process material rows with optional section_column
+    result = _process_material_rows(ws, dk_df_dict, layer_material_info, layer_material_positions, section_column)
 
     # Apply thickness-based Dk/Df combinations
     dk_df_by_thickness = create_dk_df_by_thickness(ws)

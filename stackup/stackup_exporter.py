@@ -25,7 +25,7 @@ HEADER_FONT_COLOR = "ffffff"  # White text for headers
 EXPORTER_VERSION = "1.0"
 
 
-def export_stackup_to_excel(source_excel_path: str, output_excel_path: str) -> Dict:
+def export_stackup_to_excel(source_excel_path: str, output_excel_path: str, config: Optional[Dict] = None) -> Dict:
     """
     Extract stackup data from source Excel and export to formatted Excel file.
 
@@ -34,6 +34,9 @@ def export_stackup_to_excel(source_excel_path: str, output_excel_path: str) -> D
     Args:
         source_excel_path: Path to rawdata.xlsx file
         output_excel_path: Path for output Excel file
+        config: Optional configuration dict containing:
+                - cut_stackup_mapping: Dict mapping cut IDs to section names
+                - section_columns: Dict mapping section names to column numbers
 
     Returns:
         Dictionary with keys:
@@ -55,7 +58,14 @@ def export_stackup_to_excel(source_excel_path: str, output_excel_path: str) -> D
         # Extract stackup data using existing module
         # Note: Wrapped in try-except because read_material_properties calls sys.exit on error
         try:
-            stackup_data = _extract_stackup_data(source_excel_path)
+            # Check if config with cut/section mapping is provided
+            if config and config.get('cut_stackup_mapping') and config.get('section_columns'):
+                logger.info("Extracting data for each cut/section pair")
+                stackup_data = _extract_stackup_data_by_sections(source_excel_path, config)
+            else:
+                logger.info("Extracting data using default column")
+                stackup_data = _extract_stackup_data(source_excel_path)
+
             raw_materials = _extract_raw_materials(source_excel_path)
         except SystemExit as e:
             error_msg = f"Failed to extract stackup data: System exit called (code: {e.code})"
@@ -139,6 +149,69 @@ def _extract_stackup_data(source_excel_path: str) -> List[Dict]:
     return read_material_properties(source_excel_path)
 
 
+def _extract_stackup_data_by_sections(source_excel_path: str, config: Dict) -> List[Dict]:
+    """
+    Extract stackup data for each cut/section pair using section-specific columns.
+
+    Iterates through cut_stackup_mapping and extracts data using the corresponding
+    section's column number from section_columns.
+
+    Args:
+        source_excel_path: Path to rawdata.xlsx
+        config: Configuration dict containing:
+                - cut_stackup_mapping: Dict mapping cut IDs to section names
+                - section_columns: Dict mapping section names to column numbers
+
+    Returns:
+        List of dictionaries with stackup properties including:
+            - cut_id: Cut identifier (e.g., "cut_001")
+            - section: Section name (e.g., "C/N 1")
+            - layer: Layer identifier
+            - row: Row number
+            - material: Material name
+            - CU_foil: Copper foil type (if applicable)
+            - Dk/Df: Dielectric constant/dissipation factor
+            - height: Thickness in micrometers
+    """
+    from stackup.excel_reader import read_material_properties
+
+    cut_stackup_mapping = config.get('cut_stackup_mapping', {})
+    section_columns = config.get('section_columns', {})
+
+    logger.info(f"Extracting data for {len(cut_stackup_mapping)} cut/section pairs")
+
+    all_data = []
+
+    for cut_id, section_name in cut_stackup_mapping.items():
+        # Get column number for this section
+        section_column = section_columns.get(section_name)
+
+        if section_column is None:
+            logger.warning(f"No column found for section '{section_name}', skipping cut '{cut_id}'")
+            continue
+
+        logger.info(f"Extracting data for {cut_id} -> {section_name} (column {section_column})")
+
+        # Extract data using section-specific column
+        try:
+            section_data = read_material_properties(source_excel_path, section_column)
+
+            # Add cut_id and section to each row
+            for row in section_data:
+                row['cut_id'] = cut_id
+                row['section'] = section_name
+
+            all_data.extend(section_data)
+            logger.info(f"  Extracted {len(section_data)} rows for {cut_id}")
+
+        except Exception as e:
+            logger.error(f"Failed to extract data for {cut_id} ({section_name}): {str(e)}")
+            continue
+
+    logger.info(f"Total rows extracted: {len(all_data)}")
+    return all_data
+
+
 def _extract_raw_materials(source_excel_path: str) -> Dict:
     """
     Extract raw material specifications from source Excel file.
@@ -180,8 +253,17 @@ def format_stackup_summary_sheet(worksheet: Worksheet, stackup_data: List[Dict])
     """
     logger.info(f"Formatting Stackup Summary sheet with {len(stackup_data)} rows")
 
-    # Define headers
-    headers = ["Layer", "Row", "Material", "CU Foil", "Dk/Df", "Height (um)"]
+    # Check if data includes cut_id and section (multi-section export)
+    has_cut_section = False
+    if stackup_data and 'cut_id' in stackup_data[0] and 'section' in stackup_data[0]:
+        has_cut_section = True
+        logger.info("Data includes Cut ID and Section columns")
+
+    # Define headers based on data type
+    if has_cut_section:
+        headers = ["Cut ID", "Section", "Layer", "Row", "Material", "CU Foil", "Dk/Df", "Height (um)"]
+    else:
+        headers = ["Layer", "Row", "Material", "CU Foil", "Dk/Df", "Height (um)"]
 
     # Write headers
     for col_idx, header in enumerate(headers, start=1):
@@ -190,12 +272,24 @@ def format_stackup_summary_sheet(worksheet: Worksheet, stackup_data: List[Dict])
 
     # Write data rows
     for row_idx, data_row in enumerate(stackup_data, start=2):
-        worksheet.cell(row=row_idx, column=1, value=data_row.get('layer'))
-        worksheet.cell(row=row_idx, column=2, value=data_row.get('row'))
-        worksheet.cell(row=row_idx, column=3, value=data_row.get('material'))
-        worksheet.cell(row=row_idx, column=4, value=data_row.get('CU_foil'))
-        worksheet.cell(row=row_idx, column=5, value=data_row.get('Dk/Df'))
-        worksheet.cell(row=row_idx, column=6, value=data_row.get('height'))
+        if has_cut_section:
+            # Multi-section export with Cut ID and Section
+            worksheet.cell(row=row_idx, column=1, value=data_row.get('cut_id'))
+            worksheet.cell(row=row_idx, column=2, value=data_row.get('section'))
+            worksheet.cell(row=row_idx, column=3, value=data_row.get('layer'))
+            worksheet.cell(row=row_idx, column=4, value=data_row.get('row'))
+            worksheet.cell(row=row_idx, column=5, value=data_row.get('material'))
+            worksheet.cell(row=row_idx, column=6, value=data_row.get('CU_foil'))
+            worksheet.cell(row=row_idx, column=7, value=data_row.get('Dk/Df'))
+            worksheet.cell(row=row_idx, column=8, value=data_row.get('height'))
+        else:
+            # Standard export
+            worksheet.cell(row=row_idx, column=1, value=data_row.get('layer'))
+            worksheet.cell(row=row_idx, column=2, value=data_row.get('row'))
+            worksheet.cell(row=row_idx, column=3, value=data_row.get('material'))
+            worksheet.cell(row=row_idx, column=4, value=data_row.get('CU_foil'))
+            worksheet.cell(row=row_idx, column=5, value=data_row.get('Dk/Df'))
+            worksheet.cell(row=row_idx, column=6, value=data_row.get('height'))
 
         # Apply alternating row color (every other row)
         if row_idx % 2 == 0:

@@ -20,10 +20,10 @@ from util.logger_module import logger
 
 def extract_section_names(excel_path: str) -> Dict:
     """
-    Extract section names from Excel stackup file using LAYER pattern.
+    Extract section names and column numbers from Excel stackup file using LAYER pattern.
 
     Scans the Excel file from row 1 downward, looking for cells containing "LAYER".
-    When found, extracts the section name from 4 columns to the right.
+    When found, extracts the section name from 4 columns to the right along with column number.
 
     Args:
         excel_path: Absolute path to Excel file (.xlsx or .xls)
@@ -33,6 +33,7 @@ def extract_section_names(excel_path: str) -> Dict:
         {
             'success': bool,
             'sections': List[str],  # List of section names (e.g., ["C/N 1", "C/N 1-1"])
+            'section_columns': Dict[str, int],  # Mapping of section name to column number
             'file_path': str,       # Absolute path to Excel file
             'error': str            # Error message if failed (only if success=False)
         }
@@ -41,6 +42,7 @@ def extract_section_names(excel_path: str) -> Dict:
         >>> result = extract_section_names("C:/path/to/stackup.xlsx")
         >>> if result['success']:
         >>>     print(result['sections'])  # ["C/N 1", "C/N 1-1", "C/N 2"]
+        >>>     print(result['section_columns'])  # {"C/N 1": 94, "C/N 1-1": 110, ...}
     """
     try:
         # Validate file exists
@@ -99,43 +101,51 @@ def extract_section_names(excel_path: str) -> Dict:
 
         logger.info(f"Found {len(layer_cells)} LAYER cells")
 
-        # Extract section names from LAYER cells
+        # Extract section names and column numbers from LAYER cells
         sections = []
+        section_columns = {}  # Map section name to column number
         for row, col in layer_cells:
-            row_sections = _extract_section_from_cell(ws, row, col)
+            row_sections, row_columns = _extract_section_from_cell(ws, row, col)
             sections.extend(row_sections)  # Add all sections from this row
+            section_columns.update(row_columns)  # Add column mappings
 
-        # Filter out unwanted section names
-        # Keep only sections that contain valid keywords (C/N, BATT, RIGID, FLEX)
-        valid_keywords = ['C/N', 'BATT', 'RIGID', 'FLEX']
+        # Filter out explicitly excluded section names only
         filtered_sections = []
+        filtered_section_columns = {}
 
         for section in sections:
-            # Skip explicitly excluded names
+            # Skip explicitly excluded names (like NAMES OF GOODS)
             if section in {'NAMES OF GOODS', 'NAME OF GOODS'}:
+                logger.debug(f"Filtered out excluded section: '{section}'")
                 continue
 
-            # Keep sections that contain any valid keyword
-            if any(keyword in section.upper() for keyword in valid_keywords):
-                filtered_sections.append(section)
-            else:
-                logger.debug(f"Filtered out non-section value: '{section}'")
+            # Keep all other sections
+            filtered_sections.append(section)
+            # Keep column mapping for this section
+            if section in section_columns:
+                filtered_section_columns[section] = section_columns[section]
 
         # Deduplicate while preserving order
         unique_sections = []
+        unique_section_columns = {}
         seen = set()
         for section in filtered_sections:
             if section not in seen:
                 unique_sections.append(section)
                 seen.add(section)
+                # Keep first occurrence's column number
+                if section in filtered_section_columns:
+                    unique_section_columns[section] = filtered_section_columns[section]
 
         logger.info(f"Extracted {len(unique_sections)} unique sections: {unique_sections}")
+        logger.info(f"Section column mappings: {unique_section_columns}")
 
         wb.close()
 
         return {
             'success': True,
             'sections': unique_sections,
+            'section_columns': unique_section_columns,
             'file_path': excel_path
         }
 
@@ -147,6 +157,7 @@ def extract_section_names(excel_path: str) -> Dict:
         return {
             'success': False,
             'sections': [],
+            'section_columns': {},
             'file_path': excel_path,
             'error': error_msg
         }
@@ -181,12 +192,12 @@ def _find_layer_cells(ws) -> List[Tuple[int, int]]:
     return []  # No LAYER found
 
 
-def _extract_section_from_cell(ws, row: int, col: int) -> List[str]:
+def _extract_section_from_cell(ws, row: int, col: int) -> Tuple[List[str], Dict[str, int]]:
     """
-    Extract ALL non-empty values from the row after LAYER cell.
+    Extract ALL non-empty values from the row after LAYER cell with their column numbers.
 
     Scans the entire row from LAYER column onwards and collects all
-    non-empty cell values as potential section names.
+    non-empty cell values as potential section names along with their column numbers.
 
     Args:
         ws: openpyxl worksheet
@@ -194,13 +205,17 @@ def _extract_section_from_cell(ws, row: int, col: int) -> List[str]:
         col: Column number (1-indexed) where "LAYER" was found
 
     Returns:
-        List of potential section names (all non-empty values after LAYER)
+        Tuple of (section_names, section_columns):
+            - section_names: List of potential section names
+            - section_columns: Dict mapping section name to column number
 
     Example:
-        >>> sections = _extract_section_from_cell(ws, 8, 2)
-        >>> # ["SPEC_1", "12.5um", "C/N 1", "C/N 1-1", ...]
+        >>> sections, columns = _extract_section_from_cell(ws, 8, 2)
+        >>> # sections = ["SPEC_1", "12.5um", "C/N 1", "C/N 1-1", ...]
+        >>> # columns = {"C/N 1": 94, "C/N 1-1": 110, ...}
     """
     sections = []
+    section_columns = {}
 
     try:
         # Scan from LAYER column + 1 to end of row
@@ -222,13 +237,14 @@ def _extract_section_from_cell(ws, row: int, col: int) -> List[str]:
 
             if value_str:
                 sections.append(value_str)
+                section_columns[value_str] = scan_col  # Store column number
                 logger.debug(f"Found potential section at ({row}, {scan_col}): '{value_str}'")
 
-        return sections
+        return sections, section_columns
 
     except Exception as e:
         logger.debug(f"Error extracting sections from ({row}, {col}): {e}")
-        return []
+        return [], {}
 
 
 def validate_section_name(section_name) -> bool:

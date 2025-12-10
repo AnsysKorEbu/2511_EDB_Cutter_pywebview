@@ -40,11 +40,14 @@ class StackupSettingsApi:
         """
         self.edb_folder_path = str(edb_folder_path)
         self.config = load_stackup_config(edb_folder_path)
+        self.section_columns = {}  # Store section -> column number mapping
 
         logger.info(f"Initialized StackupSettingsApi for: {edb_folder_path}")
 
         if self.config:
             logger.info(f"Loaded existing config with {len(self.config.get('cut_stackup_mapping', {}))} mappings")
+            # Load section_columns if available
+            self.section_columns = self.config.get('section_columns', {})
 
     def browse_excel_file(self) -> Dict:
         """
@@ -130,6 +133,9 @@ class StackupSettingsApi:
 
             if result['success']:
                 logger.info(f"Successfully extracted {len(result['sections'])} sections")
+                # Store section_columns for later use
+                self.section_columns = result.get('section_columns', {})
+                logger.info(f"Section column mappings: {self.section_columns}")
             else:
                 logger.warning(f"Failed to extract sections: {result.get('error', 'Unknown error')}")
 
@@ -273,6 +279,7 @@ class StackupSettingsApi:
             # Prepare config data
             config_data = {
                 'excel_file': excel_file,
+                'section_columns': self.section_columns,  # Store section -> column mappings
                 'cut_stackup_mapping': mapping
             }
 
@@ -390,7 +397,8 @@ class StackupSettingsApi:
             # Perform export using stackup_exporter module
             from stackup.stackup_exporter import export_stackup_to_excel
 
-            result = export_stackup_to_excel(source_excel, output_path)
+            # Pass config to exporter to enable section-based extraction
+            result = export_stackup_to_excel(source_excel, output_path, self.config)
 
             if result['success']:
                 logger.info(f"Successfully exported to: {result['output_path']}")
