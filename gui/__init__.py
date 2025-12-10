@@ -454,42 +454,6 @@ class Api:
             traceback.print_exc()
             return {'success': False, 'error': error_msg}
 
-    def launch_stackup_settings_window(self):
-        """
-        Launch stackup settings window as a separate subprocess (non-blocking).
-
-        Uses subprocess to avoid PyWebView threading limitations.
-        PyWebView requires running on the main thread, so we launch it in a separate process.
-
-        Returns:
-            dict: {'success': bool, 'error': str (if failed)}
-        """
-        import subprocess
-        import sys
-
-        try:
-            logger.info(f"Launching Stackup Settings as subprocess")
-            logger.info(f"EDB Folder: {self.edb_folder_name}")
-
-            # Launch stackup settings GUI via stackup.gui_launcher
-            subprocess.Popen(
-                [sys.executable, "-m", "stackup.gui_launcher",
-                 str(self._edb_data_dir), self.edb_folder_name],
-                cwd=Path.cwd()
-            )
-
-            logger.info("[OK] Stackup Settings subprocess launched")
-            return {'success': True}
-
-        except Exception as e:
-            error_msg = f"Failed to launch Stackup Settings: {str(e)}"
-            logger.error(error_msg)
-            import traceback
-            traceback.print_exc()
-            return {'success': False, 'error': error_msg}
-
-
-
 
 def start_gui(edb_path, edb_version="2025.1", grpc=False):
     """Start the pywebview GUI"""
@@ -546,33 +510,3 @@ def launch_analysis_gui(results_folder, edb_version="2025.1", grpc=False):
     webview.start()
 
 
-def launch_stackup_settings_gui(edb_data_dir, edb_folder_name):
-    """
-    Launch stackup settings GUI window.
-
-    This function runs in a separate thread and blocks until window is closed.
-
-    Args:
-        edb_data_dir: Path to EDB data directory (e.g., Path('source/design.aedb'))
-        edb_folder_name: Name of EDB folder for display
-    """
-    from stackup.stackup_settings_gui import StackupSettingsApi
-
-    # Create API instance
-    api = StackupSettingsApi(edb_data_dir)
-
-    # Get HTML file path
-    html_file = Path(__file__).parent.parent / 'stackup' / 'gui' / 'index.html'
-
-    # Create window
-    window = webview.create_window(
-        f'Stackup Settings - {edb_folder_name}',
-        html_file.as_uri(),
-        js_api=api,
-        width=800,
-        height=600,
-        resizable=True
-    )
-
-    # Start GUI (blocks until window closes)
-    webview.start()

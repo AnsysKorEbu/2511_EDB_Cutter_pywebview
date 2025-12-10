@@ -134,80 +134,6 @@ def clone_edbs_for_cuts(original_edb_path, num_clones, edb_version, grpc):
         raise
 
 
-def apply_stackup(edb, cut_data):
-    """
-    Apply stackup configuration to EDB.
-
-    Reads stackup configuration and applies the assigned section's
-    material properties to the EDB.
-
-    Args:
-        edb: Opened pyedb.Edb object
-        cut_data: Cut data dictionary containing:
-            - id: cut ID (e.g., "cut_001")
-            - edb_folder: EDB folder name
-
-    Returns:
-        bool: True if successful, False otherwise
-    """
-    try:
-        from stackup.stackup_config import load_stackup_config, get_section_for_cut
-        from stackup.excel_reader import read_material_properties
-
-        # Get cut ID and EDB folder
-        cut_id = cut_data.get('id')
-        edb_folder = cut_data.get('edb_folder')
-
-        if not cut_id or not edb_folder:
-            logger.warning("Missing cut ID or EDB folder in cut data")
-            return False
-
-        # Load stackup configuration
-        edb_folder_path = Path('source') / edb_folder
-        config = load_stackup_config(edb_folder_path)
-
-        if not config:
-            logger.info(f"No stackup configuration found for {edb_folder}")
-            return True  # Not an error, just no config
-
-        # Get assigned section for this cut
-        section_name = get_section_for_cut(config, cut_id)
-
-        if not section_name:
-            logger.info(f"No section assigned to cut {cut_id}")
-            return True  # Not an error, just no assignment
-
-        # Get Excel file path
-        excel_file = config.get('excel_file')
-        if not excel_file or not Path(excel_file).exists():
-            logger.error(f"Excel file not found: {excel_file}")
-            return False
-
-        # Read material properties from Excel
-        logger.info(f"Applying stackup section '{section_name}' to cut {cut_id}")
-        logger.info(f"Reading from: {excel_file}")
-
-        # TODO: Implement actual stackup application logic
-        # This will require:
-        # 1. Parse Excel to extract materials for specific section
-        # 2. Apply materials to EDB stackup using pyedb API
-        # 3. Validate stackup integrity
-        #
-        # For now, we log the configuration and return success
-        # The actual material application requires understanding of:
-        # - How to map section names to specific materials in Excel
-        # - pyedb stackup API methods (edb.stackup.add_layer, etc.)
-        # - Material property application
-
-        logger.info(f"Stackup application complete for {cut_id}")
-        logger.info(f"Note: Actual material application not yet implemented")
-        return True
-
-    except Exception as e:
-        logger.error(f"Failed to apply stackup: {e}")
-        import traceback
-        traceback.print_exc()
-        return False
 
 def apply_cutout(edb, cut_data):
     """
@@ -1379,28 +1305,23 @@ def execute_cuts_on_clone(edbpath, edbversion, cut_data_list, grpc=False):
         logger.info("")
 
         # Execute cut workflow in sequence
-        # 1. Apply stackup
-        logger.info("[1/5] Applying stackup...")
-        apply_stackup(edb, cut_data)
-        logger.info("")
-
-        # 2. Find endpoint pads for selected signal nets
-        logger.info("[2/5] Finding endpoint pads for selected nets...")
+        # 1. Find endpoint pads for selected signal nets
+        logger.info("[1/4] Finding endpoint pads for selected nets...")
         find_endpoint_pads_for_selected_nets(edb, cut_data)
         logger.info("")
 
-        # 3. Apply cutout (remove traces outside polygon)
-        logger.info("[3/5] Applying cutout...")
+        # 2. Apply cutout (remove traces outside polygon)
+        logger.info("[2/4] Applying cutout...")
         apply_cutout(edb, cut_data)
         logger.info("")
 
-        # 4. Create circuit ports (only for endpoints inside polygon)
-        logger.info("[4/5] Creating circuit ports...")
+        # 3. Create circuit ports (only for endpoints inside polygon)
+        logger.info("[3/4] Creating circuit ports...")
         remove_and_create_ports(edb, cut_data)
         logger.info("")
 
-        # 5. Create circuit ports (only for endpoints inside polygon)
-        logger.info("[5/5] Creating gap ports...")
+        # 4. Create gap ports (only for endpoints inside polygon)
+        logger.info("[4/4] Creating gap ports...")
         create_gap_ports(edb, cut_data)
         logger.info("")
 
