@@ -164,7 +164,17 @@ class AnalysisApi:
             if result.stdout:
                 logger.info(result.stdout)
             if result.stderr:
-                logger.error(f"[STDERR] {result.stderr}")
+                # Check if stderr contains only INFO/DEBUG messages (not actual errors)
+                # pyedb and other libraries often output INFO logs to stderr
+                stderr_lower = result.stderr.lower()
+                if any(level in stderr_lower for level in ['info:', 'debug:', '- info -', '- debug -']):
+                    # Treat as informational, not error
+                    logger.info(f"[STDERR INFO] {result.stderr}")
+                elif 'warning' in stderr_lower or '- warning -' in stderr_lower:
+                    logger.warning(f"[STDERR WARNING] {result.stderr}")
+                else:
+                    # Actual error
+                    logger.error(f"[STDERR] {result.stderr}")
 
             if result.returncode != 0:
                 error_msg = f"Analysis failed with return code {result.returncode}"

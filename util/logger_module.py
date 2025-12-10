@@ -1,6 +1,7 @@
 # <2025> ANSYS, Inc. Unauthorized use, distribution, or duplication is prohibited
 
 import os
+import sys
 import logging
 from datetime import datetime
 from pathlib import Path
@@ -80,8 +81,8 @@ def setup_logger(save_folder=None, log_filename=None):
 
     # 파일 핸들러 (파일에 저장)
     fh = logging.FileHandler(log_file, encoding='utf-8')
-    # 콘솔 핸들러 (터미널에 출력)
-    ch = logging.StreamHandler()
+    # 콘솔 핸들러 (터미널에 출력, stdout 사용)
+    ch = logging.StreamHandler(sys.stdout)
 
     # 포매터 설정
     # 파일: 순수 텍스트 (색상 코드 없음)
