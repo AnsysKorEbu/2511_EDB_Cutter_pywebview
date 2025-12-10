@@ -454,6 +454,206 @@ class Api:
             traceback.print_exc()
             return {'success': False, 'error': error_msg}
 
+    def process_stackup(self):
+        """
+        Process PCB stackup data from Excel file.
+
+        Extracts layer materials, heights, and Dk/Df values using the stackup module.
+
+        Returns:
+            dict: {'success': bool, 'summary': dict, 'error': str (if failed)}
+        """
+        try:
+            from stackup import StackupProcessor
+
+            logger.info(f"\n{'=' * 70}")
+            logger.info("Processing stackup data")
+            logger.info(f"{'=' * 70}")
+
+            # Create processor (uses default rawdata.xlsx in stackup folder)
+            processor = StackupProcessor()
+
+            # Get layer data and summary
+            summary = processor.get_stackup_summary()
+
+            logger.info(f"Stackup processed successfully:")
+            logger.info(f"  - Total layers: {summary['total_layers']}")
+            logger.info(f"  - Total height: {summary['total_height']}um")
+            logger.info(f"  - Materials: {', '.join(summary['materials'])}")
+            logger.info(f"{'=' * 70}\n")
+
+            return {
+                'success': True,
+                'summary': summary
+            }
+
+        except Exception as e:
+            error_msg = f"Failed to process stackup: {str(e)}"
+            logger.error(f"\n[ERROR] {error_msg}")
+            import traceback
+            traceback.print_exc()
+            return {'success': False, 'error': error_msg}
+
+    def browse_excel_for_sections(self):
+        """
+        Open file dialog to select Excel file and extract sections.
+
+        Returns:
+            dict: {
+                'success': bool,
+                'excel_file': str (absolute path),
+                'sections': list of str,
+                'error': str (if failed)
+            }
+        """
+        try:
+            import tkinter as tk
+            from tkinter import filedialog
+            from stackup.section_selector import extract_sections_from_excel
+
+            # Create hidden tkinter root window
+            root = tk.Tk()
+            root.withdraw()
+            root.wm_attributes('-topmost', 1)
+
+            # Open file dialog
+            excel_file = filedialog.askopenfilename(
+                title="Select Excel File for Section Extraction",
+                filetypes=[
+                    ("Excel Files", "*.xlsx"),
+                    ("All Files", "*.*")
+                ]
+            )
+
+            # Clean up tkinter
+            root.destroy()
+
+            # Check if user canceled
+            if not excel_file:
+                return {'success': False, 'error': 'File selection canceled'}
+
+            # Extract sections
+            logger.info(f"Extracting sections from: {excel_file}")
+            sections = extract_sections_from_excel(excel_file)
+
+            logger.info(f"Extracted {len(sections)} sections: {sections}")
+
+            return {
+                'success': True,
+                'excel_file': excel_file,
+                'sections': sections
+            }
+
+        except FileNotFoundError as e:
+            error_msg = f"Excel file not found: {str(e)}"
+            logger.error(f"\n[ERROR] {error_msg}")
+            return {'success': False, 'error': error_msg}
+
+        except Exception as e:
+            error_msg = f"Failed to browse/extract sections: {str(e)}"
+            logger.error(f"\n[ERROR] {error_msg}")
+            import traceback
+            traceback.print_exc()
+            return {'success': False, 'error': error_msg}
+
+    def get_cuts_for_section_selection(self):
+        """
+        Get list of available cuts for current EDB.
+
+        Returns:
+            dict: {
+                'success': bool,
+                'cuts': list of cut metadata,
+                'edb_folder': str
+            }
+        """
+        try:
+            # Reuse existing get_cut_list logic
+            cuts = self.get_cut_list()
+
+            logger.info(f"Found {len(cuts)} cuts for section selection")
+
+            return {
+                'success': True,
+                'cuts': cuts,
+                'edb_folder': self.edb_folder_name
+            }
+
+        except Exception as e:
+            error_msg = f"Failed to get cuts: {str(e)}"
+            logger.error(f"\n[ERROR] {error_msg}")
+            import traceback
+            traceback.print_exc()
+            return {'success': False, 'error': error_msg}
+
+    def save_section_selection(self, excel_file, cut_section_mapping):
+        """
+        Save cut-section mapping to .sss file.
+
+        Args:
+            excel_file (str): Path to Excel file used
+            cut_section_mapping (dict): Mapping of cut IDs to section lists
+                Example: {'cut_001': ['RIGID 5', 'C/N 1'], 'cut_002': [...]}
+
+        Returns:
+            dict: {
+                'success': bool,
+                'sss_file': str (path to saved file),
+                'error': str (if failed)
+            }
+        """
+        try:
+            from stackup.section_selector import SectionSelector, generate_sss_filename
+
+            logger.info(f"\n{'=' * 70}")
+            logger.info("Saving section selection")
+            logger.info(f"Excel file: {excel_file}")
+            logger.info(f"Cut-section mapping: {cut_section_mapping}")
+            logger.info(f"{'=' * 70}")
+
+            # Create SectionSelector instance
+            selector = SectionSelector(excel_file)
+
+            # Validate mapping
+            is_valid, errors = selector.validate_mapping(cut_section_mapping)
+            if not is_valid:
+                error_msg = f"Invalid mapping: {', '.join(errors)}"
+                logger.error(f"\n[ERROR] {error_msg}")
+                return {'success': False, 'error': error_msg}
+
+            # Generate .sss filename
+            sss_filename = generate_sss_filename(self.edb_folder_name)
+
+            # Create output path in cut directory
+            cut_dir = self._edb_data_dir / 'cut'
+            cut_dir.mkdir(parents=True, exist_ok=True)
+            sss_file_path = cut_dir / sss_filename
+
+            # Save section mapping
+            selector.save_section_mapping(cut_section_mapping, str(sss_file_path))
+
+            logger.info(f"Section mapping saved successfully:")
+            logger.info(f"  - File: {sss_file_path}")
+            logger.info(f"  - Cuts: {len(cut_section_mapping)}")
+            logger.info(f"{'=' * 70}\n")
+
+            return {
+                'success': True,
+                'sss_file': str(sss_file_path)
+            }
+
+        except ValueError as e:
+            error_msg = f"Validation error: {str(e)}"
+            logger.error(f"\n[ERROR] {error_msg}")
+            return {'success': False, 'error': error_msg}
+
+        except Exception as e:
+            error_msg = f"Failed to save section selection: {str(e)}"
+            logger.error(f"\n[ERROR] {error_msg}")
+            import traceback
+            traceback.print_exc()
+            return {'success': False, 'error': error_msg}
+
 
 def start_gui(edb_path, edb_version="2025.1", grpc=False):
     """Start the pywebview GUI"""

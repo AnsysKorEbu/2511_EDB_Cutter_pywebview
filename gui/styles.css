@@ -903,3 +903,154 @@ canvas.cut-mode {
 .nets-list::-webkit-scrollbar-thumb:hover {
     background: #4e4e52;
 }
+
+/* ============================================
+   Section Selection Modal Styles
+   ============================================ */
+
+/* Wide modal layout */
+.modal-wide {
+    max-width: 900px;
+    width: 90%;
+}
+
+/* Excel file info section */
+.section-excel-info {
+    background: #1e1e1e;
+    padding: 12px;
+    border-radius: 4px;
+    margin-bottom: 15px;
+    display: flex;
+    gap: 10px;
+    align-items: center;
+}
+
+.info-label {
+    font-weight: bold;
+    color: #cccccc;
+}
+
+.info-value {
+    color: #0e639c;
+}
+
+/* Available sections preview */
+.section-available {
+    margin-bottom: 20px;
+}
+
+.section-available h3 {
+    font-size: 14px;
+    color: #cccccc;
+    margin-bottom: 10px;
+}
+
+.section-tags {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin-top: 10px;
+}
+
+.section-tag {
+    background: #0e639c;
+    color: white;
+    padding: 4px 12px;
+    border-radius: 12px;
+    font-size: 12px;
+}
+
+/* Cut-section mapping container */
+.section-mapping-container {
+    max-height: 400px;
+    overflow-y: auto;
+    border: 1px solid #3e3e42;
+    border-radius: 4px;
+    padding: 10px;
+    background: #1e1e1e;
+}
+
+.section-mapping-container h3 {
+    font-size: 14px;
+    color: #cccccc;
+    margin-bottom: 15px;
+}
+
+.section-cut-item {
+    background: #252526;
+    border: 1px solid #3e3e42;
+    border-radius: 4px;
+    padding: 12px;
+    margin-bottom: 12px;
+}
+
+.section-cut-header {
+    display: flex;
+    gap: 15px;
+    padding-bottom: 10px;
+    border-bottom: 1px solid #3e3e42;
+    margin-bottom: 10px;
+}
+
+.cut-id {
+    font-weight: bold;
+    color: #4ec9b0;
+}
+
+.cut-type {
+    color: #9cdcfe;
+}
+
+.cut-points {
+    color: #888888;
+    font-size: 0.9em;
+}
+
+/* Checkbox grid */
+.section-checkboxes {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+    gap: 8px;
+    padding-top: 10px;
+}
+
+.section-checkbox {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    cursor: pointer;
+    padding: 6px;
+    border-radius: 4px;
+    transition: background 0.2s;
+}
+
+.section-checkbox:hover {
+    background: #2d2d30;
+}
+
+.section-checkbox input[type="checkbox"] {
+    cursor: pointer;
+}
+
+.section-checkbox span {
+    font-size: 13px;
+    color: #cccccc;
+}
+
+/* Scrollbar for section mapping container */
+.section-mapping-container::-webkit-scrollbar {
+    width: 8px;
+}
+
+.section-mapping-container::-webkit-scrollbar-track {
+    background: #1e1e1e;
+}
+
+.section-mapping-container::-webkit-scrollbar-thumb {
+    background: #3e3e42;
+    border-radius: 4px;
+}
+
+.section-mapping-container::-webkit-scrollbar-thumb:hover {
+    background: #4e4e52;
+}

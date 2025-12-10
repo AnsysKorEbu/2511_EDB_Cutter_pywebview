@@ -310,3 +310,82 @@ function formatTimestamp(timestamp) {
         return timestamp;
     }
 }
+
+/**
+ * Process stackup data from Excel file
+ * Extracts layer materials, heights, and Dk/Df values
+ */
+async function processStackup() {
+    const processBtn = document.getElementById('processStackupBtn');
+    const statusDiv = document.getElementById('stackupStatus');
+    const originalBtnText = processBtn.innerHTML;
+
+    // Disable button and show processing state
+    processBtn.disabled = true;
+    processBtn.innerHTML = '<span>⏳ Processing...</span>';
+
+    statusDiv.innerHTML = `
+        <div class="status-info">
+            <span class="status-spinner">⏳</span>
+            <span>Processing stackup data from Excel file...</span>
+        </div>
+    `;
+    statusDiv.classList.remove('hidden');
+
+    try {
+        // Call backend API to process stackup
+        const result = await window.pywebview.api.process_stackup();
+
+        if (result.success) {
+            // Show success message with summary
+            const summary = result.summary;
+            statusDiv.innerHTML = `
+                <div class="status-success">
+                    <span class="status-icon">✓</span>
+                    <div>
+                        <div><strong>Stackup processed successfully!</strong></div>
+                        <div style="margin-top: 8px; font-size: 0.9em;">
+                            <div>• Total layers: ${summary.total_layers}</div>
+                            <div>• Total height: ${summary.total_height}μm</div>
+                            <div>• Materials: ${summary.materials.length} types</div>
+                            <div style="margin-top: 4px; color: #666;">
+                                ${summary.materials.join(', ')}
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            `;
+
+            // Re-enable button after delay
+            setTimeout(() => {
+                processBtn.disabled = false;
+                processBtn.innerHTML = originalBtnText;
+            }, 2000);
+
+        } else {
+            // Show error message
+            statusDiv.innerHTML = `
+                <div class="status-error">
+                    <span class="status-icon">✗</span>
+                    <span>Processing failed: ${result.error || 'Unknown error'}</span>
+                </div>
+            `;
+            processBtn.disabled = false;
+            processBtn.innerHTML = originalBtnText;
+        }
+
+    } catch (error) {
+        console.error('Failed to process stackup:', error);
+
+        // Show error message
+        statusDiv.innerHTML = `
+            <div class="status-error">
+                <span class="status-icon">✗</span>
+                <span>Processing failed: ${error.message || error}</span>
+            </div>
+        `;
+
+        processBtn.disabled = false;
+        processBtn.innerHTML = originalBtnText;
+    }
+}

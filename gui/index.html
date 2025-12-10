@@ -157,10 +157,63 @@
                     </div>
                 </div>
                 <div id="executorStatus" class="executor-status hidden"></div>
+
+                <!-- Stackup Processing Section -->
+                <div class="executor-section-divider"></div>
+                <div class="executor-stackup-section">
+                    <h3>Stackup Processing</h3>
+                    <div class="executor-description">
+                        Process PCB stackup data from Excel file to extract layer materials and Dk/Df values.
+                    </div>
+                    <button id="processSectionSelectionBtn" class="btn-secondary" onclick="startSectionSelection()">
+                        <span>📊 Section Selection</span>
+                    </button>
+                    <div id="stackupStatus" class="executor-status hidden"></div>
+                </div>
             </div>
             <div class="modal-footer">
                 <button class="btn-secondary" onclick="closeCutExecutor()">Cancel</button>
                 <button id="executeCutBtn" class="btn-primary" onclick="executeSelectedCut()" disabled>Execute</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Section Selection Modal -->
+    <div id="sectionSelectionModal" class="modal hidden">
+        <div class="modal-content modal-wide">
+            <div class="modal-header">
+                <h2>Select Sections for Cuts</h2>
+                <button class="modal-close" onclick="closeSectionSelection()">&times;</button>
+            </div>
+            <div class="modal-body">
+                <!-- Excel File Info -->
+                <div class="section-excel-info">
+                    <span class="info-label">Excel File:</span>
+                    <span id="sectionExcelPath" class="info-value">-</span>
+                </div>
+
+                <!-- Available Sections Preview -->
+                <div class="section-available">
+                    <h3>Available Sections (<span id="sectionCount">0</span>)</h3>
+                    <div id="sectionTags" class="section-tags"></div>
+                </div>
+
+                <!-- Cut-Section Mapping Grid -->
+                <div class="section-mapping-container">
+                    <h3>Select Sections for Each Cut</h3>
+                    <div id="sectionMappingList" class="section-mapping-list">
+                        <!-- Dynamically populated by JS -->
+                    </div>
+                </div>
+
+                <!-- Status Messages -->
+                <div id="sectionStatus" class="executor-status hidden"></div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn-secondary" onclick="closeSectionSelection()">Cancel</button>
+                <button id="saveSectionBtn" class="btn-primary" onclick="saveSectionSelection()">
+                    Save Configuration
+                </button>
             </div>
         </div>
     </div>
@@ -190,5 +243,6 @@
     <script src="nets.js"></script>
     <script src="main.js"></script>
     <script src="customDialog.js"></script>
+    <script src="sectionSelector.js"></script>
 </body>
 </html>
