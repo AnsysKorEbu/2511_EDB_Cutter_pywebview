@@ -40,12 +40,16 @@ class AnalysisApi:
         Returns:
             list: List of .aedb file info dicts
         """
+        import re
         aedb_files = []
         results_folder = Path(self.results_folder_str)
 
         if not results_folder.exists():
             logger.warning(f"Results folder does not exist: {results_folder}")
             return aedb_files
+
+        # Analysis folder path
+        analysis_folder = results_folder / "Analysis"
 
         # Find all .aedb folders
         for aedb_dir in sorted(results_folder.glob("*.aedb")):
@@ -57,11 +61,26 @@ class AnalysisApi:
                     logger.warning(f"Failed to get size for {aedb_dir.name}: {e}")
                     total_size = 0
 
+                # Extract cut_name from aedb_name to check if analysis result exists
+                output_name = aedb_dir.stem  # Remove .aedb extension
+                cut_match = re.search(r'(cut_\d{3})', output_name)
+                if cut_match:
+                    cut_name = cut_match.group(1)
+                else:
+                    # Fallback: use the whole name if no cut pattern found
+                    cut_name = output_name
+
+                # Check if analysis result file exists (e.g., cut_001.s2p, cut_001.s4p, etc.)
+                analyzed = False
+                if analysis_folder.exists():
+                    touchstone_files = list(analysis_folder.glob(f"{cut_name}.s*p"))
+                    analyzed = len(touchstone_files) > 0
+
                 aedb_files.append({
                     'name': aedb_dir.name,
                     'path': str(aedb_dir),
                     'size': total_size,
-                    'analyzed': False
+                    'analyzed': analyzed
                 })
 
         return aedb_files
@@ -96,14 +115,24 @@ class AnalysisApi:
                     'error': f'.aedb folder not found: {aedb_name}'
                 }
 
+            # Extract cut_name from aedb_name (e.g., "cut_001" from "none_port_sanitized_cut_001.aedb")
+            # Find "cut_XXX" pattern in the filename
+            import re
+            output_name = aedb_path.stem  # Remove .aedb extension
+            cut_match = re.search(r'(cut_\d{3})', output_name)
+            if cut_match:
+                cut_name = cut_match.group(1)
+            else:
+                # Fallback: use the whole name if no cut pattern found
+                cut_name = output_name
+
             # Create Analysis folder if it doesn't exist
             analysis_folder = results_folder / "Analysis"
             analysis_folder.mkdir(parents=True, exist_ok=True)
 
             # Generate output path for touchstone file
             # Use .snp extension (SIwave will auto-convert to .s2p, .s4p, etc. based on port count)
-            output_name = aedb_path.stem  # Remove .aedb extension
-            output_path = analysis_folder / f"{output_name}.snp"
+            output_path = analysis_folder / f"{cut_name}.snp"
 
             logger.info(f"{'=' * 70}")
             logger.info(f"Analyzing: {aedb_name}")
@@ -147,19 +176,18 @@ class AnalysisApi:
                 }
 
             # Find the generated touchstone file
-            # SIwave auto-determines extension (.s2p, .s4p, etc.)
-            touchstone_files = list(analysis_folder.glob(f"{output_name}.s*p"))
+            # SIwave auto-determines extension and filename
+            # Look for {cut_name}.s*p file in the analysis folder
+            touchstone_files = list(analysis_folder.glob(f"{cut_name}.s*p"))
 
             if not touchstone_files:
-                # Check if file exists with .snp extension
-                if output_path.exists():
-                    output_file = output_path
-                else:
-                    return {
-                        'success': False,
-                        'error': f'Touchstone file not generated. Expected: {output_name}.s*p'
-                    }
+                # No touchstone files found
+                return {
+                    'success': False,
+                    'error': f'Touchstone file not generated in {analysis_folder}'
+                }
             else:
+                # Use the first (should be only one) touchstone file
                 output_file = touchstone_files[0]
 
             logger.info(f"Analysis complete: {output_file.name}")

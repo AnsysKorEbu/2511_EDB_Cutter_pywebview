@@ -56,12 +56,14 @@ def run_siwave_analysis(aedb_path, edb_version, output_path, grpc=False):
             }
 
         # Ensure output directory exists
-        output_path.parent.mkdir(parents=True, exist_ok=True)
+        output_dir = output_path.parent
+        output_dir.mkdir(parents=True, exist_ok=True)
 
         logger.info(f"Opening EDB: {edb_file}")
         logger.info(f"EDB Version: {edb_version}")
         logger.info(f"gRPC Mode: {grpc}")
         logger.info(f"Output Path: {output_path}")
+        logger.info(f"Output Directory: {output_dir}")
         logger.info("")
 
         # Open EDB using pyedb (matches pattern from other edb files)
@@ -83,11 +85,15 @@ def run_siwave_analysis(aedb_path, edb_version, output_path, grpc=False):
         logger.info("[OK] SYZ analysis added successfully")
 
         # Create execution file with SYZ options
+        # Use output directory (Results/Analysis/{cut_name}) for touchstone export
+        # SIwave will auto-generate the .snp file in this directory
+        touchstone_export_path = str(output_dir)
         logger.info("Creating SIwave execution file with SYZ...")
+        logger.info(f"Touchstone export path: {touchstone_export_path}")
         exec_file = edb.siwave.create_exec_file(
             add_syz=True,
             export_touchstone=True,
-            touchstone_file_path=r"C:\Python_Code\2511_EDB_Cutter_pywebview\Results\output"
+            touchstone_file_path=touchstone_export_path
         )
 
         logger.info(f"[OK] Execution file created: {exec_file}")

@@ -13,8 +13,9 @@ def extract_plane_positions(edb=None):
     planes_data = []
     for polygon in edb.modeler.polygons:
         # Filter by layer type: only "signal" or "dielectric"
-        layer_type = polygon.layer.type if hasattr(polygon.layer, 'type') else None
-        if layer_type not in ["signal", "dielectric"]:
+        # layer_type = polygon.layer.type if hasattr(polygon.layer, 'type') else None
+        # if layer_type not in ["signal", "dielectric"]:
+        if not polygon.layer.is_stackup_layer:
             continue
 
         # polygon.points() returns tuple of two lists: ([x_coords], [y_coords])

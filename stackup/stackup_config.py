@@ -4,7 +4,7 @@ Stackup Configuration Manager
 Manages loading, saving, and validating stackup configuration files.
 Configuration files store the mapping between cut IDs and stackup sections.
 
-Configuration File Location: <edb_folder>/cut/stackup_config.json
+Configuration File Location: <edb_folder>/cut/stackup_config.sss
 """
 
 import json
@@ -23,14 +23,14 @@ def get_config_path(edb_folder_path: str) -> Path:
         edb_folder_path: Path to .aedb folder (e.g., "source/design.aedb")
 
     Returns:
-        Path to config file: <edb_folder>/cut/stackup_config.json
+        Path to config file: <edb_folder>/cut/stackup_config.sss
 
     Example:
         >>> path = get_config_path("source/none_port_design.aedb")
-        >>> # C:/.../ source/none_port_design.aedb/cut/stackup_config.json
+        >>> # C:/.../ source/none_port_design.aedb/cut/stackup_config.sss
     """
     edb_path = Path(edb_folder_path)
-    config_path = edb_path / "cut" / "stackup_config.json"
+    config_path = edb_path / "cut" / "stackup_config.sss"
     return config_path
 
 
