@@ -19,16 +19,18 @@ if __name__ == "__main__":
         sys.argv[2]: edb_version (e.g., "2025.1")
         sys.argv[3]: output_path (path for touchstone output file)
         sys.argv[4]: grpc (optional, "True" or "False", default: "False")
+        sys.argv[5]: analysis_type (optional, "siwave" or "hfss", default: "siwave")
     """
     if len(sys.argv) < 4:
         logger.info("[ERROR] Insufficient arguments")
-        logger.info("Usage: python -m edb.analysis <aedb_path> <edb_version> <output_path> [grpc]")
+        logger.info("Usage: python -m edb.analysis <aedb_path> <edb_version> <output_path> [grpc] [analysis_type]")
         sys.exit(1)
 
     aedb_path = sys.argv[1]
     edb_version = sys.argv[2]
     output_path = sys.argv[3]
     grpc = sys.argv[4].lower() == 'true' if len(sys.argv) > 4 else False
+    analysis_type = sys.argv[5] if len(sys.argv) > 5 else 'siwave'
 
     logger.info("=" * 70)
     logger.info("EDB Analysis Subprocess")
@@ -37,10 +39,12 @@ if __name__ == "__main__":
     logger.info(f"EDB Version: {edb_version}")
     logger.info(f"Output Path: {output_path}")
     logger.info(f"gRPC Mode: {grpc}")
+    logger.info(f"Analysis Type: {analysis_type.upper()}")
     logger.info("")
 
     try:
-        # Run SIwave analysis
+        # Always use SIWave for now (HFSS not implemented)
+        # analysis_type parameter is accepted for future extensibility
         result = run_siwave_analysis(aedb_path, edb_version, output_path, grpc)
 
         if result['success']:

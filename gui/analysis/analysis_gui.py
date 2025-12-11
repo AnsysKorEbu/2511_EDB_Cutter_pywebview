@@ -94,12 +94,13 @@ class AnalysisApi:
         """
         return self.aedb_files
 
-    def analyze_single(self, aedb_name):
+    def analyze_single(self, aedb_name, analysis_type='siwave'):
         """
-        Run SIwave analysis on a single .aedb file via subprocess.
+        Run analysis on a single .aedb file via subprocess.
 
         Args:
             aedb_name: Name of .aedb folder (e.g., "design_001.aedb")
+            analysis_type: 'siwave' or 'hfss' (currently HFSS falls back to SIWave)
 
         Returns:
             dict: {'success': bool, 'output_file': str, 'error': str}
@@ -134,8 +135,13 @@ class AnalysisApi:
             # Use .snp extension (SIwave will auto-convert to .s2p, .s4p, etc. based on port count)
             output_path = analysis_folder / f"{cut_name}.snp"
 
+            # Handle HFSS fallback (HFSS not implemented yet, silently use SIWave)
+            if analysis_type == 'hfss':
+                logger.info(f"HFSS analysis requested but not implemented, using SIWave for {aedb_name}")
+                analysis_type = 'siwave'  # Silently fall back to SIWave
+
             logger.info(f"{'=' * 70}")
-            logger.info(f"Analyzing: {aedb_name}")
+            logger.info(f"Analyzing: {aedb_name} (using {analysis_type.upper()})")
             logger.info(f"Output: {output_path}")
             logger.info(f"{'=' * 70}")
 
@@ -151,7 +157,8 @@ class AnalysisApi:
                     str(aedb_path),
                     self.edb_version,
                     str(output_path),
-                    grpc_str
+                    grpc_str,
+                    analysis_type  # Pass analysis type
                 ],
                 cwd=Path.cwd(),
                 capture_output=True,

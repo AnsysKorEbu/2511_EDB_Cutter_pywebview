@@ -167,8 +167,8 @@ body {
 
 .file-list-item {
     display: flex;
-    justify-content: space-between;
-    align-items: center;
+    flex-direction: column;
+    gap: 12px;
     padding: 15px;
     background: #2d2d30;
     border: 1px solid #3e3e42;
@@ -203,6 +203,7 @@ body {
     display: flex;
     align-items: center;
     gap: 10px;
+    justify-content: flex-end;
 }
 
 /* Status Badges */
@@ -358,4 +359,66 @@ body {
 
 .empty-state p {
     margin: 5px 0;
+}
+
+/* Analysis Type Toggle Switch */
+.analysis-toggle-switch {
+    position: relative;
+    display: inline-block;
+    cursor: pointer;
+    margin-right: 10px;
+}
+
+.analysis-toggle-switch input {
+    display: none;
+}
+
+.toggle-background {
+    display: flex;
+    align-items: center;
+    background: #2d2d30;
+    border: 1px solid #3e3e42;
+    border-radius: 4px;
+    overflow: hidden;
+    position: relative;
+}
+
+.toggle-option {
+    padding: 6px 14px;
+    font-size: 11px;
+    font-weight: 600;
+    text-transform: uppercase;
+    transition: all 0.3s ease;
+    z-index: 1;
+    position: relative;
+}
+
+.toggle-siwave {
+    color: #ffffff;
+    background: #ff8c00;  /* Orange for SIWave */
+}
+
+.toggle-hfss {
+    color: #858585;
+    background: transparent;
+}
+
+/* When HFSS is selected (checkbox checked) */
+.analysis-toggle-switch input:checked + .toggle-background .toggle-siwave {
+    color: #858585;
+    background: transparent;
+}
+
+.analysis-toggle-switch input:checked + .toggle-background .toggle-hfss {
+    color: #ffffff;
+    background: #9370db;  /* Purple for HFSS */
+}
+
+/* Hover effects */
+.analysis-toggle-switch:hover .toggle-background {
+    border-color: #858585;
+}
+
+.toggle-option:hover {
+    opacity: 0.9;
 }

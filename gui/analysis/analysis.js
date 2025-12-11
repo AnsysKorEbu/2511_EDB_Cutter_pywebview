@@ -98,6 +98,13 @@ function renderFileList(files) {
                     <div class="file-path">${file.path} (${sizeStr})</div>
                 </div>
                 <div class="file-actions">
+                    <label class="analysis-toggle-switch">
+                        <input type="checkbox" data-aedb="${file.name}" class="analysis-type-toggle">
+                        <span class="toggle-background">
+                            <span class="toggle-option toggle-siwave">SIWave</span>
+                            <span class="toggle-option toggle-hfss">HFSS</span>
+                        </span>
+                    </label>
                     <span class="status-badge status-pending">Pending</span>
                     <button class="btn-analyze" onclick="analyzeSingle('${file.name}')">
                         Analyze
@@ -122,16 +129,20 @@ async function analyzeSingle(aedbName) {
     const badge = item.querySelector('.status-badge');
     const button = item.querySelector('.btn-analyze');
 
+    // Get analysis type from toggle switch (unchecked = siwave, checked = hfss)
+    const toggle = item.querySelector('.analysis-type-toggle');
+    const analysisType = toggle && toggle.checked ? 'hfss' : 'siwave';
+
     // Update UI to analyzing state
     badge.className = 'status-badge status-analyzing';
     badge.textContent = 'Analyzing...';
     button.disabled = true;
 
-    console.log(`Starting analysis for: ${aedbName}`);
+    console.log(`Starting ${analysisType.toUpperCase()} analysis for: ${aedbName}`);
 
     try {
-        // Call backend to run analysis
-        const result = await window.pywebview.api.analyze_single(aedbName);
+        // Call backend to run analysis (will silently use SIWave if HFSS selected)
+        const result = await window.pywebview.api.analyze_single(aedbName, analysisType);
         console.log('Analysis result:', result);
 
         if (result.success) {
