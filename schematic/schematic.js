@@ -7,9 +7,9 @@
 
 // Global state management
 let schematicState = {
-    files: [],              // Array of file objects (for display order preservation)
+    files: [],              // Array of file objects
     analysisFolder: null,
-    draggedFilename: null   // Track dragged item filename
+    selectedFilenames: []   // Array to track selection order (for order numbering)
 };
 
 /**
@@ -42,6 +42,9 @@ async function init() {
                 enabled: true
             }));
 
+            // Auto-select all files in order
+            schematicState.selectedFilenames = schematicState.files.map(f => f.filename);
+
             // Display folder info
             const firstPath = files[0].path;
             const parentFolder = firstPath.substring(0, firstPath.lastIndexOf('\\'));
@@ -49,6 +52,7 @@ async function init() {
             document.getElementById('analysisFolder').textContent = parentFolder;
         } else {
             schematicState.files = [];
+            schematicState.selectedFilenames = [];
             document.getElementById('analysisFolder').textContent = 'No files found';
         }
 
@@ -92,6 +96,9 @@ async function browseFolder() {
                 enabled: true
             }));
 
+            // Auto-select all files in order
+            schematicState.selectedFilenames = schematicState.files.map(f => f.filename);
+
             schematicState.analysisFolder = loadResult.folder;
             document.getElementById('analysisFolder').textContent = loadResult.folder;
 
@@ -132,45 +139,28 @@ function renderFileList() {
         return;
     }
 
-    // Update order numbers based on files array position (enabled items only)
-    let orderCounter = 1;
-    schematicState.files.forEach(file => {
-        if (file.enabled) {
-            file.order = orderCounter++;
-        }
-    });
-
-    // Separate enabled and disabled files, but keep their original array order
-    const enabledFiles = schematicState.files.filter(f => f.enabled);
-    const disabledFiles = schematicState.files.filter(f => !f.enabled);
-    const displayFiles = [...enabledFiles, ...disabledFiles];
-
     // Generate HTML for each file
-    listContainer.innerHTML = displayFiles.map((file, index) => {
+    listContainer.innerHTML = schematicState.files.map((file, index) => {
         const sizeStr = formatFileSize(file.size || 0);
-        const orderBadge = file.enabled ? `<div class="file-order-badge">${file.order}</div>` : '';
         const disabledClass = file.enabled ? '' : 'disabled';
 
         return `
             <div class="file-list-item ${disabledClass}"
                  data-filename="${file.filename}"
-                 draggable="${file.enabled}"
-                 ondragstart="handleDragStart(event, '${file.filename}')"
-                 ondragend="handleDragEnd(event)">
-                ${orderBadge}
+                 onclick="selectFile('${file.filename}')">
                 <div class="file-info">
                     <div class="file-name">${file.filename}</div>
                     <div class="file-size">${sizeStr}</div>
                 </div>
                 <div class="file-controls">
-                    <label class="flip-toggle" title="Flip touchstone orientation">
+                    <label class="flip-toggle" title="Flip touchstone orientation" onclick="event.stopPropagation()">
                         <input type="checkbox"
                                ${file.flip ? 'checked' : ''}
                                onchange="toggleFlip('${file.filename}')"
                                ${!file.enabled ? 'disabled' : ''}>
                         <span class="toggle-label">Flip</span>
                     </label>
-                    <label class="enable-checkbox" title="Include in merge">
+                    <label class="enable-checkbox" title="Include in merge" onclick="event.stopPropagation()">
                         <input type="checkbox"
                                ${file.enabled ? 'checked' : ''}
                                onchange="toggleEnabled('${file.filename}')">
@@ -180,101 +170,68 @@ function renderFileList() {
             </div>
         `;
     }).join('');
+
+    // Update order display after rendering
+    updateFileOrderDisplay();
 }
 
 /**
- * Handle drag start event
+ * Select a file for ordering (toggle mode - click to select/deselect)
+ * @param {string} filename - Filename to select/deselect
  */
-function handleDragStart(event, filename) {
-    schematicState.draggedFilename = filename;
-    event.dataTransfer.effectAllowed = 'move';
-    event.target.classList.add('dragging');
-}
+function selectFile(filename) {
+    // Check if file is enabled
+    const file = schematicState.files.find(f => f.filename === filename);
+    if (!file || !file.enabled) {
+        return; // Can't select disabled files
+    }
 
-/**
- * Handle drag end event
- */
-function handleDragEnd(event) {
-    event.target.classList.remove('dragging');
-    schematicState.draggedFilename = null;
-}
+    const index = schematicState.selectedFilenames.indexOf(filename);
 
-/**
- * Handle drag over event (required for drop to work)
- */
-function handleDragOver(event) {
-    event.preventDefault();
-    event.dataTransfer.dropEffect = 'move';
-
-    // Find the element being dragged over
-    const draggingElement = document.querySelector('.dragging');
-    if (!draggingElement) return;
-
-    const afterElement = getDragAfterElement(event.clientY);
-    const container = document.getElementById('fileList');
-
-    if (afterElement == null) {
-        container.appendChild(draggingElement);
+    // Toggle selection
+    if (index !== -1) {
+        // Deselect: remove from array
+        schematicState.selectedFilenames.splice(index, 1);
     } else {
-        container.insertBefore(draggingElement, afterElement);
+        // Select: add to end of array
+        schematicState.selectedFilenames.push(filename);
     }
+
+    // Update UI
+    updateFileOrderDisplay();
+    updateGenerateButton();
 }
 
 /**
- * Handle drop event
+ * Update file order display with selection state and order badges
  */
-function handleDrop(event) {
-    event.preventDefault();
+function updateFileOrderDisplay() {
+    // Get all file items
+    const fileItems = document.querySelectorAll('.file-list-item');
 
-    if (!schematicState.draggedFilename) {
-        return;
-    }
+    fileItems.forEach(item => {
+        const filename = item.getAttribute('data-filename');
+        const selectedIndex = schematicState.selectedFilenames.indexOf(filename);
 
-    // Get drop target
-    const targetElement = event.target.closest('.file-list-item');
-    if (!targetElement) {
-        return;
-    }
-
-    const targetFilename = targetElement.getAttribute('data-filename');
-
-    if (targetFilename === schematicState.draggedFilename) {
-        return;
-    }
-
-    // Find indices
-    const draggedIndex = schematicState.files.findIndex(f => f.filename === schematicState.draggedFilename);
-    const targetIndex = schematicState.files.findIndex(f => f.filename === targetFilename);
-
-    if (draggedIndex === -1 || targetIndex === -1) {
-        return;
-    }
-
-    // Reorder array
-    const draggedItem = schematicState.files[draggedIndex];
-    schematicState.files.splice(draggedIndex, 1);
-    schematicState.files.splice(targetIndex, 0, draggedItem);
-
-    // Re-render
-    updateUI();
-}
-
-/**
- * Get element after current drag position
- */
-function getDragAfterElement(y) {
-    const draggableElements = [...document.querySelectorAll('.file-list-item:not(.dragging):not(.disabled)')];
-
-    return draggableElements.reduce((closest, child) => {
-        const box = child.getBoundingClientRect();
-        const offset = y - box.top - box.height / 2;
-
-        if (offset < 0 && offset > closest.offset) {
-            return { offset: offset, element: child };
-        } else {
-            return closest;
+        // Remove existing order badge
+        const existingBadge = item.querySelector('.file-order-badge');
+        if (existingBadge) {
+            existingBadge.remove();
         }
-    }, { offset: Number.NEGATIVE_INFINITY }).element;
+
+        // Add/update selected state
+        if (selectedIndex !== -1) {
+            item.classList.add('selected');
+
+            // Add order badge
+            const orderBadge = document.createElement('div');
+            orderBadge.className = 'file-order-badge';
+            orderBadge.textContent = selectedIndex + 1;
+            item.insertBefore(orderBadge, item.firstChild);
+        } else {
+            item.classList.remove('selected');
+        }
+    });
 }
 
 /**
@@ -296,6 +253,15 @@ function toggleEnabled(filename) {
     if (file) {
         file.enabled = !file.enabled;
         console.log(`Toggled enabled for ${filename}: ${file.enabled}`);
+
+        // If disabled, remove from selection
+        if (!file.enabled) {
+            const index = schematicState.selectedFilenames.indexOf(filename);
+            if (index !== -1) {
+                schematicState.selectedFilenames.splice(index, 1);
+            }
+        }
+
         updateUI();
     }
 }
@@ -309,6 +275,11 @@ function toggleAllEnabled() {
     schematicState.files.forEach(file => {
         file.enabled = !allEnabled;
     });
+
+    // Clear selection when disabling all
+    if (allEnabled) {
+        schematicState.selectedFilenames = [];
+    }
 
     updateUI();
 }
@@ -329,14 +300,14 @@ function updateCounts() {
  */
 function updateGenerateButton() {
     const generateBtn = document.getElementById('generateBtn');
-    const enabledCount = schematicState.files.filter(f => f.enabled).length;
+    const selectedCount = schematicState.selectedFilenames.length;
 
-    if (enabledCount === 0) {
+    if (selectedCount === 0) {
         generateBtn.disabled = true;
         generateBtn.textContent = 'Generate Config';
     } else {
         generateBtn.disabled = false;
-        generateBtn.textContent = `Generate Config (${enabledCount} files)`;
+        generateBtn.textContent = `Generate Config (${selectedCount} files)`;
     }
 }
 
@@ -344,20 +315,33 @@ function updateGenerateButton() {
  * Generate configuration JSON file
  */
 async function generateConfiguration() {
-    const enabledFiles = schematicState.files.filter(f => f.enabled);
-
-    if (enabledFiles.length === 0) {
-        showError('No files enabled. Please enable at least one file.');
+    if (schematicState.selectedFilenames.length === 0) {
+        showError('No files selected. Please select files by clicking on them.');
         return;
     }
 
     try {
-        console.log('Generating configuration with files:', schematicState.files);
+        // Build config items in selection order
+        const configItems = schematicState.selectedFilenames.map((filename, index) => {
+            const file = schematicState.files.find(f => f.filename === filename);
+            if (!file) return null;
 
-        const result = await window.pywebview.api.save_merge_configuration(schematicState.files);
+            return {
+                filename: file.filename,
+                path: file.path,
+                size: file.size,
+                order: index + 1,  // Order based on selection sequence
+                flip: file.flip,
+                enabled: file.enabled
+            };
+        }).filter(item => item !== null);
+
+        console.log('Generating configuration with files:', configItems);
+
+        const result = await window.pywebview.api.save_merge_configuration(configItems);
 
         if (result.success) {
-            showSuccess(`Configuration saved successfully!\nFile: ${result.config_file}\nEnabled files: ${result.total_enabled}`);
+            showSuccess(`Configuration saved successfully!\nFile: ${result.config_file}\nSelected files: ${result.total_enabled}`);
         } else {
             showError(`Failed to save configuration: ${result.error}`);
         }
