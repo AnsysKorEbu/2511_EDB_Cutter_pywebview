@@ -8,7 +8,7 @@ from datetime import datetime
 from pathlib import Path
 from openpyxl import load_workbook
 from stackup.readers.excel_reader import extract_item_names_from_row8
-from stackup.core.preprocessing import find_real_value, sanitize_name, get_net_color
+from stackup.core.preprocessing import find_real_value
 
 
 def extract_sections_from_excel(excel_file_path):
@@ -78,6 +78,44 @@ def generate_layer_filename(edb_folder_name):
     return f"{base_name}_layers_{timestamp}.sss"
 
 
+def _find_spec_column(ws):
+    """
+    Find the SPEC column by searching for 'SPEC' keyword in row 8.
+
+    Args:
+        ws: Worksheet object
+
+    Returns:
+        int or None: Column number where 'SPEC' is found, or None if not found
+    """
+    # Search for 'SPEC' in row 8 (header row)
+    for col in range(1, ws.max_column + 1):
+        cell_value = find_real_value(ws, 8, col)
+        if cell_value and 'SPEC' in str(cell_value).upper():
+            return col
+    return None
+
+
+def _extract_spec_column_value(ws, row, spec_col):
+    """
+    Extract SPEC column value at given row.
+
+    Args:
+        ws: Worksheet object
+        row (int): Row number
+        spec_col (int): SPEC column number
+
+    Returns:
+        str or None: Spec value from SPEC column
+    """
+    if spec_col is None:
+        return None
+    spec_value = find_real_value(ws, row, spec_col)
+    if spec_value:
+        return str(spec_value).strip()
+    return None
+
+
 def extract_layer_data_for_section(excel_file_path, section_name):
     """
     Extract layer data for a specific section from Excel.
@@ -89,8 +127,16 @@ def extract_layer_data_for_section(excel_file_path, section_name):
     Returns:
         list: Layer data for the section
         Example: [
-            {'net': 'vbatt', 'width': 100.0, 'material': 'copper', 'color': (255, 60, 60)},
-            {'net': 'gnd', 'width': 50.0, 'material': 'copper', 'color': (80, 80, 255)}
+            {
+                'width': 50.0,
+                'material': 'copper',
+                'spec_name': 'SUS-TOP_1,3'
+            },
+            {
+                'width': 12.0,
+                'material': 'copper',
+                'spec_name': 'EMI'
+            }
         ]
     """
     if not os.path.exists(excel_file_path):
@@ -117,56 +163,40 @@ def extract_layer_data_for_section(excel_file_path, section_name):
         # Extract layer data from this column
         layer_data = []
 
-        # Start from first text cell in the column
-        start_row = None
-        for row in range(1, ws.max_row + 1):
-            cell_value = find_real_value(ws, row, section_col)
-            if cell_value and isinstance(cell_value, str):
-                start_row = row
-                break
+        # Find SPEC column dynamically
+        spec_col = _find_spec_column(ws)
 
-        if start_row is None:
-            return []
+        # Iterate through all rows starting from row 9 (after header)
+        for current_row in range(9, ws.max_row + 1):
+            # Read value from section column
+            value = find_real_value(ws, current_row, section_col)
 
-        # Read net names and widths
-        current_row = start_row
-        while current_row <= ws.max_row:
-            # Read net name
-            net_name = find_real_value(ws, current_row, section_col)
-            if not net_name:
-                break
+            # Skip if no value or value is not numeric
+            if value is None:
+                continue
 
-            net_name_str = str(net_name).strip().lower()
-
-            # Stop at 'total width'
-            if 'total' in net_name_str and 'width' in net_name_str:
-                break
-
-            # Read width from next row
-            width_value = find_real_value(ws, current_row + 1, section_col)
-
+            # Check if value is numeric (int or float)
             try:
-                width = float(width_value) if width_value else 0.0
+                width = float(value)
             except (ValueError, TypeError):
-                width = 0.0
+                # Not a number, skip this row
+                continue
 
-            # Determine material and color
-            if 'space' in net_name_str or net_name_str == 's':
+            # Extract spec name from SPEC column at same row
+            spec_name = _extract_spec_column_value(ws, current_row, spec_col)
+
+            # Determine material based on spec name
+            spec_lower = spec_name.lower() if spec_name else ''
+            if 'space' in spec_lower or spec_lower == 's':
                 material = 'air'
             else:
                 material = 'copper'
 
-            color = get_net_color(net_name)
-
             layer_data.append({
-                'net': sanitize_name(net_name),
                 'width': width,
                 'material': material,
-                'color': color
+                'spec_name': spec_name
             })
-
-            # Move to next net (skip width row)
-            current_row += 2
 
         return layer_data
 
