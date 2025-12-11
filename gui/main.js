@@ -257,6 +257,24 @@ async function openAnalysisGui() {
     }
 }
 
+/**
+ * Open Schematic GUI (Full Touchstone Generator)
+ */
+async function openSchematicGui() {
+    try {
+        console.log('Launching Schematic GUI...');
+        const result = await window.pywebview.api.launch_schematic_gui_window();
+
+        if (!result.success) {
+            console.error('Failed to launch Schematic GUI:', result.error);
+            await customAlert(`Failed to launch Schematic GUI: ${result.error || 'Unknown error'}`);
+        }
+    } catch (error) {
+        console.error('Error launching Schematic GUI:', error);
+        await customAlert(`Error: ${error.message || error}`);
+    }
+}
+
 
 // Initialize when pywebview is ready
 window.addEventListener('pywebviewready', function() {

@@ -387,6 +387,29 @@ canvas.cut-mode {
     box-shadow: 0 0 8px rgba(126, 179, 104, 0.5);
 }
 
+.btn-schematic {
+    width: 100%;
+    padding: 12px;
+    margin-top: 10px;
+    background: #8B4513;
+    color: white;
+    border: none;
+    border-radius: 6px;
+    font-size: 14px;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 0.2s;
+}
+
+.btn-schematic:hover {
+    background: #A0522D;
+    box-shadow: 0 0 8px rgba(160, 82, 45, 0.5);
+}
+
+.btn-schematic:active {
+    background: #704214;
+}
+
 /* Modal Styles */
 .modal {
     position: fixed;

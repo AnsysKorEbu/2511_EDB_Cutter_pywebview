@@ -1,0 +1,66 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Generate Full Touchstone</title>
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+    <div class="container">
+        <!-- Header -->
+        <header class="header">
+            <h1>Generate Full Touchstone</h1>
+            <p class="subtitle">Configure touchstone file merging order and orientation</p>
+        </header>
+
+        <!-- Info Section -->
+        <section class="info-section">
+            <div class="info-item full-width">
+                <span class="label">Analysis Folder:</span>
+                <span class="value" id="analysisFolder">No folder selected</span>
+                <button class="btn-secondary" onclick="browseFolder()">
+                    Browse Folder
+                </button>
+            </div>
+            <div class="info-item">
+                <span class="label">Total Files:</span>
+                <span class="value" id="totalFiles">0</span>
+            </div>
+            <div class="info-item">
+                <span class="label">Enabled:</span>
+                <span class="value" id="enabledCount">0</span>
+            </div>
+        </section>
+
+        <!-- File List Section with Drag-Drop -->
+        <section class="file-list-section">
+            <div class="section-header">
+                <h2>Touchstone Files (.s*p)</h2>
+                <div class="header-actions">
+                    <button class="btn-secondary" onclick="toggleAllEnabled()">
+                        Toggle All
+                    </button>
+                    <button class="btn-primary" id="generateBtn" onclick="generateConfiguration()">
+                        Generate Config
+                    </button>
+                </div>
+            </div>
+
+            <div id="fileList" class="file-list" ondrop="handleDrop(event)" ondragover="handleDragOver(event)">
+                <div class="empty-state">
+                    <p>No files loaded</p>
+                    <p class="empty-hint">Click "Browse Folder" to select an Analysis folder</p>
+                </div>
+            </div>
+        </section>
+
+        <!-- Status Section -->
+        <section id="statusSection" class="status-section hidden">
+            <div id="statusMessage"></div>
+        </section>
+    </div>
+
+    <script src="schematic.js"></script>
+</body>
+</html>

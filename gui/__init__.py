@@ -454,6 +454,41 @@ class Api:
             traceback.print_exc()
             return {'success': False, 'error': error_msg}
 
+    def launch_schematic_gui_window(self, analysis_folder=None):
+        """
+        Launch Schematic GUI (Full Touchstone Generator) as subprocess.
+
+        Args:
+            analysis_folder: Optional path to Analysis folder (as string)
+
+        Returns:
+            dict: {'success': bool, 'error': str}
+        """
+        try:
+            import subprocess
+            import sys
+
+            logger.info(f"\n[INFO] Launching Schematic GUI as subprocess")
+            if analysis_folder:
+                logger.info(f"Analysis folder: {analysis_folder}")
+
+            # Build command args
+            cmd_args = [sys.executable, "-m", "schematic.gui_launcher"]
+            if analysis_folder:
+                cmd_args.append(str(analysis_folder))
+
+            subprocess.Popen(cmd_args, cwd=Path.cwd())
+
+            logger.info("[OK] Schematic GUI subprocess launched")
+            return {'success': True}
+
+        except Exception as e:
+            error_msg = f"Failed to launch Schematic GUI: {str(e)}"
+            logger.error(f"\n[ERROR] {error_msg}")
+            import traceback
+            traceback.print_exc()
+            return {'success': False, 'error': error_msg}
+
     def process_stackup(self):
         """
         Process PCB stackup data from Excel file.
