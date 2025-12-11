@@ -588,25 +588,26 @@ class Api:
 
     def save_section_selection(self, excel_file, cut_section_mapping):
         """
-        Save cut-section mapping to .sss file.
+        Save cut-section mapping and layer data to .sss files.
 
         Args:
             excel_file (str): Path to Excel file used
-            cut_section_mapping (dict): Mapping of cut IDs to section lists
-                Example: {'cut_001': ['RIGID 5', 'C/N 1'], 'cut_002': [...]}
+            cut_section_mapping (dict): Mapping of cut IDs to sections (1:1)
+                Example: {'cut_001': 'RIGID 5', 'cut_002': 'C/N 1'}
 
         Returns:
             dict: {
                 'success': bool,
-                'sss_file': str (path to saved file),
+                'sss_file': str (path to section mapping file),
+                'layer_file': str (path to layer data file),
                 'error': str (if failed)
             }
         """
         try:
-            from stackup.section_selector import SectionSelector, generate_sss_filename
+            from stackup.section_selector import SectionSelector, generate_sss_filename, generate_layer_filename
 
             logger.info(f"\n{'=' * 70}")
-            logger.info("Saving section selection")
+            logger.info("Saving section selection and layer data")
             logger.info(f"Excel file: {excel_file}")
             logger.info(f"Cut-section mapping: {cut_section_mapping}")
             logger.info(f"{'=' * 70}")
@@ -621,25 +622,35 @@ class Api:
                 logger.error(f"\n[ERROR] {error_msg}")
                 return {'success': False, 'error': error_msg}
 
-            # Generate .sss filename
-            sss_filename = generate_sss_filename(self.edb_folder_name)
-
             # Create output path in cut directory
             cut_dir = self._edb_data_dir / 'cut'
             cut_dir.mkdir(parents=True, exist_ok=True)
+
+            # Generate .sss filenames
+            sss_filename = generate_sss_filename(self.edb_folder_name)
+            layer_filename = generate_layer_filename(self.edb_folder_name)
+
             sss_file_path = cut_dir / sss_filename
+            layer_file_path = cut_dir / layer_filename
 
             # Save section mapping
             selector.save_section_mapping(cut_section_mapping, str(sss_file_path))
+            logger.info(f"Section mapping saved: {sss_file_path}")
 
-            logger.info(f"Section mapping saved successfully:")
-            logger.info(f"  - File: {sss_file_path}")
+            # Save layer data
+            selector.save_layer_data(cut_section_mapping, str(layer_file_path))
+            logger.info(f"Layer data saved: {layer_file_path}")
+
+            logger.info(f"Section selection completed successfully:")
+            logger.info(f"  - Section file: {sss_file_path}")
+            logger.info(f"  - Layer file: {layer_file_path}")
             logger.info(f"  - Cuts: {len(cut_section_mapping)}")
             logger.info(f"{'=' * 70}\n")
 
             return {
                 'success': True,
-                'sss_file': str(sss_file_path)
+                'sss_file': str(sss_file_path),
+                'layer_file': str(layer_file_path)
             }
 
         except ValueError as e:

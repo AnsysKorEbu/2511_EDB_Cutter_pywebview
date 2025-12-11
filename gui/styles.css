@@ -1006,34 +1006,45 @@ canvas.cut-mode {
     font-size: 0.9em;
 }
 
-/* Checkbox grid */
-.section-checkboxes {
-    display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
-    gap: 8px;
+/* Dropdown container */
+.section-dropdown-container {
     padding-top: 10px;
-}
-
-.section-checkbox {
     display: flex;
     align-items: center;
-    gap: 6px;
-    cursor: pointer;
-    padding: 6px;
-    border-radius: 4px;
-    transition: background 0.2s;
+    gap: 10px;
 }
 
-.section-checkbox:hover {
+.section-label {
+    font-size: 13px;
+    color: #cccccc;
+    min-width: 100px;
+}
+
+.section-dropdown {
+    flex: 1;
+    background: #1e1e1e;
+    color: #cccccc;
+    border: 1px solid #3e3e42;
+    border-radius: 4px;
+    padding: 8px 12px;
+    font-size: 13px;
+    cursor: pointer;
+    transition: border-color 0.2s, background 0.2s;
+}
+
+.section-dropdown:hover {
+    background: #2d2d30;
+    border-color: #0e639c;
+}
+
+.section-dropdown:focus {
+    outline: none;
+    border-color: #0e639c;
     background: #2d2d30;
 }
 
-.section-checkbox input[type="checkbox"] {
-    cursor: pointer;
-}
-
-.section-checkbox span {
-    font-size: 13px;
+.section-dropdown option {
+    background: #1e1e1e;
     color: #cccccc;
 }
 

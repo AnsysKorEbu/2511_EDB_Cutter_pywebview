@@ -6,7 +6,7 @@ let sectionSelector = {
     excelFile: null,
     sections: [],     // ['C/N 1', 'RIGID 5', ...]
     cuts: [],         // [{id, type, points}, ...]
-    mapping: {}       // {cut_001: ['RIGID 5'], cut_002: ['C/N 1', 'FLEX 6']}
+    mapping: {}       // {cut_001: 'RIGID 5', cut_002: 'C/N 1'} - 1:1 mapping
 };
 
 /**
@@ -115,26 +115,17 @@ function renderSectionTags() {
 }
 
 /**
- * Render cut-section mapping grid with checkboxes
+ * Render cut-section mapping grid with dropdown selects
  */
 function renderCutSectionMapping() {
     const container = document.getElementById('sectionMappingList');
     if (!container) return;
 
     container.innerHTML = sectionSelector.cuts.map(cut => {
-        const checkboxes = sectionSelector.sections.map(section => {
-            const checkboxId = `cb_${cut.id}_${sanitizeId(section)}`;
-            return `
-                <label class="section-checkbox">
-                    <input type="checkbox"
-                           id="${checkboxId}"
-                           value="${escapeHtml(section)}"
-                           data-cut-id="${escapeHtml(cut.id)}"
-                           onchange="updateSectionMapping()">
-                    <span>${escapeHtml(section)}</span>
-                </label>
-            `;
-        }).join('');
+        const selectId = `select_${sanitizeId(cut.id)}`;
+        const options = sectionSelector.sections.map(section =>
+            `<option value="${escapeHtml(section)}">${escapeHtml(section)}</option>`
+        ).join('');
 
         return `
             <div class="section-cut-item" data-cut-id="${escapeHtml(cut.id)}">
@@ -143,8 +134,15 @@ function renderCutSectionMapping() {
                     <span class="cut-type">${escapeHtml(cut.type)}</span>
                     <span class="cut-points">${cut.point_count} points</span>
                 </div>
-                <div class="section-checkboxes">
-                    ${checkboxes}
+                <div class="section-dropdown-container">
+                    <label for="${selectId}" class="section-label">Select Section:</label>
+                    <select id="${selectId}"
+                            class="section-dropdown"
+                            data-cut-id="${escapeHtml(cut.id)}"
+                            onchange="updateSectionMapping()">
+                        <option value="">-- Select a section --</option>
+                        ${options}
+                    </select>
                 </div>
             </div>
         `;
@@ -152,23 +150,20 @@ function renderCutSectionMapping() {
 }
 
 /**
- * Update section mapping when checkboxes change
+ * Update section mapping when dropdown changes
  */
 function updateSectionMapping() {
     // Clear existing mapping
     sectionSelector.mapping = {};
 
-    // Collect all checked sections for each cut
+    // Collect selected section for each cut
     sectionSelector.cuts.forEach(cut => {
-        const checkboxes = document.querySelectorAll(
-            `input[type="checkbox"][data-cut-id="${cut.id}"]:checked`
+        const selectElement = document.querySelector(
+            `select[data-cut-id="${cut.id}"]`
         );
 
-        const selectedSections = Array.from(checkboxes)
-            .map(cb => cb.value);
-
-        if (selectedSections.length > 0) {
-            sectionSelector.mapping[cut.id] = selectedSections;
+        if (selectElement && selectElement.value) {
+            sectionSelector.mapping[cut.id] = selectElement.value;
         }
     });
 
@@ -205,7 +200,8 @@ async function saveSectionSelection() {
         if (result.success) {
             // Show success message
             const statusDiv = document.getElementById('sectionStatus');
-            const filename = result.sss_file.split(/[/\\]/).pop();
+            const sectionFilename = result.sss_file.split(/[/\\]/).pop();
+            const layerFilename = result.layer_file.split(/[/\\]/).pop();
 
             statusDiv.innerHTML = `
                 <div class="status-success">
@@ -213,7 +209,8 @@ async function saveSectionSelection() {
                     <div>
                         <div><strong>Configuration saved successfully!</strong></div>
                         <div style="margin-top: 4px; font-size: 0.9em;">
-                            File: ${escapeHtml(filename)}
+                            <div>Section file: ${escapeHtml(sectionFilename)}</div>
+                            <div>Layer file: ${escapeHtml(layerFilename)}</div>
                         </div>
                     </div>
                 </div>
@@ -223,7 +220,7 @@ async function saveSectionSelection() {
             // Close modal after delay
             setTimeout(() => {
                 closeSectionSelection();
-            }, 2000);
+            }, 2500);
 
         } else {
             await customAlert('Failed to save: ' + (result.error || 'Unknown error'));
