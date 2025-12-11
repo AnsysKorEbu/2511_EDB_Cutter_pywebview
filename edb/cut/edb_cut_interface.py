@@ -10,277 +10,6 @@ from datetime import datetime
 from util.logger_module import logger
 
 
-# ============================================================================
-# Global Port Indexing Helper Functions
-# ============================================================================
-
-def calculate_distance(position1, position2):
-    """
-    Calculate Euclidean distance between two 2D points.
-
-    Args:
-        position1: Tuple (x, y) - First point
-        position2: Tuple (x, y) - Second point
-
-    Returns:
-        float: Euclidean distance
-    """
-    dx = position1[0] - position2[0]
-    dy = position1[1] - position2[1]
-    return (dx*dx + dy*dy) ** 0.5
-
-
-def collect_circuit_ports_for_cut(endpoint_pads, polygon_points, use_polygon_filter, all_power_pins):
-    """
-    Collect all circuit port information for a single cut.
-
-    Args:
-        endpoint_pads: Dict of {net_name: [signal_pins]}
-        polygon_points: List of polygon vertices
-        use_polygon_filter: Whether to filter by polygon
-        all_power_pins: List of all power pins for reference
-
-    Returns:
-        List of dicts with 'net_name', 'signal_pin', 'position', 'type', 'reference_pins'
-
-    Note:
-        is_point_in_polygon and is_valid_padstack are assumed to be defined elsewhere in this module
-    """
-    ports = []
-    for net_name, endpoints in endpoint_pads.items():
-        for signal_pin in endpoints:
-            # Validate pin (function defined later in this file)
-            try:
-                if not is_valid_padstack(signal_pin):
-                    continue
-            except NameError:
-                # is_valid_padstack not defined yet, skip validation
-                pass
-
-            # Apply polygon filter if needed
-            if use_polygon_filter:
-                try:
-                    if not is_point_in_polygon(signal_pin.position, polygon_points):
-                        continue
-                except NameError:
-                    # is_point_in_polygon not defined yet, skip filter
-                    pass
-
-            # Find reference pins
-            reference_pins = find_reference_pins_for_signal(signal_pin, all_power_pins)
-
-            if reference_pins:  # Only include if reference found
-                ports.append({
-                    'net_name': net_name,
-                    'signal_pin': signal_pin,
-                    'position': signal_pin.position,
-                    'type': 'circuit',
-                    'reference_pins': reference_pins
-                })
-
-    return ports
-
-
-def find_reference_pins_for_signal(signal_pin, all_power_pins):
-    """
-    Find reference power pins for a signal pin.
-
-    Args:
-        signal_pin: Signal pin object
-        all_power_pins: List of all power pins
-
-    Returns:
-        List of reference pins, or None if not found
-    """
-    if not all_power_pins:
-        return None
-
-    component_name = signal_pin.component.name if signal_pin.component else None
-    pin_position = signal_pin.position
-
-    # Strategy 1: Same component
-    if signal_pin.component:
-        component_power_pins = []
-        for pin in all_power_pins:
-            try:
-                if pin.component and pin.component.name == component_name:
-                    component_power_pins.append(pin)
-            except (AttributeError, RuntimeError, Exception):
-                continue
-
-        if component_power_pins:
-            return component_power_pins
-
-    # Strategy 2: Nearest pins
-    def calculate_distance_to_pin(pin):
-        try:
-            pos = pin.position
-            dx = pos[0] - pin_position[0]
-            dy = pos[1] - pin_position[1]
-            return (dx*dx + dy*dy) ** 0.5
-        except (AttributeError, RuntimeError, Exception):
-            return float('inf')
-
-    valid_power_pins = []
-    for pin in all_power_pins:
-        try:
-            _ = pin.position
-            valid_power_pins.append(pin)
-        except (AttributeError, RuntimeError, Exception):
-            continue
-
-    if valid_power_pins:
-        sorted_power_pins = sorted(valid_power_pins, key=calculate_distance_to_pin)
-        return sorted_power_pins[:3]
-
-    return None
-
-
-def collect_gap_ports_for_cut(gap_port_info):
-    """
-    Collect all gap port information for a single cut.
-    Performs spatial deduplication to avoid creating duplicate ports at similar positions.
-
-    Args:
-        gap_port_info: List of dicts with gap port data
-
-    Returns:
-        List of dicts with 'gap_info', 'edge', 'midpoint', 'position', 'type'
-        (deduplicated by position)
-    """
-    ports = []
-    for gap_info in gap_port_info:
-        for idx, (edge, midpoint) in enumerate(gap_info['edge_intersections']):
-            ports.append({
-                'gap_info': gap_info,
-                'edge': edge,
-                'midpoint': midpoint,
-                'idx': idx,
-                'position': midpoint,
-                'type': 'gap'
-            })
-
-    # ========================================================================
-    # Spatial deduplication: Remove ports that are too close to each other
-    # ========================================================================
-    if not ports:
-        return ports
-
-    # Group ports by net_name for per-net deduplication
-    ports_by_net = {}
-    for port in ports:
-        net_name = port['gap_info']['net_name']
-        if net_name not in ports_by_net:
-            ports_by_net[net_name] = []
-        ports_by_net[net_name].append(port)
-
-    # Deduplicate each net's ports
-    deduplicated_ports = []
-    POSITION_TOLERANCE = 1e-6  # 1 micrometer tolerance
-
-    for net_name, net_ports in ports_by_net.items():
-        # Keep track of positions we've already added
-        added_positions = []
-
-        for port in net_ports:
-            position = port['position']
-
-            # Check if this position is too close to any already-added position
-            is_duplicate = False
-            for added_pos in added_positions:
-                distance = calculate_distance(position, added_pos)
-                if distance < POSITION_TOLERANCE:
-                    is_duplicate = True
-                    logger.info(f"[DEDUP] Skipping duplicate gap port for {net_name} at ({position[0]:.9f}, {position[1]:.9f}) - too close to ({added_pos[0]:.9f}, {added_pos[1]:.9f}), distance: {distance:.9f}")
-                    break
-
-            if not is_duplicate:
-                deduplicated_ports.append(port)
-                added_positions.append(position)
-
-    original_count = len(ports)
-    dedup_count = len(deduplicated_ports)
-    if original_count > dedup_count:
-        logger.info(f"[DEDUP] Removed {original_count - dedup_count} duplicate gap ports ({original_count} -> {dedup_count})")
-
-    return deduplicated_ports
-
-
-def sort_ports_by_distance(ports, reference_point):
-    """
-    Sort ports by distance from reference point.
-
-    Args:
-        ports: List of port info dicts (must have 'position' key)
-        reference_point: Tuple (x, y) - Reference position
-
-    Returns:
-        Sorted list of ports (ascending distance)
-    """
-    def get_distance(port):
-        return calculate_distance(port['position'], reference_point)
-
-    return sorted(ports, key=get_distance)
-
-
-class GlobalPortIndexer:
-    """
-    Manages global port indexing state across multiple cuts.
-
-    Attributes:
-        net_counters: Dict mapping net_name to current counter (1-based)
-        reference_point: Current reference point for distance calculation
-    """
-
-    def __init__(self):
-        """Initialize with default values."""
-        self.net_counters = {}  # {net_name: counter}
-        self.reference_point = (0.0, 0.0)
-
-    def get_next_index(self, net_name):
-        """
-        Get next index for a specific net and increment its counter.
-
-        Args:
-            net_name: Name of the net
-
-        Returns:
-            int: Current counter value for this net (before increment)
-        """
-        if net_name not in self.net_counters:
-            self.net_counters[net_name] = 1
-
-        current = self.net_counters[net_name]
-        self.net_counters[net_name] += 1
-        return current
-
-    def update_reference_point(self, new_position):
-        """
-        Update reference point to new position.
-
-        Args:
-            new_position: Tuple (x, y) - New reference position
-        """
-        self.reference_point = new_position
-        logger.info(f"Reference point updated to: ({new_position[0]:.9f}, {new_position[1]:.9f})")
-
-    def get_current_state(self):
-        """
-        Get current indexer state for logging.
-
-        Returns:
-            Dict with 'net_counters' and 'reference_point'
-        """
-        return {
-            'net_counters': self.net_counters.copy(),
-            'reference_point': self.reference_point
-        }
-
-
-# ============================================================================
-# EDB Operations
-# ============================================================================
-
 def open_edb(edbpath, edbversion, grpc=False):
     """
     Open EDB file using pyedb.
@@ -1186,15 +915,13 @@ def is_valid_padstack(pad):
         return False
 
 
-def remove_and_create_ports(edb, cut_data, indexer):
+def remove_and_create_ports(edb, cut_data):
     """
     Remove existing ports and create circuit ports for signal endpoints with power net references.
-    Uses global port indexing with distance-based ordering.
 
     Args:
         edb: Opened pyedb.Edb object
         cut_data: Cut data dictionary containing endpoint_pads and selected_nets
-        indexer: GlobalPortIndexer instance for global port indexing
 
     Returns:
         bool: True if successful, False otherwise
@@ -1294,70 +1021,112 @@ def remove_and_create_ports(edb, cut_data, indexer):
         total_ports_created = 0
         failed_ports = 0
 
-        # ========================================================================
-        # GLOBAL PORT INDEXING: Collect and sort ports by distance
-        # ========================================================================
-        logger.info("Collecting circuit ports for global indexing...")
-        circuit_ports = collect_circuit_ports_for_cut(
-            endpoint_pads,
-            polygon_points,
-            use_polygon_filter,
-            all_power_pins
-        )
+        # Create ports for each signal endpoint
+        for net_name, endpoints in endpoint_pads.items():
+            logger.info(f"Processing signal net: {net_name}")
+            logger.info(f"  Endpoints: {len(endpoints)}")
 
-        logger.info(f"Collected {len(circuit_ports)} circuit ports for this cut")
-        logger.info(f"Current reference point: ({indexer.reference_point[0]:.9f}, {indexer.reference_point[1]:.9f})")
+            for idx, signal_pin in enumerate(endpoints, 1):
+                # Endpoints are pre-validated, safe to access properties
+                pin_name = signal_pin.name
+                pin_position = signal_pin.position
+                component_name = signal_pin.component.name if signal_pin.component else "None"
 
-        # Sort by distance from current reference point
-        sorted_ports = sort_ports_by_distance(circuit_ports, indexer.reference_point)
+                logger.info(f"  [{idx}/{len(endpoints)}] Signal pin: {pin_name}")
+                logger.info(f"      Position: [{pin_position[0]:.6f}, {pin_position[1]:.6f}]")
+                logger.info(f"      Component: {component_name}")
 
-        logger.info("Circuit ports sorted by distance:")
-        for i, port_info in enumerate(sorted_ports, 1):
-            dist = calculate_distance(port_info['position'], indexer.reference_point)
-            logger.info(f"  [{i}] {port_info['net_name']} at ({port_info['position'][0]:.9f}, {port_info['position'][1]:.9f}) - distance: {dist:.9f}")
-        logger.info("")
+                # Check if endpoint is inside polygon region
+                if use_polygon_filter:
+                    is_inside = is_point_in_polygon(pin_position, polygon_points)
+                    if not is_inside:
+                        logger.info(f"      [SKIP] Endpoint outside polygon region - no port created")
+                        logger.info("")
+                        continue
+                    else:
+                        logger.info(f"      [OK] Endpoint inside polygon region")
 
-        # Create ports in sorted order
-        for port_info in sorted_ports:
-            net_name = port_info['net_name']
-            signal_pin = port_info['signal_pin']
-            reference_pins = port_info['reference_pins']
+                # Find reference power pins
+                reference_pins = []
 
-            pin_name = signal_pin.name
-            pin_position = signal_pin.position
-            component_name = signal_pin.component.name if signal_pin.component else "None"
+                # Strategy 1: Find power pins in the same component
+                if signal_pin.component:
+                    component_power_pins = []
+                    for pin in all_power_pins:
+                        try:
+                            # Check if power pin is still valid
+                            if pin.component and pin.component.name == component_name:
+                                component_power_pins.append(pin)
+                        except (AttributeError, RuntimeError, Exception):
+                            # Skip invalid power pins (deleted by cutout)
+                            continue
 
-            # Get net-specific index
-            port_idx = indexer.get_next_index(net_name)
-            port_name = f"{port_idx}_{net_name}"
+                    if component_power_pins:
+                        reference_pins = component_power_pins
+                        logger.info(f"      Found {len(reference_pins)} power pins in same component")
 
-            logger.info(f"Creating circuit port with net-specific index {port_idx}")
-            logger.info(f"  Net: {net_name}")
-            logger.info(f"  Signal pin: {pin_name}")
-            logger.info(f"  Position: [{pin_position[0]:.6f}, {pin_position[1]:.6f}]")
-            logger.info(f"  Component: {component_name}")
+                # Strategy 2: If no component power pins, find nearest power pins
+                if not reference_pins:
+                    logger.info(f"      No power pins in component, finding nearest pins...")
 
-            # Create circuit port
-            try:
-                port = signal_pin.create_port(
-                    name=port_name,
-                    reference=reference_pins,
-                    is_circuit_port=True
-                )
-                # Set positive terminal name explicitly
-                port.name = port_name
+                    # Calculate distance to each power pin (skip invalid pins)
+                    def calculate_distance(pin):
+                        try:
+                            pos = pin.position
+                            dx = pos[0] - pin_position[0]
+                            dy = pos[1] - pin_position[1]
+                            return (dx*dx + dy*dy) ** 0.5
+                        except (AttributeError, RuntimeError, Exception):
+                            # Return infinite distance for invalid pins
+                            return float('inf')
 
-                logger.info(f"  [OK] Created circuit port: {port_name}")
-                total_ports_created += 1
+                    # Filter out invalid power pins
+                    valid_power_pins = []
+                    for pin in all_power_pins:
+                        try:
+                            _ = pin.position  # Test if pin is valid
+                            valid_power_pins.append(pin)
+                        except (AttributeError, RuntimeError, Exception):
+                            continue
 
-                # Update reference point to this circuit position
-                indexer.update_reference_point(signal_pin.position)
+                    if valid_power_pins:
+                        # Sort power pins by distance
+                        sorted_power_pins = sorted(valid_power_pins, key=calculate_distance)
 
-            except Exception as port_error:
-                logger.info(f"  [ERROR] Failed to create port: {port_error}")
-                failed_ports += 1
+                        # Use closest 3 power pins as reference
+                        reference_pins = sorted_power_pins[:3]
 
-            logger.info("")
+                        if reference_pins:
+                            nearest_distance = calculate_distance(reference_pins[0])
+                            logger.info(f"      Using {len(reference_pins)} nearest power pins (closest: {nearest_distance:.6f}m)")
+                    else:
+                        logger.info(f"      [WARNING] No valid power pins found (all deleted by cutout)")
+
+                # Create circuit port
+                if reference_pins:
+                    try:
+                        # Generate port name: Port_{net_name}_{pin_name_cleaned}
+                        port_name = f"c_{net_name}"
+
+                        port = signal_pin.create_port(
+                            name=port_name,
+                            reference=reference_pins,
+                            is_circuit_port=True
+                        )
+                        # Set positive terminal name explicitly
+                        port.name = port_name
+
+                        logger.info(f"      [OK] Created circuit port: {port_name}")
+                        total_ports_created += 1
+
+                    except Exception as port_error:
+                        logger.info(f"      [ERROR] Failed to create port: {port_error}")
+                        failed_ports += 1
+                else:
+                    logger.info(f"      [ERROR] No reference pins found")
+                    failed_ports += 1
+
+                logger.info("")
 
         # Print summary
         logger.info("-" * 70)
@@ -1377,15 +1146,13 @@ def remove_and_create_ports(edb, cut_data, indexer):
         traceback.print_exc()
         return False
 
-def create_gap_ports(edb, cut_data, indexer):
+def create_gap_ports(edb, cut_data):
     """
     Create gap ports on cutout edges using stored edge intersection information.
-    Uses global port indexing with distance-based ordering.
 
     Args:
         edb: Opened pyedb.Edb object
         cut_data: Cut data dictionary containing gap_port_info and selected_nets
-        indexer: GlobalPortIndexer instance for global port indexing
 
     Returns:
         bool: True if successful, False otherwise
@@ -1420,32 +1187,16 @@ def create_gap_ports(edb, cut_data, indexer):
         total_ports_created = 0
         total_ports_failed = 0
 
-        # ========================================================================
-        # GLOBAL PORT INDEXING: Collect and sort gap ports by distance
-        # ========================================================================
-        logger.info("Collecting gap ports for global indexing...")
-        gap_ports = collect_gap_ports_for_cut(gap_port_info)
+        for gap_info in gap_port_info:
+            net_name = gap_info['net_name']
+            prim_id = gap_info['prim_id']
+            edge_intersections = gap_info['edge_intersections']
 
-        logger.info(f"Collected {len(gap_ports)} gap ports for this cut")
-        logger.info(f"Current reference point: ({indexer.reference_point[0]:.9f}, {indexer.reference_point[1]:.9f})")
+            logger.info(f"Processing net: {net_name}")
+            logger.info(f"  Primitive ID: {prim_id}")
+            logger.info(f"  Edge intersections: {len(edge_intersections)}")
 
-        # Sort by distance from current reference point
-        sorted_ports = sort_ports_by_distance(gap_ports, indexer.reference_point)
-
-        logger.info("Gap ports sorted by distance:")
-        for i, port_info in enumerate(sorted_ports, 1):
-            dist = calculate_distance(port_info['position'], indexer.reference_point)
-            logger.info(f"  [{i}] {port_info['gap_info']['net_name']} at ({port_info['position'][0]:.9f}, {port_info['position'][1]:.9f}) - distance: {dist:.9f}")
-        logger.info("")
-
-        # Create gap ports in sorted order
-        for port_info in sorted_ports:
-            net_name = port_info['gap_info']['net_name']
-            prim_id = port_info['gap_info']['prim_id']
-            edge = port_info['edge']
-            midpoint = port_info['midpoint']
-
-            # Re-fetch primitive by ID (prim object cannot be serialized)
+            # 4. Re-fetch primitive by ID (prim object cannot be serialized)
             prim = None
             for p in edb.modeler.primitives:
                 if p.id == prim_id:
@@ -1453,40 +1204,37 @@ def create_gap_ports(edb, cut_data, indexer):
                     break
 
             if not prim:
-                logger.info(f"[WARNING] Primitive {prim_id} not found. Skipping.")
+                logger.info(f"  [WARNING] Primitive {prim_id} not found. Skipping.")
                 logger.info("")
                 continue
 
-            # Get net-specific index
-            port_idx = indexer.get_next_index(net_name)
-            port_name = f"{port_idx}_{net_name}"
+            # 5. Create gap port for each edge intersection
+            for idx, (edge, midpoint) in enumerate(edge_intersections):
+                try:
+                    # Generate unique port name (0-based indexing: netname_0, netname_1, ...)
+                    port_name = f"{idx}_{net_name}"
 
-            logger.info(f"Creating gap port with net-specific index {port_idx}")
-            logger.info(f"  Net: {net_name}")
-            logger.info(f"  Primitive ID: {prim_id}")
-            logger.info(f"  Edge: [{edge[0][0]:.9f}, {edge[0][1]:.9f}] -> [{edge[1][0]:.9f}, {edge[1][1]:.9f}]")
-            logger.info(f"  Terminal point (midpoint): [{midpoint[0]:.9f}, {midpoint[1]:.9f}]")
-            logger.info(f"  Reference layer: {reference_layer}")
+                    logger.info(f"  [{idx+1}/{len(edge_intersections)}] Creating gap port: {port_name}")
+                    logger.info(f"      Edge: [{edge[0][0]:.9f}, {edge[0][1]:.9f}] -> [{edge[1][0]:.9f}, {edge[1][1]:.9f}]")
+                    logger.info(f"      Terminal point (midpoint): [{midpoint[0]:.9f}, {midpoint[1]:.9f}]")
+                    logger.info(f"      Reference layer: {reference_layer}")
 
-            try:
-                # Create edge port on polygon
-                edb.source_excitation.create_edge_port_on_polygon(
-                    polygon=prim,
-                    terminal_point=midpoint,
-                    reference_layer=reference_layer,
-                    port_name=port_name
-                )
+                    # Create edge port on polygon
+                    edb.source_excitation.create_edge_port_on_polygon(
+                        polygon=prim,               # Re-fetched primitive
+                        terminal_point=midpoint,    # Midpoint from edge_intersections
+                        reference_layer=reference_layer,  # From GUI selection
+                        port_name=port_name         # Use net name-based port name
+                    )
 
-                logger.info(f"  [OK] Created gap port: {port_name}")
-                total_ports_created += 1
+                    logger.info(f"      [OK] Gap port created successfully")
+                    total_ports_created += 1
 
-                # Gap port does NOT update reference point (circuit ports only)
-
-            except Exception as port_error:
-                logger.info(f"  [ERROR] Failed to create gap port: {port_error}")
-                import traceback
-                traceback.print_exc()
-                total_ports_failed += 1
+                except Exception as port_error:
+                    logger.info(f"      [ERROR] Failed to create gap port: {port_error}")
+                    import traceback
+                    traceback.print_exc()
+                    total_ports_failed += 1
 
             logger.info("")
 
@@ -1547,18 +1295,6 @@ def execute_cuts_on_clone(edbpath, edbversion, cut_data_list, grpc=False):
 
     all_success = True
 
-    # ========================================================================
-    # Initialize global port indexing system
-    # ========================================================================
-    indexer = GlobalPortIndexer()
-
-    logger.info("=" * 70)
-    logger.info("GLOBAL PORT INDEXING INITIALIZED (Per-Net)")
-    logger.info("=" * 70)
-    logger.info("Net-specific counters will be initialized on first port of each net")
-    logger.info(f"Initial reference point: ({indexer.reference_point[0]:.9f}, {indexer.reference_point[1]:.9f})")
-    logger.info("")
-
     # Process each cut
     for i, cut_data in enumerate(cut_data_list, 1):
         logger.info("-" * 50)
@@ -1579,18 +1315,14 @@ def execute_cuts_on_clone(edbpath, edbversion, cut_data_list, grpc=False):
         apply_cutout(edb, cut_data)
         logger.info("")
 
-        # 3. Create circuit ports with global indexing
+        # 3. Create circuit ports (only for endpoints inside polygon)
         logger.info("[3/4] Creating circuit ports...")
-        remove_and_create_ports(edb, cut_data, indexer)
-        state = indexer.get_current_state()
-        logger.info(f"After circuit ports: net_counters={state['net_counters']}, ref=({state['reference_point'][0]:.9f}, {state['reference_point'][1]:.9f})")
+        remove_and_create_ports(edb, cut_data)
         logger.info("")
 
-        # 4. Create gap ports with global indexing
+        # 4. Create gap ports (only for endpoints inside polygon)
         logger.info("[4/4] Creating gap ports...")
-        create_gap_ports(edb, cut_data, indexer)
-        state = indexer.get_current_state()
-        logger.info(f"After gap ports: net_counters={state['net_counters']}, ref=({state['reference_point'][0]:.9f}, {state['reference_point'][1]:.9f})")
+        create_gap_ports(edb, cut_data)
         logger.info("")
 
         # 6. Additional cut operations (future implementation)
