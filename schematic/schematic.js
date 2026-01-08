@@ -32,14 +32,13 @@ async function init() {
         console.log(`Found ${files.length} touchstone files:`, files);
 
         if (files.length > 0) {
-            // Initialize state with all files enabled by default
+            // Initialize state with all files
             schematicState.files = files.map((file, index) => ({
                 filename: file.name,
                 path: file.path,
                 size: file.size,
                 order: index + 1,
-                flip: false,
-                enabled: true
+                flip: false
             }));
 
             // Auto-select all files in order
@@ -92,8 +91,7 @@ async function browseFolder() {
                 path: file.path,
                 size: file.size,
                 order: index + 1,
-                flip: false,
-                enabled: true
+                flip: false
             }));
 
             // Auto-select all files in order
@@ -142,10 +140,9 @@ function renderFileList() {
     // Generate HTML for each file
     listContainer.innerHTML = schematicState.files.map((file, index) => {
         const sizeStr = formatFileSize(file.size || 0);
-        const disabledClass = file.enabled ? '' : 'disabled';
 
         return `
-            <div class="file-list-item ${disabledClass}"
+            <div class="file-list-item"
                  data-filename="${file.filename}"
                  onclick="selectFile('${file.filename}')">
                 <div class="file-info">
@@ -156,15 +153,8 @@ function renderFileList() {
                     <label class="flip-toggle" title="Flip touchstone orientation" onclick="event.stopPropagation()">
                         <input type="checkbox"
                                ${file.flip ? 'checked' : ''}
-                               onchange="toggleFlip('${file.filename}')"
-                               ${!file.enabled ? 'disabled' : ''}>
+                               onchange="toggleFlip('${file.filename}')">
                         <span class="toggle-label">Flip</span>
-                    </label>
-                    <label class="enable-checkbox" title="Include in merge" onclick="event.stopPropagation()">
-                        <input type="checkbox"
-                               ${file.enabled ? 'checked' : ''}
-                               onchange="toggleEnabled('${file.filename}')">
-                        <span class="checkbox-label">Enable</span>
                     </label>
                 </div>
             </div>
@@ -180,12 +170,6 @@ function renderFileList() {
  * @param {string} filename - Filename to select/deselect
  */
 function selectFile(filename) {
-    // Check if file is enabled
-    const file = schematicState.files.find(f => f.filename === filename);
-    if (!file || !file.enabled) {
-        return; // Can't select disabled files
-    }
-
     const index = schematicState.selectedFilenames.indexOf(filename);
 
     // Toggle selection
@@ -246,42 +230,21 @@ function toggleFlip(filename) {
 }
 
 /**
- * Toggle enabled state for a file
+ * Toggle all files selection
  */
-function toggleEnabled(filename) {
-    const file = schematicState.files.find(f => f.filename === filename);
-    if (file) {
-        file.enabled = !file.enabled;
-        console.log(`Toggled enabled for ${filename}: ${file.enabled}`);
+function toggleAllSelected() {
+    const allSelected = schematicState.selectedFilenames.length === schematicState.files.length;
 
-        // If disabled, remove from selection
-        if (!file.enabled) {
-            const index = schematicState.selectedFilenames.indexOf(filename);
-            if (index !== -1) {
-                schematicState.selectedFilenames.splice(index, 1);
-            }
-        }
-
-        updateUI();
-    }
-}
-
-/**
- * Toggle all files enabled/disabled
- */
-function toggleAllEnabled() {
-    const allEnabled = schematicState.files.every(f => f.enabled);
-
-    schematicState.files.forEach(file => {
-        file.enabled = !allEnabled;
-    });
-
-    // Clear selection when disabling all
-    if (allEnabled) {
+    if (allSelected) {
+        // Deselect all
         schematicState.selectedFilenames = [];
+    } else {
+        // Select all
+        schematicState.selectedFilenames = schematicState.files.map(f => f.filename);
     }
 
-    updateUI();
+    updateFileOrderDisplay();
+    updateGenerateButton();
 }
 
 /**
@@ -289,10 +252,10 @@ function toggleAllEnabled() {
  */
 function updateCounts() {
     const total = schematicState.files.length;
-    const enabled = schematicState.files.filter(f => f.enabled).length;
+    const selected = schematicState.selectedFilenames.length;
 
     document.getElementById('totalFiles').textContent = total;
-    document.getElementById('enabledCount').textContent = enabled;
+    document.getElementById('selectedCount').textContent = selected;
 }
 
 /**
@@ -332,7 +295,7 @@ async function generateConfiguration() {
                 size: file.size,
                 order: index + 1,  // Order based on selection sequence
                 flip: file.flip,
-                enabled: file.enabled
+                enabled: true  // All selected files are enabled
             };
         }).filter(item => item !== null);
 
