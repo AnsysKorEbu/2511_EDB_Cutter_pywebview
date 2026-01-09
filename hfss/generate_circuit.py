@@ -253,18 +253,20 @@ def generate_circuit(config_path, edb_version):
         excitation_names = circuit.excitation_names
         logger.info(f"  Found {len(excitation_names)} excitation ports")
 
-        expressions = []
+        expr_list = []
         for port_name in excitation_names:
             expr = f"dB(S({port_name},{port_name}))"
-            expressions.append(expr)
+            expr_list.append(expr)
             logger.info(f"    Adding report: {expr}")
 
-        if expressions:
+        if expr_list:
+
             report = circuit.post.create_report(
-                expressions=expressions,
-                setup_sweep_name="LinearFrequency"
+                expressions=expr_list,
+                plot_name="S_Parameter_Report"
             )
-            logger.info(f"    [OK] Created report with {len(expressions)} expressions")
+
+            logger.info(f"    [OK] Created report with {len(expr_list)} expressions")
 
         # 4. Run simulation
         logger.info(f"\n[HFSS] Running simulation")
