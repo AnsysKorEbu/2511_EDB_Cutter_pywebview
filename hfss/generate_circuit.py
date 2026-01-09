@@ -84,38 +84,48 @@ def generate_circuit(config_path, edb_version):
 
         # Add touchstone files to circuit schematic
         components = []
-        for ts_file in touchstone_files:
-            if ts_file['enabled']:
-                # Calculate position based on order
-                x = component_spacing * (ts_file['order'] - 1)
-                y = 0
+        enabled_ts_files = [ts for ts in touchstone_files if ts['enabled']]
 
-                logger.info(f"  Adding: {ts_file['filename']} at position ({x}, {y})")
-                logger.info(f"    Order: {ts_file['order']}, Flip: {ts_file['flip']}")
+        for ts_file in enabled_ts_files:
+            # Calculate position based on order
+            x = component_spacing * (ts_file['order'] - 1)
+            y = 0
 
-                # Create touchstone component
-                component = circuit.modeler.schematic.create_touchstone_component(
-                    model_name=ts_file['path'],
-                    location=[x, y]
-                )
+            logger.info(f"  Adding: {ts_file['filename']} at position ({x}, {y})")
+            logger.info(f"    Order: {ts_file['order']}, Flip: {ts_file['flip']}")
 
-                # Apply flip if needed
-                if ts_file['flip']:
-                    component.set_property("Flip", True)
-                    logger.info(f"    [OK] Flip applied")
+            # Create touchstone component
+            component = circuit.modeler.schematic.create_touchstone_component(
+                model_name=ts_file['path'],
+                location=[x, y]
+            )
 
-                components.append(component)
+            # Apply mirror if flip is needed
+            if ts_file['flip']:
+                component.mirror = True
+                logger.info(f"    [OK] Mirror applied (ports flipped)")
+
+            components.append(component)
 
         # Create interface ports for first component
         if components:
             logger.info(f"\n[HFSS] Creating interface ports for first component")
             first_comp = components[0]
+            first_ts = enabled_ts_files[0]
             num_ports = len(first_comp.pins)
             half_ports = num_ports // 2
 
-            # Create interface port for first half of first component
+            logger.info(f"    First component flip: {first_ts['flip']}")
+
+            # Create interface port considering flip status
             for j in range(half_ports):
-                pin = first_comp.pins[j]
+                # If flipped, connect to second half; otherwise connect to first half
+                if first_ts['flip']:
+                    pin_idx = half_ports + j  # Second half (swapped to act as first half)
+                else:
+                    pin_idx = j  # First half
+
+                pin = first_comp.pins[pin_idx]
                 port_name = pin.name
 
                 # Get pin location and place interface port next to it
@@ -133,7 +143,7 @@ def generate_circuit(config_path, edb_version):
 
                 # Connect to first component
                 interface_port.pins[0].connect_to_component(
-                    first_comp.pins[j],
+                    first_comp.pins[pin_idx],
                     use_wire=True
                 )
 
@@ -144,17 +154,30 @@ def generate_circuit(config_path, edb_version):
         for i in range(len(components) - 1):
             comp1 = components[i]
             comp2 = components[i + 1]
+            ts1 = enabled_ts_files[i]
+            ts2 = enabled_ts_files[i + 1]
 
             num_ports = len(comp1.pins)
             half_ports = num_ports // 2
 
             logger.info(f"  Connecting component {i+1} <-> {i+2}")
             logger.info(f"    Total ports: {num_ports}, Half: {half_ports}")
+            logger.info(f"    Comp1 flip: {ts1['flip']}, Comp2 flip: {ts2['flip']}")
 
-            # Connect second half of comp1 to first half of comp2
+            # Connect ports considering flip status
+            # If flipped, first half and second half are swapped
             for j in range(half_ports):
-                port1_idx = half_ports + j  # Second half of comp1
-                port2_idx = j  # First half of comp2
+                # Comp1: use first half if flipped, second half if not
+                if ts1['flip']:
+                    port1_idx = j  # First half (swapped to act as second half)
+                else:
+                    port1_idx = half_ports + j  # Second half
+
+                # Comp2: use second half if flipped, first half if not
+                if ts2['flip']:
+                    port2_idx = half_ports + j  # Second half (swapped to act as first half)
+                else:
+                    port2_idx = j  # First half
 
                 comp1.pins[port1_idx].connect_to_component(
                     comp2.pins[port2_idx],
@@ -167,6 +190,7 @@ def generate_circuit(config_path, edb_version):
         if components:
             logger.info(f"\n[HFSS] Connecting last component to GND")
             last_comp = components[-1]
+            last_ts = enabled_ts_files[-1]
             num_ports = len(last_comp.pins)
             half_ports = num_ports // 2
 
@@ -176,20 +200,31 @@ def generate_circuit(config_path, edb_version):
             gnd_y = 0 - 5 * dx
 
             logger.info(f"  Creating GND at position ({gnd_x}, {gnd_y})")
+            logger.info(f"    Last component flip: {last_ts['flip']}")
 
             # Create single GND component
             gnd = circuit.modeler.schematic.create_gnd(location=[gnd_x, gnd_y])
 
-            # Connect second half of last component to GND
+            # Connect to GND considering flip status
             logger.info(f"  Connecting {half_ports} ports to GND")
             for j in range(half_ports):
-                port_idx = half_ports + j  # Second half of last component
+                # If flipped, use first half; otherwise use second half
+                if last_ts['flip']:
+                    port_idx = j  # First half (swapped to act as second half)
+                else:
+                    port_idx = half_ports + j  # Second half
+
                 last_comp.pins[port_idx].connect_to_component(
                     gnd.pins[0],
                     use_wire=True
                 )
 
             logger.info(f"    [OK] Connected {half_ports} ports to GND")
+
+        # Save project before creating setup
+        logger.info(f"\n[HFSS] Saving project before setup creation")
+        circuit.save_project()
+        logger.info(f"    [OK] Project saved")
 
         # ============================================================
         # STEP 3: Setup simulation and analysis
