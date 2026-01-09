@@ -489,6 +489,36 @@ class Api:
             traceback.print_exc()
             return {'success': False, 'error': error_msg}
 
+    def launch_circuit_gui_window(self):
+        """
+        Launch Circuit Generator GUI (HFSS) as subprocess.
+
+        Returns:
+            dict: {'success': bool, 'error': str}
+        """
+        try:
+            import subprocess
+            import sys
+
+            logger.info(f"\n[INFO] Launching Circuit Generator GUI as subprocess")
+            logger.info(f"EDB Version: {self.edb_version}")
+
+            # Launch circuit GUI via gui.circuit_launcher with edb_version
+            subprocess.Popen(
+                [sys.executable, "-m", "gui.circuit_launcher", self.edb_version],
+                cwd=Path.cwd()
+            )
+
+            logger.info("[OK] Circuit Generator GUI subprocess launched")
+            return {'success': True}
+
+        except Exception as e:
+            error_msg = f"Failed to launch Circuit Generator GUI: {str(e)}"
+            logger.error(f"\n[ERROR] {error_msg}")
+            import traceback
+            traceback.print_exc()
+            return {'success': False, 'error': error_msg}
+
     def process_stackup(self):
         """
         Process PCB stackup data from Excel file.

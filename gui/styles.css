@@ -410,6 +410,29 @@ canvas.cut-mode {
     background: #704214;
 }
 
+.btn-circuit {
+    width: 100%;
+    padding: 12px;
+    margin-top: 10px;
+    background: #9b59b6;
+    color: white;
+    border: none;
+    border-radius: 6px;
+    font-size: 14px;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 0.2s;
+}
+
+.btn-circuit:hover {
+    background: #8e44ad;
+    box-shadow: 0 0 8px rgba(155, 89, 182, 0.5);
+}
+
+.btn-circuit:active {
+    background: #7d3c98;
+}
+
 /* Modal Styles */
 .modal {
     position: fixed;

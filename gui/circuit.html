@@ -1,0 +1,80 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>HFSS Circuit Generator</title>
+    <link rel="stylesheet" href="circuit.css">
+</head>
+<body>
+    <div class="container">
+        <!-- Header -->
+        <header class="header">
+            <h1>⚡ HFSS Circuit Generator</h1>
+            <p class="subtitle">Select configuration and generate HFSS project</p>
+        </header>
+
+        <!-- Config Selection Section -->
+        <section class="config-section">
+            <div class="section-header">
+                <h2>Configuration File</h2>
+            </div>
+
+            <!-- Recent Configs Dropdown -->
+            <div class="form-group">
+                <label for="recentConfigs">Recent Configurations:</label>
+                <select id="recentConfigs" onchange="selectRecentConfig()">
+                    <option value="">-- No recent configs --</option>
+                </select>
+            </div>
+
+            <!-- Browse Button -->
+            <div class="form-group">
+                <button class="btn-secondary" onclick="browseConfigFile()">
+                    📁 Browse for Config File
+                </button>
+            </div>
+        </section>
+
+        <!-- Config Info Display -->
+        <section class="info-section" id="configInfo">
+            <div class="section-header">
+                <h2>Configuration Details</h2>
+            </div>
+
+            <div class="info-grid">
+                <div class="info-item">
+                    <span class="label">Config File:</span>
+                    <span class="value" id="configPath">Not loaded</span>
+                </div>
+                <div class="info-item">
+                    <span class="label">Analysis Folder:</span>
+                    <span class="value" id="analysisFolder">-</span>
+                </div>
+                <div class="info-item">
+                    <span class="label">Total Files:</span>
+                    <span class="value" id="totalFiles">0</span>
+                </div>
+                <div class="info-item">
+                    <span class="label">Version:</span>
+                    <span class="value" id="configVersion">-</span>
+                </div>
+            </div>
+        </section>
+
+        <!-- Action Section -->
+        <section class="action-section">
+            <button class="btn-primary" id="runBtn" onclick="runHfssGeneration()" disabled>
+                ▶ Run HFSS Generation
+            </button>
+        </section>
+
+        <!-- Status Section -->
+        <section id="statusSection" class="status-section hidden">
+            <div id="statusMessage"></div>
+        </section>
+    </div>
+
+    <script src="circuit.js"></script>
+</body>
+</html>

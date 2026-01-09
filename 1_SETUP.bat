@@ -1,6 +1,5 @@
 @echo off
 setlocal EnableExtensions EnableDelayedExpansion
-
 set "APP_PATH=%~dp0"
 echo Using directory: %APP_PATH%
 
@@ -18,8 +17,9 @@ for /f "tokens=1,2* delims==" %%a in ('set') do (
         )
     )
 )
+
 rem ========================================
-rem Force use of ANSYS 25.1 (DISABLED - for future use)
+rem Force use of ANSYS 25.1 (DISABLED)
 rem ========================================
 rem set "FORCED_VERSION=251"
 rem if defined ANSYSEM_ROOT%FORCED_VERSION% (
@@ -36,15 +36,9 @@ rem ========================================
 if !FOUND_ANSYS! EQU 0 (
     echo No ANSYS EM installation found in environment variables.
     goto error
-) else (
-    echo Found ANSYS EM v!MAX_VERSION! at: "!ANSYS_ROOT_RECENT!"
 )
 
-echo "!ANSYS_ROOT_RECENT!" | findstr /i "Program Files" >nul
-if errorlevel 1 (
-    echo ANSYS root path is not in Program Files. Aborting.
-    goto error
-)
+echo Found ANSYS EM v!MAX_VERSION! at: "!ANSYS_ROOT_RECENT!"
 
 set "PYTHON_EXE=!ANSYS_ROOT_RECENT!\commonfiles\CPython\3_10\winx64\Release\python\python.exe"
 
@@ -66,14 +60,20 @@ if not exist "%VENV_PYTHON%" (
 )
 
 if "%VIRTUAL_ENV%"=="" (
-    call "%VENV_PATH%\Scripts\activate.bat"
+    echo Activating virtual environment...
+    call "%VENV_PATH%\Scripts\activate.bat" || goto error
+)
+
+if "%VIRTUAL_ENV%"=="" (
+    echo Failed to activate virtual environment.
+    goto error
 )
 
 echo.
 echo Python version:
-python --version
+python --version || goto error
 echo Pip version:
-pip --version
+pip --version || goto error
 
 set "REQUIREMENTS_FILE=%APP_PATH%requirements.txt"
 set "PACKAGES_DIR=%APP_PATH%packages"
@@ -83,9 +83,6 @@ if not exist "%REQUIREMENTS_FILE%" (
     goto error
 )
 
-rem ========================================
-rem Check if offline installation is needed
-rem ========================================
 if exist "%PACKAGES_DIR%" (
     echo.
     echo ========================================
@@ -94,6 +91,9 @@ if exist "%PACKAGES_DIR%" (
     echo Installing packages from: "%PACKAGES_DIR%"
     echo.
     pip --require-virtualenv install --no-index --find-links "%PACKAGES_DIR%" -r "%REQUIREMENTS_FILE%" || goto error
+    echo.
+    echo Offline installation completed.
+    echo You can now delete the packages folder as it is no longer needed.
 ) else (
     echo.
     echo ========================================
@@ -102,11 +102,14 @@ if exist "%PACKAGES_DIR%" (
     echo Installing packages from internet...
     echo.
     pip --require-virtualenv --no-cache-dir install -r "%REQUIREMENTS_FILE%" || goto error
+    echo.
+    echo Online installation completed.
 )
 
+echo.
 echo ========================================
 echo #                                      #
-echo #       Setup completed successfully   #
+echo #   Setup completed successfully       #
 echo #                                      #
 echo ========================================
 echo.
@@ -116,11 +119,14 @@ pause
 goto eof
 
 :error
+echo.
 echo ========================================
 echo #                                      #
 echo #          Setup failed                #
 echo #                                      #
 echo ========================================
+echo.
 pause
+
 :eof
 endlocal
