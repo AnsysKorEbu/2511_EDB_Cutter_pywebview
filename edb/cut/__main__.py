@@ -132,8 +132,8 @@ if __name__ == "__main__":
                     logger.warning(f"Failed to copy batch file: {copy_error}")
                     logger.info("")
 
-                # Generate stackup XML from sss file if exists
-                stackup_xml_path = None
+                # Generate stackup XMLs from sss files (one per cut)
+                stackup_xml_paths = {}  # {cut_id: xml_path}
                 try:
                     # Extract EDB folder name from path
                     edb_path_obj = Path(edb_path)
@@ -144,58 +144,72 @@ if __name__ == "__main__":
                     else:
                         edb_folder_name = edb_path_obj.name
 
-                    # Find sss file in source/{edb_folder_name}/cut/
-                    source_cut_dir = Path('source') / edb_folder_name / 'cut'
+                    # Find sss files in source/{edb_folder_name}/sss/
+                    sss_dir = Path('source') / edb_folder_name / 'sss'
 
-                    if source_cut_dir.exists():
-                        # Find most recent *_sections_*.sss file
-                        sss_files = list(source_cut_dir.glob('*_sections_*.sss'))
+                    if sss_dir.exists():
+                        # Find most recent *_sections_*.sss and *_layers_*.sss files
+                        sections_files = list(sss_dir.glob('*_sections_*.sss'))
+                        layers_files = list(sss_dir.glob('*_layers_*.sss'))
 
-                        if sss_files:
+                        if sections_files and layers_files:
                             # Sort by modification time and get the latest
-                            latest_sss = max(sss_files, key=lambda p: p.stat().st_mtime)
-                            logger.info(f"Found section selection file: {latest_sss}")
+                            latest_sections_sss = max(sections_files, key=lambda p: p.stat().st_mtime)
+                            latest_layers_sss = max(layers_files, key=lambda p: p.stat().st_mtime)
 
-                            # Load sss file to get Excel path
-                            with open(latest_sss, 'r', encoding='utf-8') as f:
-                                sss_data = json.load(f)
+                            logger.info(f"Found section selection file: {latest_sections_sss}")
+                            logger.info(f"Found layer data file: {latest_layers_sss}")
 
-                            excel_file_path = sss_data.get('excel_file')
+                            # Load sss data
+                            with open(latest_sections_sss, 'r', encoding='utf-8') as f:
+                                sections_data = json.load(f)
+                            with open(latest_layers_sss, 'r', encoding='utf-8') as f:
+                                layers_data = json.load(f)
 
-                            if excel_file_path and Path(excel_file_path).exists():
+                            excel_file_path = sections_data.get('excel_file')
+                            cut_section_mapping = sections_data.get('cut_section_mapping', {})
+                            cut_layer_data = layers_data.get('cut_layer_data', {})
+
+                            if excel_file_path and Path(excel_file_path).exists() and cut_layer_data:
                                 logger.info(f"Excel file: {excel_file_path}")
-                                logger.info("Generating stackup XML file...")
+                                logger.info("Generating stackup XML files for each cut...")
 
                                 # Import generate_stackup module
-                                from stackup.generate_stackup import generate_stackup_info, generate_xml_stackup
+                                from stackup.generate_stackup import generate_xml_stackup_from_sss
 
-                                # Generate stackup info
-                                stackup_info = generate_stackup_info(excel_file_path)
+                                # Generate separate stackup XML for EACH cut
+                                for cut_id, section_name in cut_section_mapping.items():
+                                    if cut_id in cut_layer_data:
+                                        xml_filename = f"{Path(edb_folder_name).stem}_{cut_id}_stackup.xml"
+                                        stackup_xml_path = results_dir / xml_filename
 
-                                # Generate XML file in Results directory
-                                xml_filename = f"{Path(edb_folder_name).stem}_stackup.xml"
-                                stackup_xml_path = results_dir / xml_filename
+                                        # Generate XML for this specific cut
+                                        generate_xml_stackup_from_sss(
+                                            cut_layer_data[cut_id],  # Only layers for this cut
+                                            str(stackup_xml_path),
+                                            excel_file_path
+                                        )
 
-                                generate_xml_stackup(
-                                    stackup_info['layer_data'],
-                                    str(stackup_xml_path),
-                                    excel_file_path
-                                )
+                                        stackup_xml_paths[cut_id] = str(stackup_xml_path)
+                                        logger.info(f"  Stackup XML for {cut_id} ({section_name}): {stackup_xml_path.name}")
 
-                                logger.info(f"Stackup XML generated: {stackup_xml_path}")
+                                logger.info(f"Generated {len(stackup_xml_paths)} stackup XML files")
                                 logger.info("")
                             else:
-                                logger.info("Excel file not found in sss data, skipping stackup generation")
+                                if not excel_file_path or not Path(excel_file_path).exists():
+                                    logger.info("Excel file not found in sss data, skipping stackup generation")
+                                if not cut_layer_data:
+                                    logger.info("No cut layer data found in sss files, skipping stackup generation")
                                 logger.info("")
                         else:
-                            logger.info("No section selection (.sss) file found, skipping stackup generation")
+                            logger.info("Missing sss files (sections or layers), skipping stackup generation")
                             logger.info("")
                     else:
-                        logger.info(f"Source cut directory not found: {source_cut_dir}")
+                        logger.info(f"SSS directory not found: {sss_dir}")
                         logger.info("")
 
                 except Exception as stackup_error:
-                    logger.warning(f"Failed to generate stackup XML: {stackup_error}")
+                    logger.warning(f"Failed to generate stackup XMLs: {stackup_error}")
                     import traceback
                     traceback.print_exc()
                     logger.info("")
@@ -255,8 +269,19 @@ if __name__ == "__main__":
                         logger.debug(f"Added selected_nets to cut {cut_data.get('id', 'unknown')}: {cut_data['selected_nets']}")
                         cut_data_list.append(cut_data)
 
+                    # Select appropriate stackup XML for this clone
+                    # Use first cut's stackup (temporary solution until execute_cuts_on_clone supports per-cut stackup)
+                    clone_stackup_path = None
+                    if stackup_xml_paths and len(assigned_cut_files) > 0:
+                        first_cut_id = Path(assigned_cut_files[0]).stem
+                        clone_stackup_path = stackup_xml_paths.get(first_cut_id)
+
+                        if len(assigned_cut_files) > 1:
+                            logger.warning(f"Clone has {len(assigned_cut_files)} cuts, using {first_cut_id} stackup XML")
+                            logger.warning("Future enhancement: Pass separate stackup XML for each cut")
+
                     # Execute all cuts on this clone (opens EDB once, processes all cuts, closes EDB)
-                    success = execute_cuts_on_clone(clone_edb_path, edb_version, cut_data_list, grpc, stackup_xml_path)
+                    success = execute_cuts_on_clone(clone_edb_path, edb_version, cut_data_list, grpc, clone_stackup_path)
 
                     if success:
                         logger.info(f"All cuts completed successfully on clone {i}")
@@ -313,7 +338,7 @@ if __name__ == "__main__":
                 logger.info(f"Successfully created {len(cloned_paths)} EDB clones")
                 logger.info("")
 
-                # Generate stackup XML from sss file if exists (same as batch mode)
+                # Generate stackup XML from sss file if exists (for single cut)
                 stackup_xml_path = None
                 try:
                     # Extract EDB folder name from path
@@ -328,40 +353,47 @@ if __name__ == "__main__":
                     # Get Results directory
                     results_dir = Path(cloned_paths[0]).parent
 
-                    # Find sss file in source/{edb_folder_name}/cut/
-                    source_cut_dir = Path('source') / edb_folder_name / 'cut'
+                    # Find sss files in source/{edb_folder_name}/sss/
+                    sss_dir = Path('source') / edb_folder_name / 'sss'
 
-                    if source_cut_dir.exists():
-                        # Find most recent *_sections_*.sss file
-                        sss_files = list(source_cut_dir.glob('*_sections_*.sss'))
+                    if sss_dir.exists():
+                        # Find most recent *_sections_*.sss and *_layers_*.sss files
+                        sections_files = list(sss_dir.glob('*_sections_*.sss'))
+                        layers_files = list(sss_dir.glob('*_layers_*.sss'))
 
-                        if sss_files:
+                        if sections_files and layers_files:
                             # Sort by modification time and get the latest
-                            latest_sss = max(sss_files, key=lambda p: p.stat().st_mtime)
-                            logger.info(f"Found section selection file: {latest_sss}")
+                            latest_sections_sss = max(sections_files, key=lambda p: p.stat().st_mtime)
+                            latest_layers_sss = max(layers_files, key=lambda p: p.stat().st_mtime)
 
-                            # Load sss file to get Excel path
-                            with open(latest_sss, 'r', encoding='utf-8') as f:
-                                sss_data = json.load(f)
+                            logger.info(f"Found section selection file: {latest_sections_sss}")
+                            logger.info(f"Found layer data file: {latest_layers_sss}")
 
-                            excel_file_path = sss_data.get('excel_file')
+                            # Load sss data
+                            with open(latest_sections_sss, 'r', encoding='utf-8') as f:
+                                sections_data = json.load(f)
+                            with open(latest_layers_sss, 'r', encoding='utf-8') as f:
+                                layers_data = json.load(f)
 
-                            if excel_file_path and Path(excel_file_path).exists():
+                            excel_file_path = sections_data.get('excel_file')
+                            cut_section_mapping = sections_data.get('cut_section_mapping', {})
+                            cut_layer_data = layers_data.get('cut_layer_data', {})
+
+                            # For single mode, generate stackup for the current cut_id
+                            if excel_file_path and Path(excel_file_path).exists() and cut_id in cut_layer_data:
                                 logger.info(f"Excel file: {excel_file_path}")
-                                logger.info("Generating stackup XML file...")
+                                section_name = cut_section_mapping.get(cut_id, 'unknown')
+                                logger.info(f"Generating stackup XML for {cut_id} ({section_name})...")
 
                                 # Import generate_stackup module
-                                from stackup.generate_stackup import generate_stackup_info, generate_xml_stackup
+                                from stackup.generate_stackup import generate_xml_stackup_from_sss
 
-                                # Generate stackup info
-                                stackup_info = generate_stackup_info(excel_file_path)
-
-                                # Generate XML file in Results directory
-                                xml_filename = f"{Path(edb_folder_name).stem}_stackup.xml"
+                                # Generate XML for this specific cut
+                                xml_filename = f"{Path(edb_folder_name).stem}_{cut_id}_stackup.xml"
                                 stackup_xml_path = results_dir / xml_filename
 
-                                generate_xml_stackup(
-                                    stackup_info['layer_data'],
+                                generate_xml_stackup_from_sss(
+                                    cut_layer_data[cut_id],  # Only layers for this cut
                                     str(stackup_xml_path),
                                     excel_file_path
                                 )
@@ -369,13 +401,16 @@ if __name__ == "__main__":
                                 logger.info(f"Stackup XML generated: {stackup_xml_path}")
                                 logger.info("")
                             else:
-                                logger.info("Excel file not found in sss data, skipping stackup generation")
+                                if not excel_file_path or not Path(excel_file_path).exists():
+                                    logger.info("Excel file not found in sss data, skipping stackup generation")
+                                elif cut_id not in cut_layer_data:
+                                    logger.info(f"Cut '{cut_id}' not found in layer data, skipping stackup generation")
                                 logger.info("")
                         else:
-                            logger.info("No section selection (.sss) file found, skipping stackup generation")
+                            logger.info("Missing sss files (sections or layers), skipping stackup generation")
                             logger.info("")
                     else:
-                        logger.info(f"Source cut directory not found: {source_cut_dir}")
+                        logger.info(f"SSS directory not found: {sss_dir}")
                         logger.info("")
 
                 except Exception as stackup_error:

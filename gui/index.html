@@ -1,11 +1,13 @@
 <!DOCTYPE html>
 <html lang="ko">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>EDB 2D Viewer</title>
     <link rel="stylesheet" href="styles.css">
 </head>
+
 <body>
     <div class="container">
         <div class="sidebar">
@@ -23,26 +25,26 @@
             <div class="tab-content active" id="data-info-tab">
                 <div class="info-section">
                     <h3 style="font-size: 14px; margin-bottom: 10px; color: #9cdcfe;">Data Information</h3>
-                <div class="info-item">
-                    <span class="info-label">Planes:</span>
-                    <span class="info-value" id="planeCount">0</span>
-                </div>
-                <div class="info-item">
-                    <span class="info-label">Traces:</span>
-                    <span class="info-value" id="traceCount">0</span>
-                </div>
-                <div class="info-item">
-                    <span class="info-label">Vias:</span>
-                    <span class="info-value" id="viaCount">0</span>
-                </div>
-                <div class="info-item">
-                    <span class="info-label">Layers:</span>
-                    <span class="info-value" id="layerCount">0</span>
-                </div>
-                <div class="info-item">
-                    <span class="info-label">Total Points:</span>
-                    <span class="info-value" id="pointCount">0</span>
-                </div>
+                    <div class="info-item">
+                        <span class="info-label">Planes:</span>
+                        <span class="info-value" id="planeCount">0</span>
+                    </div>
+                    <div class="info-item">
+                        <span class="info-label">Traces:</span>
+                        <span class="info-value" id="traceCount">0</span>
+                    </div>
+                    <div class="info-item">
+                        <span class="info-label">Vias:</span>
+                        <span class="info-value" id="viaCount">0</span>
+                    </div>
+                    <div class="info-item">
+                        <span class="info-label">Layers:</span>
+                        <span class="info-value" id="layerCount">0</span>
+                    </div>
+                    <div class="info-item">
+                        <span class="info-label">Total Points:</span>
+                        <span class="info-value" id="pointCount">0</span>
+                    </div>
                 </div>
                 <button class="btn-reload" onclick="reloadData()" id="reloadBtn">Reload Data</button>
             </div>
@@ -73,36 +75,42 @@
                 <button class="btn-cut-mode" onclick="toggleCutMode()" id="cutModeBtn">✂️ Cut Mode</button>
                 <button class="btn-execute-cut" onclick="openCutExecutor()" id="openExecuteCutBtn">Execute Cut</button>
                 <button class="btn-analysis" onclick="openAnalysisGui()" id="openAnalysisBtn">📊 Analysis</button>
-                <button class="btn-schematic" onclick="openSchematicGui()" id="openSchematicBtn">🔗 Generate Full Touchstone</button>
-                <button class="btn-circuit" onclick="openCircuitGui()" id="openCircuitBtn">⚡ Generate Circuit and run</button>
+                <button class="btn-schematic" onclick="openSchematicGui()" id="openSchematicBtn">🔗 Generate Full
+                    Touchstone</button>
+                <button class="btn-circuit" onclick="openCircuitGui()" id="openCircuitBtn">⚡ Generate Circuit and
+                    run</button>
 
                 <div id="cutTools" class="cut-tools hidden">
-                <h3 style="font-size: 14px; margin-bottom: 10px; color: #9cdcfe;">Cut Tools</h3>
-                <button class="cut-tool-btn" onclick="selectCutTool('line')" data-tool="line">
-                    <span>📏</span> Line Cut
-                </button>
-                <button class="cut-tool-btn" onclick="selectCutTool('rectangle')" data-tool="rectangle">
-                    <span>▭</span> Rectangle
-                </button>
-                <button class="cut-tool-btn" onclick="selectCutTool('polyline')" data-tool="polyline">
-                    <span>📐</span> Polyline
-                </button>
-                <button class="cut-tool-btn" onclick="selectCutTool('polygon')" data-tool="polygon">
-                    <span>⬡</span> Polygon
-                </button>
-                <div style="margin-top: 10px; padding: 8px; background: #252526; border-radius: 4px; font-size: 11px; color: #858585;">
-                    <div id="cutHint">Select a tool to start</div>
+                    <h3 style="font-size: 14px; margin-bottom: 10px; color: #9cdcfe;">Cut Tools</h3>
+                    <button class="cut-tool-btn" onclick="selectCutTool('line')" data-tool="line">
+                        <span>📏</span> Line Cut
+                    </button>
+                    <button class="cut-tool-btn" onclick="selectCutTool('rectangle')" data-tool="rectangle">
+                        <span>▭</span> Rectangle
+                    </button>
+                    <button class="cut-tool-btn" onclick="selectCutTool('polyline')" data-tool="polyline">
+                        <span>📐</span> Polyline
+                    </button>
+                    <button class="cut-tool-btn" onclick="selectCutTool('polygon')" data-tool="polygon">
+                        <span>⬡</span> Polygon
+                    </button>
+                    <div
+                        style="margin-top: 10px; padding: 8px; background: #252526; border-radius: 4px; font-size: 11px; color: #858585;">
+                        <div id="cutHint">Select a tool to start</div>
+                    </div>
+                    <button id="finishCutBtn" class="hidden" onclick="finishCurrentCut()"
+                        style="margin-top: 10px; background: #10a37f; width: 100%;">
+                        ✓ Finish & Save Cut
+                    </button>
+                    <button id="panModeBtn" onclick="togglePanMode()"
+                        style="margin-top: 10px; background: #3e3e42; width: 100%;">
+                        🤚 Pan Mode (Space)
+                    </button>
                 </div>
-                <button id="finishCutBtn" class="hidden" onclick="finishCurrentCut()" style="margin-top: 10px; background: #10a37f; width: 100%;">
-                    ✓ Finish & Save Cut
-                </button>
-                <button id="panModeBtn" onclick="togglePanMode()" style="margin-top: 10px; background: #3e3e42; width: 100%;">
-                    🤚 Pan Mode (Space)
-                </button>
-            </div>
 
                 <div id="cutList" class="cut-list hidden">
-                    <h3 style="font-size: 14px; margin-bottom: 10px; color: #9cdcfe;">Saved Cuts (<span id="cutCount">0</span>)</h3>
+                    <h3 style="font-size: 14px; margin-bottom: 10px; color: #9cdcfe;">Saved Cuts (<span
+                            id="cutCount">0</span>)</h3>
                     <div id="cutListItems">
                         <div style="color: #858585; font-size: 11px; text-align: center;">No cuts saved</div>
                     </div>
@@ -167,6 +175,20 @@
                     <div class="executor-description">
                         Process PCB stackup data from Excel file to extract layer materials and Dk/Df values.
                     </div>
+
+                    <!-- SSS File Path Display -->
+                    <div class="sss-file-section" style="margin-bottom: 10px; padding: 8px; background: #252526; border-radius: 4px;">
+                        <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 6px;">
+                            <span style="font-size: 11px; color: #858585;">SSS File:</span>
+                            <button class="btn-icon" onclick="loadSssFile()" title="Load SSS File" style="padding: 2px 8px; font-size: 11px; background: #3e3e42;">
+                                📂 Load
+                            </button>
+                        </div>
+                        <div id="sssFilePath" style="font-size: 11px; color: #9cdcfe; word-break: break-all; min-height: 16px;">
+                            No file selected
+                        </div>
+                    </div>
+
                     <button id="processSectionSelectionBtn" class="btn-secondary" onclick="startSectionSelection()">
                         <span>📊 Section Selection</span>
                     </button>
@@ -247,4 +269,5 @@
     <script src="customDialog.js"></script>
     <script src="sectionSelector.js"></script>
 </body>
+
 </html>

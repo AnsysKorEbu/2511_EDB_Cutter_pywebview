@@ -21,6 +21,23 @@ async function openCutExecutor() {
     // Show modal
     modal.classList.remove('hidden');
 
+    // Auto-load latest SSS file
+    try {
+        const sssResult = await window.pywebview.api.get_latest_sss_file();
+        const sssPathElement = document.getElementById('sssFilePath');
+
+        if (sssResult.success && sssResult.sss_file) {
+            const filename = sssResult.sss_file.split(/[/\\]/).pop();
+            sssPathElement.textContent = filename;
+            sssPathElement.title = sssResult.sss_file;
+        } else {
+            sssPathElement.textContent = 'No file selected';
+            sssPathElement.title = '';
+        }
+    } catch (error) {
+        console.error('Failed to load latest SSS file:', error);
+    }
+
     // Load cut list
     try {
         const cuts = await window.pywebview.api.get_cut_list();

@@ -651,6 +651,102 @@ class Api:
             traceback.print_exc()
             return {'success': False, 'error': error_msg}
 
+    def get_latest_sss_file(self):
+        """
+        Get the latest SSS file from source/{edb_name}/sss/ folder.
+
+        Returns:
+            dict: {
+                'success': bool,
+                'sss_file': str (absolute path) or None,
+                'error': str (if failed)
+            }
+        """
+        try:
+            # Check sss directory
+            sss_dir = self._edb_data_dir / 'sss'
+
+            if not sss_dir.exists():
+                return {'success': True, 'sss_file': None}
+
+            # Find all *_sections_*.sss files
+            sss_files = list(sss_dir.glob('*_sections_*.sss'))
+
+            if not sss_files:
+                return {'success': True, 'sss_file': None}
+
+            # Get the most recent file by modification time
+            latest_sss = max(sss_files, key=lambda p: p.stat().st_mtime)
+
+            logger.info(f"Found latest SSS file: {latest_sss}")
+
+            return {
+                'success': True,
+                'sss_file': str(latest_sss)
+            }
+
+        except Exception as e:
+            error_msg = f"Failed to get latest SSS file: {str(e)}"
+            logger.error(f"\n[ERROR] {error_msg}")
+            import traceback
+            traceback.print_exc()
+            return {'success': False, 'error': error_msg}
+
+    def browse_sss_file(self):
+        """
+        Open file dialog to select existing SSS file from sss folder.
+
+        Returns:
+            dict: {
+                'success': bool,
+                'sss_file': str (absolute path),
+                'error': str (if failed)
+            }
+        """
+        try:
+            import tkinter as tk
+            from tkinter import filedialog
+
+            # Create hidden tkinter root window
+            root = tk.Tk()
+            root.withdraw()
+            root.wm_attributes('-topmost', 1)
+
+            # Set initial directory to source/{edb_folder_name}/sss/
+            sss_dir = self._edb_data_dir / 'sss'
+            initial_dir = sss_dir if sss_dir.exists() else self._edb_data_dir
+
+            # Open file dialog
+            sss_file = filedialog.askopenfilename(
+                title="Load SSS File",
+                initialdir=str(initial_dir),
+                filetypes=[
+                    ("SSS Files", "*_sections_*.sss"),
+                    ("All Files", "*.*")
+                ]
+            )
+
+            # Clean up tkinter
+            root.destroy()
+
+            # Check if user canceled
+            if not sss_file:
+                return {'success': False, 'error': 'File selection cancelled'}
+
+            logger.info(f"Loaded SSS file: {sss_file}")
+
+            return {
+                'success': True,
+                'sss_file': sss_file
+            }
+
+        except Exception as e:
+            error_msg = f"Failed to browse SSS file: {str(e)}"
+            logger.error(f"\n[ERROR] {error_msg}")
+            import traceback
+            traceback.print_exc()
+            return {'success': False, 'error': error_msg}
+
     def save_section_selection(self, excel_file, cut_section_mapping):
         """
         Save cut-section mapping and layer data to .sss files.
@@ -687,16 +783,16 @@ class Api:
                 logger.error(f"\n[ERROR] {error_msg}")
                 return {'success': False, 'error': error_msg}
 
-            # Create output path in cut directory
-            cut_dir = self._edb_data_dir / 'cut'
-            cut_dir.mkdir(parents=True, exist_ok=True)
+            # Create output path in source/{edb_name}/sss/ directory
+            sss_dir = self._edb_data_dir / 'sss'
+            sss_dir.mkdir(parents=True, exist_ok=True)
 
             # Generate .sss filenames
             sss_filename = generate_sss_filename(self.edb_folder_name)
             layer_filename = generate_layer_filename(self.edb_folder_name)
 
-            sss_file_path = cut_dir / sss_filename
-            layer_file_path = cut_dir / layer_filename
+            sss_file_path = sss_dir / sss_filename
+            layer_file_path = sss_dir / layer_filename
 
             # Save section mapping
             selector.save_section_mapping(cut_section_mapping, str(sss_file_path))

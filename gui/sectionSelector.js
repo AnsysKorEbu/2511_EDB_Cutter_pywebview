@@ -198,6 +198,14 @@ async function saveSectionSelection() {
         saveBtn.innerHTML = originalBtnText;
 
         if (result.success) {
+            // Update SSS file path display in Cut Executor modal
+            const sssPathElement = document.getElementById('sssFilePath');
+            if (sssPathElement && result.sss_file) {
+                const filename = result.sss_file.split(/[/\\]/).pop();
+                sssPathElement.textContent = filename;
+                sssPathElement.title = result.sss_file;
+            }
+
             // Show success message
             const statusDiv = document.getElementById('sectionStatus');
             const sectionFilename = result.sss_file.split(/[/\\]/).pop();
@@ -233,6 +241,37 @@ async function saveSectionSelection() {
         // Re-enable button on error
         const saveBtn = document.getElementById('saveSectionBtn');
         saveBtn.disabled = false;
+    }
+}
+
+/**
+ * Load existing SSS file
+ */
+async function loadSssFile() {
+    try {
+        const result = await window.pywebview.api.browse_sss_file();
+
+        if (!result.success) {
+            if (result.error && !result.error.includes('cancelled')) {
+                await customAlert(result.error || 'Failed to load SSS file');
+            }
+            return;
+        }
+
+        // Update SSS file path display
+        const sssPathElement = document.getElementById('sssFilePath');
+        if (sssPathElement && result.sss_file) {
+            const filename = result.sss_file.split(/[/\\]/).pop();
+            sssPathElement.textContent = filename;
+            sssPathElement.title = result.sss_file;
+        }
+
+        // Show success message
+        await customAlert(`SSS file loaded:\n${result.sss_file.split(/[/\\]/).pop()}`);
+
+    } catch (error) {
+        console.error('Error in loadSssFile:', error);
+        await customAlert(`Unexpected error: ${error.message}`);
     }
 }
 

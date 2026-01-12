@@ -1008,8 +1008,6 @@ canvas.cut-mode {
 
 /* Cut-section mapping container */
 .section-mapping-container {
-    max-height: 400px;
-    overflow-y: auto;
     border: 1px solid #3e3e42;
     border-radius: 4px;
     padding: 10px;
