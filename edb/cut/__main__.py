@@ -132,6 +132,74 @@ if __name__ == "__main__":
                     logger.warning(f"Failed to copy batch file: {copy_error}")
                     logger.info("")
 
+                # Generate stackup XML from sss file if exists
+                stackup_xml_path = None
+                try:
+                    # Extract EDB folder name from path
+                    edb_path_obj = Path(edb_path)
+                    if edb_path_obj.name == 'edb.def':
+                        edb_folder_name = edb_path_obj.parent.name
+                    elif edb_path_obj.suffix == '.aedb':
+                        edb_folder_name = edb_path_obj.name
+                    else:
+                        edb_folder_name = edb_path_obj.name
+
+                    # Find sss file in source/{edb_folder_name}/cut/
+                    source_cut_dir = Path('source') / edb_folder_name / 'cut'
+
+                    if source_cut_dir.exists():
+                        # Find most recent *_sections_*.sss file
+                        sss_files = list(source_cut_dir.glob('*_sections_*.sss'))
+
+                        if sss_files:
+                            # Sort by modification time and get the latest
+                            latest_sss = max(sss_files, key=lambda p: p.stat().st_mtime)
+                            logger.info(f"Found section selection file: {latest_sss}")
+
+                            # Load sss file to get Excel path
+                            with open(latest_sss, 'r', encoding='utf-8') as f:
+                                sss_data = json.load(f)
+
+                            excel_file_path = sss_data.get('excel_file')
+
+                            if excel_file_path and Path(excel_file_path).exists():
+                                logger.info(f"Excel file: {excel_file_path}")
+                                logger.info("Generating stackup XML file...")
+
+                                # Import generate_stackup module
+                                from stackup.generate_stackup import generate_stackup_info, generate_xml_stackup
+
+                                # Generate stackup info
+                                stackup_info = generate_stackup_info(excel_file_path)
+
+                                # Generate XML file in Results directory
+                                xml_filename = f"{Path(edb_folder_name).stem}_stackup.xml"
+                                stackup_xml_path = results_dir / xml_filename
+
+                                generate_xml_stackup(
+                                    stackup_info['layer_data'],
+                                    str(stackup_xml_path),
+                                    excel_file_path
+                                )
+
+                                logger.info(f"Stackup XML generated: {stackup_xml_path}")
+                                logger.info("")
+                            else:
+                                logger.info("Excel file not found in sss data, skipping stackup generation")
+                                logger.info("")
+                        else:
+                            logger.info("No section selection (.sss) file found, skipping stackup generation")
+                            logger.info("")
+                    else:
+                        logger.info(f"Source cut directory not found: {source_cut_dir}")
+                        logger.info("")
+
+                except Exception as stackup_error:
+                    logger.warning(f"Failed to generate stackup XML: {stackup_error}")
+                    import traceback
+                    traceback.print_exc()
+                    logger.info("")
+
             except Exception as clone_error:
                 logger.error(f"Failed to clone EDB files: {clone_error}")
                 import traceback
@@ -188,7 +256,7 @@ if __name__ == "__main__":
                         cut_data_list.append(cut_data)
 
                     # Execute all cuts on this clone (opens EDB once, processes all cuts, closes EDB)
-                    success = execute_cuts_on_clone(clone_edb_path, edb_version, cut_data_list, grpc)
+                    success = execute_cuts_on_clone(clone_edb_path, edb_version, cut_data_list, grpc, stackup_xml_path)
 
                     if success:
                         logger.info(f"All cuts completed successfully on clone {i}")
@@ -244,6 +312,78 @@ if __name__ == "__main__":
                 cloned_paths = clone_edbs_for_cuts(original_edb_path, num_clones, edb_version, grpc)
                 logger.info(f"Successfully created {len(cloned_paths)} EDB clones")
                 logger.info("")
+
+                # Generate stackup XML from sss file if exists (same as batch mode)
+                stackup_xml_path = None
+                try:
+                    # Extract EDB folder name from path
+                    edb_path_obj = Path(edb_path)
+                    if edb_path_obj.name == 'edb.def':
+                        edb_folder_name = edb_path_obj.parent.name
+                    elif edb_path_obj.suffix == '.aedb':
+                        edb_folder_name = edb_path_obj.name
+                    else:
+                        edb_folder_name = edb_path_obj.name
+
+                    # Get Results directory
+                    results_dir = Path(cloned_paths[0]).parent
+
+                    # Find sss file in source/{edb_folder_name}/cut/
+                    source_cut_dir = Path('source') / edb_folder_name / 'cut'
+
+                    if source_cut_dir.exists():
+                        # Find most recent *_sections_*.sss file
+                        sss_files = list(source_cut_dir.glob('*_sections_*.sss'))
+
+                        if sss_files:
+                            # Sort by modification time and get the latest
+                            latest_sss = max(sss_files, key=lambda p: p.stat().st_mtime)
+                            logger.info(f"Found section selection file: {latest_sss}")
+
+                            # Load sss file to get Excel path
+                            with open(latest_sss, 'r', encoding='utf-8') as f:
+                                sss_data = json.load(f)
+
+                            excel_file_path = sss_data.get('excel_file')
+
+                            if excel_file_path and Path(excel_file_path).exists():
+                                logger.info(f"Excel file: {excel_file_path}")
+                                logger.info("Generating stackup XML file...")
+
+                                # Import generate_stackup module
+                                from stackup.generate_stackup import generate_stackup_info, generate_xml_stackup
+
+                                # Generate stackup info
+                                stackup_info = generate_stackup_info(excel_file_path)
+
+                                # Generate XML file in Results directory
+                                xml_filename = f"{Path(edb_folder_name).stem}_stackup.xml"
+                                stackup_xml_path = results_dir / xml_filename
+
+                                generate_xml_stackup(
+                                    stackup_info['layer_data'],
+                                    str(stackup_xml_path),
+                                    excel_file_path
+                                )
+
+                                logger.info(f"Stackup XML generated: {stackup_xml_path}")
+                                logger.info("")
+                            else:
+                                logger.info("Excel file not found in sss data, skipping stackup generation")
+                                logger.info("")
+                        else:
+                            logger.info("No section selection (.sss) file found, skipping stackup generation")
+                            logger.info("")
+                    else:
+                        logger.info(f"Source cut directory not found: {source_cut_dir}")
+                        logger.info("")
+
+                except Exception as stackup_error:
+                    logger.warning(f"Failed to generate stackup XML: {stackup_error}")
+                    import traceback
+                    traceback.print_exc()
+                    logger.info("")
+
             except Exception as clone_error:
                 logger.error(f"Failed to clone EDB files: {clone_error}")
                 import traceback
@@ -265,7 +405,7 @@ if __name__ == "__main__":
 
                 try:
                     # Execute cutting operation on THIS CLONE (opens EDB once, processes cut, closes EDB)
-                    success = execute_cuts_on_clone(clone_edb_path, edb_version, [input_data], grpc)
+                    success = execute_cuts_on_clone(clone_edb_path, edb_version, [input_data], grpc, stackup_xml_path)
 
                     if success:
                         logger.info(f"Cut {cut_id} completed successfully on clone {i}")

@@ -1259,7 +1259,7 @@ def create_gap_ports(edb, cut_data):
 
 
 
-def execute_cuts_on_clone(edbpath, edbversion, cut_data_list, grpc=False):
+def execute_cuts_on_clone(edbpath, edbversion, cut_data_list, grpc=False, stackup_xml_path=None):
     """
     Execute multiple cutting operations on a single EDB clone.
     Opens the EDB once, applies all cuts, then closes.
@@ -1269,6 +1269,7 @@ def execute_cuts_on_clone(edbpath, edbversion, cut_data_list, grpc=False):
         edbversion: AEDT version string (e.g., "2025.1")
         cut_data_list: List of cut data dictionaries
         grpc: Use gRPC mode (default: False)
+        stackup_xml_path: Optional path to stackup XML file to load
 
     Returns:
         bool: True if all cuts successful, False otherwise
@@ -1292,6 +1293,32 @@ def execute_cuts_on_clone(edbpath, edbversion, cut_data_list, grpc=False):
     except Exception as e:
         logger.error(f"Failed to open EDB: {e}")
         return False
+
+    # Load stackup if XML path provided
+    if stackup_xml_path:
+        try:
+            from pathlib import Path
+            xml_path_str = str(stackup_xml_path) if isinstance(stackup_xml_path, Path) else stackup_xml_path
+
+            logger.info("=" * 70)
+            logger.info("Loading Stackup from XML")
+            logger.info("=" * 70)
+            logger.info(f"XML Path: {xml_path_str}")
+
+            success = edb.stackup.load(xml_path_str)
+
+            if success:
+                logger.info("[OK] Stackup loaded successfully")
+            else:
+                logger.warning("[WARNING] Stackup load returned False")
+
+            logger.info("")
+
+        except Exception as stackup_error:
+            logger.warning(f"Failed to load stackup: {stackup_error}")
+            import traceback
+            traceback.print_exc()
+            logger.info("")
 
     all_success = True
 
