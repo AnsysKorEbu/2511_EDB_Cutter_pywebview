@@ -25,6 +25,9 @@ uv_run.bat
 Results/
 *.log
 *.bak
+*.xml
+*.stk
+*tmpclaude*
 *test*
 nul
 *settings.json
