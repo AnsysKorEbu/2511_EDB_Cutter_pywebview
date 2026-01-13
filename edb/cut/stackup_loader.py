@@ -119,12 +119,12 @@ def _create_layers_bottom_up(edb, layers_element):
         elevation = float(layer_elem.get('Elevation'))
         layers.append((elevation, layer_id, layer_elem))
 
-    # Sort by elevation (ascending = bottom to top)
-    layers.sort(key=lambda x: x[0])
+    # Sort by elevation (descending = top to bottom)
+    layers.sort(key=lambda x: x[0], reverse=True)
 
-    logger.info(f"Creating {len(layers)} layers from bottom to top...")
+    logger.info(f"Creating {len(layers)} layers from top to bottom...")
 
-    # Create layers from bottom to top
+    # Create layers from top to bottom
     for elevation, layer_id, layer_elem in layers:
         _create_single_layer(edb, layer_elem, length_unit)
 

@@ -534,8 +534,9 @@ def generate_xml_stackup_from_sss(sss_layer_data, output_file, excel_file=None):
             type_si = 'conductor' if is_conductor else 'dielectric'
             material_name_for_layer = material_name
 
-        # Generate layer name based on spec_name
-        layer_name = spec_name.replace('/', '_').replace(' ', '_').replace('-', '_')
+        # Generate layer name based on spec_name with row index for uniqueness
+        base_layer_name = spec_name.replace('/', '_').replace(' ', '_').replace('-', '_')
+        layer_name = f"{base_layer_name}_{idx}"
 
         # Calculate elevation (bottom of current layer)
         current_elevation -= thickness
