@@ -8,7 +8,7 @@ import pyedb
 from pathlib import Path
 from datetime import datetime
 from util.logger_module import logger
-from edb.cut.stackup_loader import load_stackup
+from edb.cut.stackup_loader import load_stackup, replace_stackup
 
 
 def open_edb(edbpath, edbversion, grpc=False):
@@ -348,21 +348,21 @@ def execute_cuts_on_clone(edbpath, edbversion, cut_data_list, grpc=False, stacku
             xml_path_str = str(stackup_xml_path) if isinstance(stackup_xml_path, Path) else stackup_xml_path
 
             logger.info("=" * 70)
-            logger.info("Loading Stackup from XML")
+            logger.info("Replacing Stackup from XML")
             logger.info("=" * 70)
             logger.info(f"XML Path: {xml_path_str}")
 
-            success = load_stackup(edb, xml_path_str)
+            success = replace_stackup(edb, xml_path_str)
 
             if success:
-                logger.info("[OK] Stackup loaded successfully")
+                logger.info("[OK] Stackup replaced successfully")
             else:
-                logger.warning("[WARNING] Stackup load returned False")
+                logger.warning("[WARNING] Stackup replacement returned False")
 
             logger.info("")
 
         except Exception as stackup_error:
-            logger.warning(f"Failed to load stackup: {stackup_error}")
+            logger.warning(f"Failed to replace stackup: {stackup_error}")
             import traceback
             traceback.print_exc()
             logger.info("")
