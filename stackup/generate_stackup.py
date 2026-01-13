@@ -319,6 +319,10 @@ def collect_unique_materials_from_sss(sss_layer_data, excel_file=None):
         if not spec_name:
             continue
 
+        # Skip metadata layers (Total Thickness, LAYER markers)
+        if 'Total Thickness' in spec_name or spec_name == 'LAYER':
+            continue
+
         # Map spec_name to material info
         mat_info = map_spec_name_to_material_info(spec_name, idx)
         material_name = mat_info['material_name']
