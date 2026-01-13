@@ -57,14 +57,64 @@ async function browseSectionExcel() {
 }
 
 /**
- * Start section selection workflow
- * Step 1: Check for last used Excel file or prompt to browse
- * Step 2: Get available cuts
- * Step 3: Open section selection modal
+ * Browse for Excel file in Cut Executor modal
  */
-async function startSectionSelection() {
+async function browseExcelForSectionSelection() {
     try {
-        // Step 1: Get available cuts first
+        // Browse for Excel file and extract sections
+        const result = await window.pywebview.api.browse_excel_for_sections();
+
+        if (!result.success) {
+            await customAlert(result.error || 'Failed to browse Excel file');
+            return;
+        }
+
+        // Store sections data
+        sectionSelector.excelFile = result.excel_file;
+        sectionSelector.sections = result.sections;
+
+        // Check if sections were extracted
+        if (!sectionSelector.sections || sectionSelector.sections.length === 0) {
+            await customAlert('No sections found in Excel file row 8');
+            return;
+        }
+
+        // Update Excel file path display in Cut Executor modal
+        const excelPathElement = document.getElementById('excelFilePath');
+        if (excelPathElement) {
+            excelPathElement.textContent = result.excel_file;
+            excelPathElement.title = result.excel_file;
+        }
+
+        // Enable Section Selection button
+        const sectionBtn = document.getElementById('processSectionSelectionBtn');
+        if (sectionBtn) {
+            sectionBtn.disabled = false;
+        }
+
+        // Save Excel file path to localStorage for next time
+        localStorage.setItem('lastSectionExcelFile', sectionSelector.excelFile);
+
+        await customAlert(`Loaded ${sectionSelector.sections.length} sections from Excel file`);
+
+    } catch (error) {
+        console.error('Error in browseExcelForSectionSelection:', error);
+        await customAlert(`Unexpected error: ${error.message}`);
+    }
+}
+
+/**
+ * Open section selection modal and render content
+ */
+async function openSectionSelectionModal() {
+    try {
+        // Check if Excel file is loaded
+        if (!sectionSelector.excelFile || !sectionSelector.sections || sectionSelector.sections.length === 0) {
+            await customAlert('Please browse and load an Excel file first');
+            return;
+        }
+
+        // Get available cuts
         const cutsResult = await window.pywebview.api.get_cuts_for_section_selection();
 
         if (!cutsResult.success) {
@@ -80,74 +130,46 @@ async function startSectionSelection() {
             return;
         }
 
-        // Step 2: Browse for Excel file (will show last used path if available)
-        const result = await window.pywebview.api.browse_excel_for_sections();
+        const modal = document.getElementById('sectionSelectionModal');
 
-        if (!result.success) {
-            await customAlert(result.error || 'Failed to browse Excel file');
+        if (!modal) {
+            console.error('Section selection modal not found');
             return;
         }
 
-        sectionSelector.excelFile = result.excel_file;
-        sectionSelector.sections = result.sections;
-
-        // Check if sections were extracted
-        if (!sectionSelector.sections || sectionSelector.sections.length === 0) {
-            await customAlert('No sections found in Excel file row 8');
-            return;
+        // Populate Excel file info
+        const excelPathElement = document.getElementById('sectionExcelPath');
+        if (excelPathElement) {
+            excelPathElement.textContent = sectionSelector.excelFile;
+            excelPathElement.title = sectionSelector.excelFile;
         }
 
-        // Save Excel file path to localStorage for next time
-        localStorage.setItem('lastSectionExcelFile', sectionSelector.excelFile);
+        // Populate section count
+        const sectionCountElement = document.getElementById('sectionCount');
+        if (sectionCountElement) {
+            sectionCountElement.textContent = sectionSelector.sections.length;
+        }
 
-        // Step 3: Open section selection modal
-        openSectionSelectionModal();
+        // Render section tags
+        renderSectionTags();
+
+        // Render cut-section mapping grid
+        renderCutSectionMapping();
+
+        // Clear previous status
+        const statusDiv = document.getElementById('sectionStatus');
+        if (statusDiv) {
+            statusDiv.classList.add('hidden');
+            statusDiv.innerHTML = '';
+        }
+
+        // Show modal
+        modal.classList.remove('hidden');
 
     } catch (error) {
-        console.error('Error in startSectionSelection:', error);
+        console.error('Error in openSectionSelectionModal:', error);
         await customAlert(`Unexpected error: ${error.message}`);
     }
-}
-
-/**
- * Open section selection modal and render content
- */
-function openSectionSelectionModal() {
-    const modal = document.getElementById('sectionSelectionModal');
-
-    if (!modal) {
-        console.error('Section selection modal not found');
-        return;
-    }
-
-    // Populate Excel file info
-    const excelPathElement = document.getElementById('sectionExcelPath');
-    if (excelPathElement) {
-        const filename = sectionSelector.excelFile.split(/[/\\]/).pop();
-        excelPathElement.textContent = filename;
-    }
-
-    // Populate section count
-    const sectionCountElement = document.getElementById('sectionCount');
-    if (sectionCountElement) {
-        sectionCountElement.textContent = sectionSelector.sections.length;
-    }
-
-    // Render section tags
-    renderSectionTags();
-
-    // Render cut-section mapping grid
-    renderCutSectionMapping();
-
-    // Clear previous status
-    const statusDiv = document.getElementById('sectionStatus');
-    if (statusDiv) {
-        statusDiv.classList.add('hidden');
-        statusDiv.innerHTML = '';
-    }
-
-    // Show modal
-    modal.classList.remove('hidden');
 }
 
 /**
