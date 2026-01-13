@@ -8,6 +8,7 @@ import pyedb
 from pathlib import Path
 from datetime import datetime
 from util.logger_module import logger
+from edb.cut.stackup_loader import load_stackup
 
 
 def open_edb(edbpath, edbversion, grpc=False):
@@ -351,7 +352,7 @@ def execute_cuts_on_clone(edbpath, edbversion, cut_data_list, grpc=False, stacku
             logger.info("=" * 70)
             logger.info(f"XML Path: {xml_path_str}")
 
-            success = edb.stackup.load(xml_path_str)
+            success = load_stackup(edb, xml_path_str)
 
             if success:
                 logger.info("[OK] Stackup loaded successfully")
