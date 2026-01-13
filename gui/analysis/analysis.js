@@ -230,6 +230,35 @@ async function analyzeAll() {
     analysisState.analyzing = false;
 
     console.log('All analyses complete');
+
+    // Ask user if they want to generate circuit and run
+    const shouldContinue = confirm('Analysis complete! Do you want to generate circuit and run?');
+    if (shouldContinue) {
+        console.log('User chose to generate circuit and run');
+        await launchSchematicGui();
+    }
+}
+
+/**
+ * Launch Schematic GUI (Touchstone Generator)
+ */
+async function launchSchematicGui() {
+    try {
+        console.log('Launching Schematic GUI...');
+
+        const result = await window.pywebview.api.launch_schematic_gui();
+
+        if (result.success) {
+            console.log('Schematic GUI launched successfully');
+            alert('Schematic GUI (Touchstone Generator) has been launched!');
+        } else {
+            console.error('Failed to launch Schematic GUI:', result.error);
+            alert(`Failed to launch Schematic GUI: ${result.error}`);
+        }
+    } catch (error) {
+        console.error('Error launching Schematic GUI:', error);
+        alert(`Error launching Schematic GUI: ${error.message || error}`);
+    }
 }
 
 /**

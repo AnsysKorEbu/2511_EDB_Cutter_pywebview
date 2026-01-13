@@ -210,10 +210,17 @@
                 <button class="modal-close" onclick="closeSectionSelection()">&times;</button>
             </div>
             <div class="modal-body">
-                <!-- Excel File Info -->
+                <!-- Excel File Selection -->
                 <div class="section-excel-info">
-                    <span class="info-label">Excel File:</span>
-                    <span id="sectionExcelPath" class="info-value">-</span>
+                    <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 10px;">
+                        <span class="info-label">Excel File:</span>
+                        <button class="btn-secondary" style="padding: 4px 12px; font-size: 12px;" onclick="browseSectionExcel()">
+                            Browse...
+                        </button>
+                    </div>
+                    <div id="sectionExcelPath" class="info-value" style="color: #9cdcfe; font-size: 12px; word-break: break-all; min-height: 16px;">
+                        No file selected
+                    </div>
                 </div>
 
                 <!-- Available Sections Preview -->

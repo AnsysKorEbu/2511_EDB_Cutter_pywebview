@@ -10,15 +10,11 @@ let sectionSelector = {
 };
 
 /**
- * Start section selection workflow
- * Step 1: Browse for Excel file
- * Step 2: Extract sections
- * Step 3: Get available cuts
- * Step 4: Open section selection modal
+ * Browse for Excel file and load sections
  */
-async function startSectionSelection() {
+async function browseSectionExcel() {
     try {
-        // Step 1: Browse for Excel file and extract sections
+        // Browse for Excel file and extract sections
         const result = await window.pywebview.api.browse_excel_for_sections();
 
         if (!result.success) {
@@ -26,7 +22,7 @@ async function startSectionSelection() {
             return;
         }
 
-        // Step 2: Store sections data
+        // Store sections data
         sectionSelector.excelFile = result.excel_file;
         sectionSelector.sections = result.sections;
 
@@ -36,7 +32,39 @@ async function startSectionSelection() {
             return;
         }
 
-        // Step 3: Get available cuts
+        // Update Excel file path display
+        const excelPathElement = document.getElementById('sectionExcelPath');
+        if (excelPathElement) {
+            excelPathElement.textContent = result.excel_file;
+            excelPathElement.title = result.excel_file;
+        }
+
+        // Update section count and render tags
+        const sectionCountElement = document.getElementById('sectionCount');
+        if (sectionCountElement) {
+            sectionCountElement.textContent = sectionSelector.sections.length;
+        }
+
+        renderSectionTags();
+        renderCutSectionMapping();
+
+        await customAlert(`Loaded ${sectionSelector.sections.length} sections from Excel file`);
+
+    } catch (error) {
+        console.error('Error in browseSectionExcel:', error);
+        await customAlert(`Unexpected error: ${error.message}`);
+    }
+}
+
+/**
+ * Start section selection workflow
+ * Step 1: Check for last used Excel file or prompt to browse
+ * Step 2: Get available cuts
+ * Step 3: Open section selection modal
+ */
+async function startSectionSelection() {
+    try {
+        // Step 1: Get available cuts first
         const cutsResult = await window.pywebview.api.get_cuts_for_section_selection();
 
         if (!cutsResult.success) {
@@ -52,7 +80,27 @@ async function startSectionSelection() {
             return;
         }
 
-        // Step 4: Open section selection modal
+        // Step 2: Browse for Excel file (will show last used path if available)
+        const result = await window.pywebview.api.browse_excel_for_sections();
+
+        if (!result.success) {
+            await customAlert(result.error || 'Failed to browse Excel file');
+            return;
+        }
+
+        sectionSelector.excelFile = result.excel_file;
+        sectionSelector.sections = result.sections;
+
+        // Check if sections were extracted
+        if (!sectionSelector.sections || sectionSelector.sections.length === 0) {
+            await customAlert('No sections found in Excel file row 8');
+            return;
+        }
+
+        // Save Excel file path to localStorage for next time
+        localStorage.setItem('lastSectionExcelFile', sectionSelector.excelFile);
+
+        // Step 3: Open section selection modal
         openSectionSelectionModal();
 
     } catch (error) {

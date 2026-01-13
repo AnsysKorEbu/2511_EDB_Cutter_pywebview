@@ -130,7 +130,7 @@ def generate_circuit(config_path, edb_version):
 
                 # Get pin location and place interface port next to it
                 pin_location = pin.location
-                port_x = pin_location[0] - dx  # 1*dx left of the pin
+                port_x = pin_location[0] - 5*dx  # 1*dx left of the pin
                 port_y = pin_location[1]
 
                 logger.info(f"  Creating interface port '{port_name}' at ({port_x}, {port_y})")

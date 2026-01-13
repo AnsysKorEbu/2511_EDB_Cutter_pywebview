@@ -366,3 +366,42 @@ class AnalysisApi:
                 'success': False,
                 'error': error_msg
             }
+
+    def launch_schematic_gui(self):
+        """
+        Launch Schematic GUI (Full Touchstone Generator) as subprocess.
+        Uses the Analysis folder from current results folder.
+
+        Returns:
+            dict: {'success': bool, 'error': str}
+        """
+        try:
+            import subprocess
+            import sys
+
+            # Get Analysis folder path
+            analysis_folder = Path(self.results_folder_str) / "Analysis"
+
+            if not analysis_folder.exists():
+                return {
+                    'success': False,
+                    'error': 'Analysis folder not found. Please run analysis first.'
+                }
+
+            logger.info(f"\n[INFO] Launching Schematic GUI as subprocess")
+            logger.info(f"Analysis folder: {analysis_folder}")
+
+            # Build command args
+            cmd_args = [sys.executable, "-m", "schematic.gui_launcher", str(analysis_folder)]
+
+            subprocess.Popen(cmd_args, cwd=Path.cwd())
+
+            logger.info("[OK] Schematic GUI subprocess launched")
+            return {'success': True}
+
+        except Exception as e:
+            error_msg = f"Failed to launch Schematic GUI: {str(e)}"
+            logger.error(f"\n[ERROR] {error_msg}")
+            import traceback
+            traceback.print_exc()
+            return {'success': False, 'error': error_msg}
