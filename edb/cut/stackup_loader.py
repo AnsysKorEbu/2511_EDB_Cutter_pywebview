@@ -261,7 +261,8 @@ def replace_stackup(edb, xml_path: str) -> bool:
                     _edit_signal_layer(
                         edb, existing_signals[signal_index], layer_spec, length_unit
                     )
-                    previous_layer_name = layer_spec["name"]
+                    # Use original layer name since we're not renaming
+                    previous_layer_name = existing_signals[signal_index]["name"]
                     signal_index += 1
                 else:
                     # Add new layer at top
@@ -276,7 +277,8 @@ def replace_stackup(edb, xml_path: str) -> bool:
                     _edit_signal_layer(
                         edb, existing_signals[signal_index], layer_spec, length_unit
                     )
-                    previous_layer_name = layer_spec["name"]
+                    # Use original layer name since we're not renaming
+                    previous_layer_name = existing_signals[signal_index]["name"]
                     signal_index += 1
                 else:
                     # Add below previous layer

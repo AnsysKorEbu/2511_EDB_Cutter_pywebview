@@ -344,6 +344,31 @@ def execute_cuts_on_clone(edbpath, edbversion, cut_data_list, grpc=False, stacku
 
     all_success = True
 
+    # Load stackup if XML path provided (before processing cuts)
+    if stackup_xml_path:
+        try:
+            xml_path_str = str(stackup_xml_path) if isinstance(stackup_xml_path, Path) else stackup_xml_path
+
+            logger.info("=" * 70)
+            logger.info("Replacing Stackup from XML")
+            logger.info("=" * 70)
+            logger.info(f"XML Path: {xml_path_str}")
+
+            success = replace_stackup(edb, xml_path_str)
+
+            if success:
+                logger.info("[OK] Stackup replaced successfully")
+            else:
+                logger.warning("[WARNING] Stackup replacement returned False")
+
+            logger.info("")
+
+        except Exception as stackup_error:
+            logger.warning(f"Failed to replace stackup: {stackup_error}")
+            import traceback
+            traceback.print_exc()
+            logger.info("")
+
     # Process each cut
     for i, cut_data in enumerate(cut_data_list, 1):
         logger.info("-" * 50)
@@ -384,31 +409,6 @@ def execute_cuts_on_clone(edbpath, edbversion, cut_data_list, grpc=False, stacku
         logger.info("")
         logger.info("[INFO] All cutting operations completed successfully.")
         logger.info("")
-
-    # Load stackup if XML path provided (before save)
-    if stackup_xml_path:
-        try:
-            xml_path_str = str(stackup_xml_path) if isinstance(stackup_xml_path, Path) else stackup_xml_path
-
-            logger.info("=" * 70)
-            logger.info("Replacing Stackup from XML")
-            logger.info("=" * 70)
-            logger.info(f"XML Path: {xml_path_str}")
-
-            success = replace_stackup(edb, xml_path_str)
-
-            if success:
-                logger.info("[OK] Stackup replaced successfully")
-            else:
-                logger.warning("[WARNING] Stackup replacement returned False")
-
-            logger.info("")
-
-        except Exception as stackup_error:
-            logger.warning(f"Failed to replace stackup: {stackup_error}")
-            import traceback
-            traceback.print_exc()
-            logger.info("")
 
     # Close EDB once (after all cuts processed)
     try:
