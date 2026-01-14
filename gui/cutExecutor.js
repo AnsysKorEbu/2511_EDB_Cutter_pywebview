@@ -242,8 +242,12 @@ async function executeSelectedCut() {
             return;
         }
 
-        // Call backend API to execute cuts with selected nets
-        const result = await window.pywebview.api.execute_cuts(cutIds, selectedNets);
+        // Check if SSS file is selected (user may have cleared it with X button)
+        const sssPathElement = document.getElementById('sssFilePath');
+        const sssSelected = sssPathElement && sssPathElement.textContent !== 'No file selected';
+
+        // Call backend API to execute cuts with selected nets and SSS flag
+        const result = await window.pywebview.api.execute_cuts(cutIds, selectedNets, sssSelected);
 
         if (result.success) {
             // Show success message

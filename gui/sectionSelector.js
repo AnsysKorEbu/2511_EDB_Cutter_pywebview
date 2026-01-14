@@ -346,6 +346,20 @@ async function loadSssFile() {
 }
 
 /**
+ * Clear SSS file selection
+ */
+function clearSssFileSelection() {
+    // Reset SSS file path display
+    const sssPathElement = document.getElementById('sssFilePath');
+    if (sssPathElement) {
+        sssPathElement.textContent = 'No file selected';
+        sssPathElement.title = '';
+    }
+
+    console.log('SSS file selection cleared - stackup will not be applied');
+}
+
+/**
  * Close section selection modal and reset state
  */
 function closeSectionSelection() {

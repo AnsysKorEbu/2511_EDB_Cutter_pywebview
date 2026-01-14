@@ -8,7 +8,7 @@ import pyedb
 from pathlib import Path
 from datetime import datetime
 from util.logger_module import logger
-from edb.cut.stackup_loader import load_stackup, replace_stackup
+from edb.cut.stackup_loader import replace_stackup
 
 
 def open_edb(edbpath, edbversion, grpc=False):
@@ -342,7 +342,50 @@ def execute_cuts_on_clone(edbpath, edbversion, cut_data_list, grpc=False, stacku
         logger.error(f"Failed to open EDB: {e}")
         return False
 
-    # Load stackup if XML path provided
+    all_success = True
+
+    # Process each cut
+    for i, cut_data in enumerate(cut_data_list, 1):
+        logger.info("-" * 50)
+        logger.info(f"Processing Cut {i}/{len(cut_data_list)}: {cut_data.get('id', 'unknown')}")
+        logger.info("-" * 50)
+        logger.info(f"Cut Type: {cut_data.get('type', 'unknown')}")
+        logger.info(f"Number of Points: {len(cut_data.get('points', []))}")
+        logger.info("")
+
+        # Execute cut workflow in sequence
+        # 1. Find endpoint pads for selected signal nets
+        logger.info("[1/5] Finding endpoint pads for selected nets...")
+        find_endpoint_pads_for_selected_nets(edb, cut_data)
+        logger.info("")
+
+        # 2. Apply cutout (remove traces outside polygon)
+        logger.info("[2/5] Applying cutout...")
+        apply_cutout(edb, cut_data)
+        logger.info("")
+
+        # 3. Create circuit ports (only for endpoints inside polygon)
+        logger.info("[3/5] Creating circuit ports...")
+        remove_and_create_ports(edb, cut_data)
+        logger.info("")
+
+        # 4. Create gap ports (only for endpoints inside polygon)
+        logger.info("[4/5] Creating gap ports...")
+        create_gap_ports(edb, cut_data)
+        logger.info("")
+
+        # 5. Additional cut operations (future implementation)
+        logger.info("[5/5] Additional cut operations...")
+        logger.info("Cut data received:")
+        logger.info(f"  Type: {cut_data.get('type')}")
+        logger.info(f"  Points: {cut_data.get('points')}")
+        logger.info(f"  ID: {cut_data.get('id')}")
+        logger.info(f"  Timestamp: {cut_data.get('timestamp')}")
+        logger.info("")
+        logger.info("[INFO] All cutting operations completed successfully.")
+        logger.info("")
+
+    # Load stackup if XML path provided (before save)
     if stackup_xml_path:
         try:
             xml_path_str = str(stackup_xml_path) if isinstance(stackup_xml_path, Path) else stackup_xml_path
@@ -366,49 +409,6 @@ def execute_cuts_on_clone(edbpath, edbversion, cut_data_list, grpc=False, stacku
             import traceback
             traceback.print_exc()
             logger.info("")
-
-    all_success = True
-
-    # Process each cut
-    for i, cut_data in enumerate(cut_data_list, 1):
-        logger.info("-" * 50)
-        logger.info(f"Processing Cut {i}/{len(cut_data_list)}: {cut_data.get('id', 'unknown')}")
-        logger.info("-" * 50)
-        logger.info(f"Cut Type: {cut_data.get('type', 'unknown')}")
-        logger.info(f"Number of Points: {len(cut_data.get('points', []))}")
-        logger.info("")
-
-        # Execute cut workflow in sequence
-        # 1. Find endpoint pads for selected signal nets
-        logger.info("[1/4] Finding endpoint pads for selected nets...")
-        find_endpoint_pads_for_selected_nets(edb, cut_data)
-        logger.info("")
-
-        # 2. Apply cutout (remove traces outside polygon)
-        logger.info("[2/4] Applying cutout...")
-        apply_cutout(edb, cut_data)
-        logger.info("")
-
-        # 3. Create circuit ports (only for endpoints inside polygon)
-        logger.info("[3/4] Creating circuit ports...")
-        remove_and_create_ports(edb, cut_data)
-        logger.info("")
-
-        # 4. Create gap ports (only for endpoints inside polygon)
-        logger.info("[4/4] Creating gap ports...")
-        create_gap_ports(edb, cut_data)
-        logger.info("")
-
-        # 5. Additional cut operations (future implementation)
-        logger.info("[5/4] Additional cut operations...")
-        logger.info("Cut data received:")
-        logger.info(f"  Type: {cut_data.get('type')}")
-        logger.info(f"  Points: {cut_data.get('points')}")
-        logger.info(f"  ID: {cut_data.get('id')}")
-        logger.info(f"  Timestamp: {cut_data.get('timestamp')}")
-        logger.info("")
-        logger.info("[INFO] All cutting operations completed successfully.")
-        logger.info("")
 
     # Close EDB once (after all cuts processed)
     try:

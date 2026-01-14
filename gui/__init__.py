@@ -258,7 +258,7 @@ class Api:
             logger.info(f"Error loading cut data: {e}")
             return None
 
-    def execute_cuts(self, cut_ids, selected_nets=None):
+    def execute_cuts(self, cut_ids, selected_nets=None, use_stackup=True):
         """
         Execute cutting operations on EDB using selected cut geometries.
 
@@ -270,6 +270,7 @@ class Api:
             cut_ids: List of cut IDs to execute (e.g., ["cut_001", "cut_002"])
             selected_nets: Dict with 'signal' and 'power' lists of net names
                           (e.g., {'signal': ['NET1', 'NET2'], 'power': ['GND']})
+            use_stackup: Boolean flag to enable/disable stackup application (default: True)
 
         Returns:
             dict: {'success': bool, 'error': str (if failed)}
@@ -310,11 +311,12 @@ class Api:
                     logger.debug(f"Signal nets: {selected_nets.get('signal')}")
             logger.info("")
 
-            # Create batch JSON file with cut file paths and selected nets
+            # Create batch JSON file with cut file paths, selected nets, and stackup flag
             batch_data = {
                 'mode': 'batch',
                 'cut_files': cut_files,
-                'selected_nets': selected_nets if selected_nets else {'signal': [], 'power': []}
+                'selected_nets': selected_nets if selected_nets else {'signal': [], 'power': []},
+                'use_stackup': use_stackup
             }
 
             # Create temporary batch file in source folder
