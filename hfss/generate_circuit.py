@@ -31,9 +31,12 @@ def generate_circuit(config_path, edb_version):
 
         # Extract all config information
         version = config.get('version', '1.0')
-        analysis_folder = Path(config['analysis_folder'])
+        analysis_folder = Path(config['analysis_folder']).resolve()  # Convert to absolute path
         total_files = config.get('total_files', 0)
         merge_sequence = config.get('merge_sequence', [])
+
+        # Ensure analysis folder exists
+        analysis_folder.mkdir(parents=True, exist_ok=True)
 
         # Parse touchstone file information
         touchstone_files = []
@@ -107,9 +110,9 @@ def generate_circuit(config_path, edb_version):
 
             components.append(component)
 
-        # Create interface ports for first component
+        # Create interface ports for first component (start_ ports)
         if components:
-            logger.info(f"\n[HFSS] Creating interface ports for first component")
+            logger.info(f"\n[HFSS] Creating start_ interface ports for first component")
             first_comp = components[0]
             first_ts = enabled_ts_files[0]
             num_ports = len(first_comp.pins)
@@ -126,11 +129,12 @@ def generate_circuit(config_path, edb_version):
                     pin_idx = j  # First half
 
                 pin = first_comp.pins[pin_idx]
-                port_name = pin.name
+                # Port name: start_{original_pin_name}
+                port_name = f"start_{pin.name}"
 
                 # Get pin location and place interface port next to it
                 pin_location = pin.location
-                port_x = pin_location[0] - 5*dx  # 1*dx left of the pin
+                port_x = pin_location[0] - 5*dx  # 5*dx left of the pin
                 port_y = pin_location[1]
 
                 logger.info(f"  Creating interface port '{port_name}' at ({port_x}, {port_y})")
@@ -147,7 +151,7 @@ def generate_circuit(config_path, edb_version):
                     use_wire=True
                 )
 
-            logger.info(f"    [OK] Created {half_ports} interface ports")
+            logger.info(f"    [OK] Created {half_ports} start_ interface ports")
 
         # Connect components sequentially
         logger.info(f"\n[HFSS] Connecting components")
@@ -186,40 +190,48 @@ def generate_circuit(config_path, edb_version):
 
             logger.info(f"    [OK] Connected {half_ports} ports")
 
-        # Connect last component to GND
+        # Create interface ports for last component (end_ ports)
         if components:
-            logger.info(f"\n[HFSS] Connecting last component to GND")
+            logger.info(f"\n[HFSS] Creating end_ interface ports for last component")
             last_comp = components[-1]
             last_ts = enabled_ts_files[-1]
             num_ports = len(last_comp.pins)
             half_ports = num_ports // 2
 
-            # Calculate GND position: last component + 10*dx right, 5*dx down
-            last_order = len([tf for tf in touchstone_files if tf['enabled']])
-            gnd_x = component_spacing * (last_order - 1) + 10 * dx
-            gnd_y = 0 - 5 * dx
-
-            logger.info(f"  Creating GND at position ({gnd_x}, {gnd_y})")
             logger.info(f"    Last component flip: {last_ts['flip']}")
 
-            # Create single GND component
-            gnd = circuit.modeler.schematic.create_gnd(location=[gnd_x, gnd_y])
-
-            # Connect to GND considering flip status
-            logger.info(f"  Connecting {half_ports} ports to GND")
+            # Create interface port considering flip status
             for j in range(half_ports):
                 # If flipped, use first half; otherwise use second half
                 if last_ts['flip']:
-                    port_idx = j  # First half (swapped to act as second half)
+                    pin_idx = j  # First half (swapped to act as second half)
                 else:
-                    port_idx = half_ports + j  # Second half
+                    pin_idx = half_ports + j  # Second half
 
-                last_comp.pins[port_idx].connect_to_component(
-                    gnd.pins[0],
+                pin = last_comp.pins[pin_idx]
+                # Port name: end_{original_pin_name}
+                port_name = f"end_{pin.name}"
+
+                # Get pin location and place interface port next to it
+                pin_location = pin.location
+                port_x = pin_location[0] + 5*dx  # 5*dx right of the pin
+                port_y = pin_location[1]
+
+                logger.info(f"  Creating interface port '{port_name}' at ({port_x}, {port_y})")
+
+                # Create interface port
+                interface_port = circuit.modeler.schematic.create_interface_port(
+                    name=port_name,
+                    location=[port_x, port_y]
+                )
+
+                # Connect to last component
+                interface_port.pins[0].connect_to_component(
+                    last_comp.pins[pin_idx],
                     use_wire=True
                 )
 
-            logger.info(f"    [OK] Connected {half_ports} ports to GND")
+            logger.info(f"    [OK] Created {half_ports} end_ interface ports")
 
         # Save project before creating setup
         logger.info(f"\n[HFSS] Saving project before setup creation")
@@ -249,18 +261,30 @@ def generate_circuit(config_path, edb_version):
         )
         logger.info(f"    [OK] Sweep added")
 
-        # 3. Create S-parameter reports for each port (self-reflection)
+        # 3. Create S-parameter reports for each port pair (start_ to end_) by order
         excitation_names = circuit.excitation_names
         logger.info(f"  Found {len(excitation_names)} excitation ports")
 
+        # Separate start_ and end_ ports
+        start_ports = [p for p in excitation_names if p.startswith("start_")]
+        end_ports = [p for p in excitation_names if p.startswith("end_")]
+
+        logger.info(f"    start_ ports: {len(start_ports)}")
+        logger.info(f"    end_ ports: {len(end_ports)}")
+
         expr_list = []
-        for port_name in excitation_names:
-            expr = f"dB(S({port_name},{port_name}))"
+        # Match start_ and end_ ports by order (index)
+        num_pairs = min(len(start_ports), len(end_ports))
+        for i in range(num_pairs):
+            start_port = start_ports[i]
+            end_port = end_ports[i]
+
+            # Create S-parameter expression: dB(S(end_xxx, start_xxx))
+            expr = f"dB(S({end_port},{start_port}))"
             expr_list.append(expr)
             logger.info(f"    Adding report: {expr}")
 
         if expr_list:
-
             report = circuit.post.create_report(
                 expressions=expr_list,
                 plot_name="S_Parameter_Report"
