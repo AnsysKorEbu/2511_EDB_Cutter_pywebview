@@ -135,11 +135,6 @@ class AnalysisApi:
             # Use .snp extension (SIwave will auto-convert to .s2p, .s4p, etc. based on port count)
             output_path = analysis_folder / f"{cut_name}.snp"
 
-            # Handle HFSS fallback (HFSS not implemented yet, silently use SIWave)
-            if analysis_type == 'hfss':
-                logger.info(f"HFSS analysis requested but not implemented, using SIWave for {aedb_name}")
-                analysis_type = 'siwave'  # Silently fall back to SIWave
-
             logger.info(f"{'=' * 70}")
             logger.info(f"Analyzing: {aedb_name} (using {analysis_type.upper()})")
             logger.info(f"Output: {output_path}")

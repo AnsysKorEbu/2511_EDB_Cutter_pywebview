@@ -1,13 +1,13 @@
 """
 Entry point for running edb.analysis package as a module: python -m edb.analysis
 
-This script is run as a subprocess to execute SIwave analysis operations.
+This script is run as a subprocess to execute SIwave or HFSS analysis operations.
 It isolates pythonnet dependencies from the pywebview GUI.
 """
 import sys
 from pathlib import Path
 from util.logger_module import logger
-from . import run_siwave_analysis
+from . import run_siwave_analysis, run_hfss_analysis
 
 
 if __name__ == "__main__":
@@ -43,20 +43,26 @@ if __name__ == "__main__":
     logger.info("")
 
     try:
-        # Always use SIWave for now (HFSS not implemented)
-        # analysis_type parameter is accepted for future extensibility
-        result = run_siwave_analysis(aedb_path, edb_version, output_path, grpc)
+        # Select analysis type
+        if analysis_type.lower() == 'hfss':
+            # Run HFSS 3D Layout analysis
+            result = run_hfss_analysis(aedb_path, edb_version, output_path)
+            analysis_name = "HFSS 3D Layout"
+        else:
+            # Run SIwave analysis (default)
+            result = run_siwave_analysis(aedb_path, edb_version, output_path, grpc)
+            analysis_name = "SIwave"
 
         if result['success']:
             logger.info("=" * 70)
-            logger.info("[SUCCESS] SIwave analysis completed successfully")
+            logger.info(f"[SUCCESS] {analysis_name} analysis completed successfully")
             logger.info(f"Output file: {result['output_file']}")
             logger.info(f"File size: {result.get('file_size', 0):,} bytes")
             logger.info("=" * 70)
             sys.exit(0)
         else:
             logger.info("=" * 70)
-            logger.info("[ERROR] SIwave analysis failed")
+            logger.info(f"[ERROR] {analysis_name} analysis failed")
             logger.info(f"Error: {result.get('error', 'Unknown error')}")
             logger.info("=" * 70)
             sys.exit(1)
