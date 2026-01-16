@@ -87,7 +87,10 @@ def _create_single_layer_below(edb, layer_elem, length_unit: str, base_layer_nam
         layer_type = "dielectric"
 
     # Create layer below the base layer
+    logger.info(f"    Adding layer below '{base_layer_name}': {layer_name}")
+    logger.info(f"      Type: {layer_type}, Thickness: {thickness}, Material: {edb_material_name}")
     if edb_fill_material_name and edb_fill_material_name != edb_material_name:
+        logger.info(f"      Fill Material: {edb_fill_material_name}")
         edb.stackup.add_layer_below(
             name=layer_name,
             base_layer_name=base_layer_name,
@@ -104,6 +107,7 @@ def _create_single_layer_below(edb, layer_elem, length_unit: str, base_layer_nam
             thickness=thickness,
             material=edb_material_name,
         )
+    logger.info(f"    [OK] Layer added below")
 
 
 def _create_single_layer_top(edb, layer_elem, length_unit: str):
@@ -133,7 +137,10 @@ def _create_single_layer_top(edb, layer_elem, length_unit: str):
         layer_type = "dielectric"
 
     # Create layer at the top
+    logger.info(f"    Adding layer to top: {layer_name}")
+    logger.info(f"      Type: {layer_type}, Thickness: {thickness}, Material: {edb_material_name}")
     if edb_fill_material_name and edb_fill_material_name != edb_material_name:
+        logger.info(f"      Fill Material: {edb_fill_material_name}")
         edb.stackup.add_layer_top(
             name=layer_name,
             layer_type=layer_type,
@@ -148,6 +155,7 @@ def _create_single_layer_top(edb, layer_elem, length_unit: str):
             thickness=thickness,
             material=edb_material_name,
         )
+    logger.info(f"    [OK] Layer added to top")
 
 
 def replace_stackup(edb, xml_path: str) -> bool:

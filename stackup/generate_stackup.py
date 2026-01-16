@@ -167,10 +167,8 @@ def map_spec_name_to_material_info(spec_name, row_number=0):
     # Generate material_name with original capitalization + number
     # Keep original format but sanitize special characters
     material_name_base = str(spec_name).replace('/', '_').replace(' ', '_').replace('-', '_')
-    if row_number > 0:
-        material_name = f"{material_name_base}_{row_number}"
-    else:
-        material_name = material_name_base
+    # Always append row_number for unique material names (including _0 for first layer)
+    material_name = f"{material_name_base}_{row_number}"
 
     return {
         'material_type': material_type,
