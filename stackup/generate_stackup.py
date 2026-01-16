@@ -514,7 +514,7 @@ def generate_xml_stackup_from_sss(sss_layer_data, output_file, excel_file=None):
         width = layer.get('width', 0)
         thickness = width / 1000  # Convert μm to mm
 
-        # Skip layers that shouldn't be in stackup (Total Thickness, LAYER markers)
+        # Skip layers that shouldn't be in stackup (Total Thickness, LAYER markers, EMI)
         if not spec_name or 'Total Thickness' in spec_name or spec_name == 'LAYER':
             continue
 
@@ -523,16 +523,14 @@ def generate_xml_stackup_from_sss(sss_layer_data, output_file, excel_file=None):
         material_name = mat_info['material_name']
         material_type = mat_info['material_type']
 
-        # Special handling for EMI: Type="dielectric" but Material="copper"
+        # Skip EMI layer (conductor treated incorrectly as dielectric)
         if mat_info['base_material'] == 'emi':
-            layer_type = 'dielectric'
-            type_si = 'dielectric'
-            material_name_for_layer = 'copper'  # Use copper as Material attribute
-        else:
-            is_conductor = material_type == 'conductor'
-            layer_type = 'conductor' if is_conductor else 'dielectric'
-            type_si = 'conductor' if is_conductor else 'dielectric'
-            material_name_for_layer = material_name
+            continue
+
+        is_conductor = material_type == 'conductor'
+        layer_type = 'conductor' if is_conductor else 'dielectric'
+        type_si = 'conductor' if is_conductor else 'dielectric'
+        material_name_for_layer = material_name
 
         # Generate layer name based on spec_name with row index for uniqueness
         base_layer_name = spec_name.replace('/', '_').replace(' ', '_').replace('-', '_')
