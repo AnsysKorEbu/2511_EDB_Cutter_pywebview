@@ -333,8 +333,8 @@ def collect_unique_materials_from_sss(sss_layer_data, excel_file=None):
         if material_name in materials:
             continue
 
-        # Skip default materials
-        if base_material in ['copper', 'air']:
+        # Skip air (but NOT copper - we need unique copper materials per layer)
+        if base_material == 'air':
             continue
 
         # Try to find Dk/Df from Excel using base_material

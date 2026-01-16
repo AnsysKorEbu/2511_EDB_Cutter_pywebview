@@ -5,6 +5,7 @@ This module provides HFSS 3D Layout analysis functionality for EDB files.
 Uses Hfss3dLayout from ansys.aedt.core to open EDB files directly.
 """
 import traceback
+from datetime import datetime
 from pathlib import Path
 from util.logger_module import logger
 
@@ -82,19 +83,37 @@ def run_hfss_analysis(aedb_path, edb_version, output_path):
         logger.info(f"  Design name: {hfss3dl.design_name}")
         logger.info("")
 
-        # Save project to .aedt format in Analysis folder
-        aedt_output_path = analysis_folder / f"{output_path.stem}.aedt"
+        # Generate timestamp for unique filename
+        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+
+        # Save project to .aedt format in Analysis folder with timestamp
+        aedt_output_path = analysis_folder / f"{output_path.stem}_{timestamp}.aedt"
 
         logger.info(f"Saving project to: {aedt_output_path}")
         hfss3dl.save_project(file_name=str(aedt_output_path), overwrite=True)
         logger.info("[OK] Project saved successfully")
 
+        # Configure touchstone export on completion
+        touchstone_output_dir = str(analysis_folder)
+        logger.info(f"Configuring touchstone export to: {touchstone_output_dir}")
+        hfss3dl.export_touchstone_on_completion(export=True, output_dir=touchstone_output_dir)
+        logger.info("[OK] Touchstone export configured")
+
+        # Run HFSS analysis
+        logger.info("Starting HFSS analysis...")
+        hfss3dl.analyze()
+        logger.info("[OK] HFSS analysis completed")
+
+        # Save project after analysis
+        logger.info("Saving project after analysis...")
+        hfss3dl.save_project()
+        logger.info("[OK] Project saved after analysis")
+
         # Close/release HFSS 3D Layout
-        # Use release_desktop to keep AEDT open for user inspection
-        logger.info("Releasing HFSS 3D Layout (keeping AEDT open)...")
-        hfss3dl.release_desktop(close_projects=False, close_on_exit=False)
+        logger.info("Closing HFSS 3D Layout...")
+        hfss3dl.release_desktop(close_projects=True, close_on_exit=True)
         hfss3dl = None
-        logger.info("[OK] HFSS 3D Layout released")
+        logger.info("[OK] HFSS 3D Layout closed")
 
         logger.info(f"\n[OK] Analysis complete!")
         logger.info(f"Output file: {aedt_output_path}")
