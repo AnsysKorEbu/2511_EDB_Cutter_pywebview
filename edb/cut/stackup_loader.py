@@ -88,7 +88,9 @@ def _create_single_layer_below(edb, layer_elem, length_unit: str, base_layer_nam
 
     # Create layer below the base layer
     logger.info(f"    Adding layer below '{base_layer_name}': {layer_name}")
-    logger.info(f"      Type: {layer_type}, Thickness: {thickness}, Material: {edb_material_name}")
+    logger.info(
+        f"      Type: {layer_type}, Thickness: {thickness}, Material: {edb_material_name}"
+    )
     if edb_fill_material_name and edb_fill_material_name != edb_material_name:
         logger.info(f"      Fill Material: {edb_fill_material_name}")
         edb.stackup.add_layer_below(
@@ -107,7 +109,7 @@ def _create_single_layer_below(edb, layer_elem, length_unit: str, base_layer_nam
             thickness=thickness,
             material=edb_material_name,
         )
-    logger.info(f"    [OK] Layer added below")
+    logger.info("    [OK] Layer added below")
 
 
 def _create_single_layer_top(edb, layer_elem, length_unit: str):
@@ -138,7 +140,9 @@ def _create_single_layer_top(edb, layer_elem, length_unit: str):
 
     # Create layer at the top
     logger.info(f"    Adding layer to top: {layer_name}")
-    logger.info(f"      Type: {layer_type}, Thickness: {thickness}, Material: {edb_material_name}")
+    logger.info(
+        f"      Type: {layer_type}, Thickness: {thickness}, Material: {edb_material_name}"
+    )
     if edb_fill_material_name and edb_fill_material_name != edb_material_name:
         logger.info(f"      Fill Material: {edb_fill_material_name}")
         edb.stackup.add_layer_top(
@@ -155,7 +159,8 @@ def _create_single_layer_top(edb, layer_elem, length_unit: str):
             thickness=thickness,
             material=edb_material_name,
         )
-    logger.info(f"    [OK] Layer added to top")
+        edb.stackup[layer_name].material = edb_material_name
+    logger.info("    [OK] Layer added to top")
 
 
 def replace_stackup(edb, xml_path: str) -> bool:
