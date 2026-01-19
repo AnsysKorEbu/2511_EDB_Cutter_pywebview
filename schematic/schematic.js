@@ -305,6 +305,13 @@ async function generateConfiguration() {
 
         if (result.success) {
             showSuccess(`Configuration saved successfully!\nFile: ${result.config_file}\nSelected files: ${result.total_enabled}`);
+
+            // Ask user if they want to open Circuit GUI
+            const shouldContinue = confirm('Configuration saved! Do you want to open HFSS Circuit Generator?');
+            if (shouldContinue) {
+                console.log('User chose to open Circuit GUI');
+                await launchCircuitGuiSilent();
+            }
         } else {
             showError(`Failed to save configuration: ${result.error}`);
         }
@@ -363,4 +370,27 @@ function formatFileSize(bytes) {
     const i = Math.floor(Math.log(bytes) / Math.log(k));
 
     return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
+}
+
+/**
+ * Launch Circuit GUI silently (no success alert)
+ * Used when launching after generate config completion
+ */
+async function launchCircuitGuiSilent() {
+    try {
+        console.log('Launching Circuit GUI...');
+
+        const result = await window.pywebview.api.launch_circuit_gui();
+
+        if (result.success) {
+            console.log('Circuit GUI launched successfully');
+            // No alert on success - silent launch
+        } else {
+            console.error('Failed to launch Circuit GUI:', result.error);
+            alert(`Failed to launch Circuit GUI: ${result.error}`);
+        }
+    } catch (error) {
+        console.error('Error launching Circuit GUI:', error);
+        alert(`Error launching Circuit GUI: ${error.message || error}`);
+    }
 }

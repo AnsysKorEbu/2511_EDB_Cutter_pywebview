@@ -13,6 +13,19 @@ from pathlib import Path
 from util.logger_module import logger
 
 
+def _write_progress(analysis_folder, elapsed, timeout):
+    """Write progress to txt file. Format: elapsed/timeout"""
+    progress_file = Path(analysis_folder) / "progress.txt"
+    progress_file.write_text(f"{elapsed}/{timeout}")
+
+
+def _delete_progress(analysis_folder):
+    """Delete progress file if exists."""
+    progress_file = Path(analysis_folder) / "progress.txt"
+    if progress_file.exists():
+        progress_file.unlink()
+
+
 def run_hfss_analysis(aedb_path, edb_version, output_path):
     """
     Run HFSS 3D Layout analysis on a single .aedb file.
@@ -73,7 +86,7 @@ def run_hfss_analysis(aedb_path, edb_version, output_path):
         hfss3dl = Hfss3dLayout(
             project=edb_file,
             version=edb_version,
-            non_graphical=False,
+            non_graphical=True,
             new_desktop=False,
             close_on_exit=False,
         )
@@ -110,6 +123,7 @@ def run_hfss_analysis(aedb_path, edb_version, output_path):
         while hfss3dl.are_there_simulations_running:
             time.sleep(1)
             elapsed += 1
+            _write_progress(analysis_folder, elapsed, timeout_seconds)
             if elapsed % 30 == 0:
                 if timeout_seconds > 0:
                     logger.info(f"  Elapsed: {elapsed}/{timeout_seconds} seconds")
@@ -137,7 +151,10 @@ def run_hfss_analysis(aedb_path, edb_version, output_path):
         logger.info("[OK] Project saved after analysis")
 
         # Export Touchstone file to Analysis folder (same as siwave)
-        touchstone_output_file = analysis_folder / output_path.stem
+        # Determine extension based on port count
+        num_ports = len(hfss3dl.ports)
+        touchstone_output_file = analysis_folder / f"{output_path.stem}.s{num_ports}p"
+        logger.info(f"Port count: {num_ports}")
         logger.info(f"Exporting Touchstone to: {touchstone_output_file}")
 
         try:
@@ -156,6 +173,9 @@ def run_hfss_analysis(aedb_path, edb_version, output_path):
         hfss3dl.release_desktop(close_projects=True, close_desktop=True)
         hfss3dl = None
         logger.info("[OK] HFSS 3D Layout closed")
+
+        # Delete progress file
+        _delete_progress(analysis_folder)
 
         # Check for generated Touchstone files (similar to siwave)
         touchstone_files = list(analysis_folder.glob(f"{output_path.stem}.s*p"))
@@ -195,10 +215,16 @@ def run_hfss_analysis(aedb_path, edb_version, output_path):
         logger.error(f"\n[ERROR] {error_msg}")
         logger.error(error_traceback)
 
+        # Delete progress file if analysis_folder was set
+        try:
+            _delete_progress(analysis_folder)
+        except Exception:
+            pass
+
         # Try to close HFSS if it was opened
         if hfss3dl is not None:
             try:
-                hfss3dl.release_desktop(close_projects=False, close_on_exit=False)
+                hfss3dl.release_desktop(close_projects=False, close_desktop=False)
             except Exception:
                 pass
 

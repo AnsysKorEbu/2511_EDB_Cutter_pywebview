@@ -252,6 +252,30 @@ class AnalysisApi:
 
         return results
 
+    def get_analysis_progress(self):
+        """
+        Get current HFSS analysis progress from progress.txt file.
+
+        Returns:
+            dict: {'running': bool, 'elapsed': int, 'timeout': int}
+        """
+        analysis_folder = Path(self.results_folder_str) / "Analysis"
+        progress_file = analysis_folder / "progress.txt"
+
+        if not progress_file.exists():
+            return {'running': False, 'elapsed': 0, 'timeout': 0}
+
+        try:
+            content = progress_file.read_text().strip()
+            elapsed, timeout = content.split('/')
+            return {
+                'running': True,
+                'elapsed': int(elapsed),
+                'timeout': int(timeout)
+            }
+        except Exception:
+            return {'running': False, 'elapsed': 0, 'timeout': 0}
+
     def get_analysis_results(self):
         """
         Get list of generated touchstone files in Analysis folder.

@@ -116,6 +116,33 @@ function renderFileList(files) {
 }
 
 /**
+ * Poll HFSS analysis progress and update UI
+ * @param {Element} badge - Status badge element
+ * @param {string} analysisType - 'siwave' or 'hfss'
+ * @returns {number} Interval ID
+ */
+function startProgressPolling(badge, analysisType) {
+    if (analysisType !== 'hfss') return null;
+
+    const intervalId = setInterval(async () => {
+        try {
+            const progress = await window.pywebview.api.get_analysis_progress();
+            if (progress.running) {
+                if (progress.timeout > 0) {
+                    badge.textContent = `${progress.elapsed}/${progress.timeout}s`;
+                } else {
+                    badge.textContent = `${progress.elapsed}s`;
+                }
+            }
+        } catch (e) {
+            // Ignore polling errors
+        }
+    }, 1000);
+
+    return intervalId;
+}
+
+/**
  * Analyze a single .aedb file
  * @param {string} aedbName - Name of the .aedb folder
  */
@@ -140,9 +167,16 @@ async function analyzeSingle(aedbName) {
 
     console.log(`Starting ${analysisType.toUpperCase()} analysis for: ${aedbName}`);
 
+    // Start progress polling for HFSS
+    const pollingId = startProgressPolling(badge, analysisType);
+
     try {
         // Call backend to run analysis (will silently use SIWave if HFSS selected)
         const result = await window.pywebview.api.analyze_single(aedbName, analysisType);
+
+        // Stop polling
+        if (pollingId) clearInterval(pollingId);
+
         console.log('Analysis result:', result);
 
         if (result.success) {
@@ -176,6 +210,9 @@ async function analyzeSingle(aedbName) {
         }
 
     } catch (error) {
+        // Stop polling
+        if (pollingId) clearInterval(pollingId);
+
         // Exception: Update badge with error state
         badge.className = 'status-badge status-error';
         badge.textContent = 'Error';
@@ -231,11 +268,14 @@ async function analyzeAll() {
 
     console.log('All analyses complete');
 
+    // Wait for DOM to update (show last item as completed) before showing confirm
+    await new Promise(resolve => setTimeout(resolve, 100));
+
     // Ask user if they want to generate circuit and run
     const shouldContinue = confirm('Analysis complete! Do you want to generate circuit and run?');
     if (shouldContinue) {
         console.log('User chose to generate circuit and run');
-        await launchSchematicGui();
+        await launchSchematicGuiSilent();
     }
 }
 
@@ -251,6 +291,29 @@ async function launchSchematicGui() {
         if (result.success) {
             console.log('Schematic GUI launched successfully');
             alert('Schematic GUI (Touchstone Generator) has been launched!');
+        } else {
+            console.error('Failed to launch Schematic GUI:', result.error);
+            alert(`Failed to launch Schematic GUI: ${result.error}`);
+        }
+    } catch (error) {
+        console.error('Error launching Schematic GUI:', error);
+        alert(`Error launching Schematic GUI: ${error.message || error}`);
+    }
+}
+
+/**
+ * Launch Schematic GUI silently (no success alert)
+ * Used when launching after analyze all completion
+ */
+async function launchSchematicGuiSilent() {
+    try {
+        console.log('Launching Schematic GUI...');
+
+        const result = await window.pywebview.api.launch_schematic_gui();
+
+        if (result.success) {
+            console.log('Schematic GUI launched successfully');
+            // No alert on success - silent launch
         } else {
             console.error('Failed to launch Schematic GUI:', result.error);
             alert(`Failed to launch Schematic GUI: ${result.error}`);

@@ -193,10 +193,36 @@ class SchematicApi:
                 'config_file': str(config_path),
                 'total_enabled': len(enabled_items)
             }
-            
+
         except Exception as e:
             error_msg = f"Failed to save configuration: {str(e)}"
             logger.error(error_msg)
+            import traceback
+            traceback.print_exc()
+            return {'success': False, 'error': error_msg}
+
+    def launch_circuit_gui(self):
+        """
+        Launch Circuit GUI (HFSS Circuit Generator) as subprocess.
+
+        Returns:
+            dict: {'success': bool, 'error': str}
+        """
+        try:
+            import subprocess
+            import sys
+
+            logger.info(f"\n[INFO] Launching Circuit GUI as subprocess")
+
+            cmd_args = [sys.executable, "-m", "gui.circuit_launcher"]
+            subprocess.Popen(cmd_args, cwd=Path.cwd())
+
+            logger.info("[OK] Circuit GUI subprocess launched")
+            return {'success': True}
+
+        except Exception as e:
+            error_msg = f"Failed to launch Circuit GUI: {str(e)}"
+            logger.error(f"\n[ERROR] {error_msg}")
             import traceback
             traceback.print_exc()
             return {'success': False, 'error': error_msg}
