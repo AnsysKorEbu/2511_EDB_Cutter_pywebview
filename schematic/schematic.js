@@ -33,12 +33,13 @@ async function init() {
 
         if (files.length > 0) {
             // Initialize state with all files
+            // First file should have flip=true by default (c_ -> 0_ direction)
             schematicState.files = files.map((file, index) => ({
                 filename: file.name,
                 path: file.path,
                 size: file.size,
                 order: index + 1,
-                flip: false
+                flip: index === 0  // First file has flip=true by default
             }));
 
             // Auto-select all files in order
@@ -86,12 +87,13 @@ async function browseFolder() {
             console.log(`Loaded ${loadResult.files.length} files`);
 
             // Update state with new files
+            // First file should have flip=true by default (c_ -> 0_ direction)
             schematicState.files = loadResult.files.map((file, index) => ({
                 filename: file.name,
                 path: file.path,
                 size: file.size,
                 order: index + 1,
-                flip: false
+                flip: index === 0  // First file has flip=true by default
             }));
 
             // Auto-select all files in order

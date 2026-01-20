@@ -240,6 +240,103 @@ def find_nearest_pad_to_point(edb, net_name, point):
         return None, float('inf')
 
 
+def _find_nearest_pad_from_cache(cached_pads, point):
+    """
+    Find the nearest pad from pre-cached pad list.
+
+    Args:
+        cached_pads: List of tuples (pad, position) - pre-filtered valid pads
+        point: [x, y] coordinates to search around
+
+    Returns:
+        tuple: (PadstackInstance or None, distance in meters)
+    """
+    nearest_pad = None
+    min_distance = float('inf')
+
+    for pad, pos in cached_pads:
+        dist = calculate_point_distance(point, pos)
+        if dist < min_distance:
+            min_distance = dist
+            nearest_pad = pad
+
+    return nearest_pad, min_distance
+
+
+def _find_net_extreme_endpoints_from_cache(cached_paths, tolerance=1e-3):
+    """
+    Find the two farthest endpoints of a net using pre-cached paths.
+
+    Args:
+        cached_paths: List of center_line lists from cached paths
+        tolerance: Distance threshold for merging close points
+
+    Returns:
+        dict or None: {
+            'start': [x, y],
+            'end': [x, y],
+            'distance': float,
+            'total_paths': int,
+            'merged_endpoints': int
+        }
+    """
+    if not cached_paths:
+        return None
+
+    # 1. Collect all endpoints
+    endpoints = []
+    for center_line in cached_paths:
+        if len(center_line) >= 2:
+            endpoints.append(center_line[0])   # start
+            endpoints.append(center_line[-1])  # end
+
+    if len(endpoints) < 2:
+        return None
+
+    # 2. Merge close points (within tolerance)
+    merged = []
+    used = [False] * len(endpoints)
+
+    for i, pt in enumerate(endpoints):
+        if used[i]:
+            continue
+
+        cluster = [pt]
+        used[i] = True
+
+        for j in range(i+1, len(endpoints)):
+            if not used[j]:
+                if calculate_point_distance(pt, endpoints[j]) < tolerance:
+                    cluster.append(endpoints[j])
+                    used[j] = True
+
+        avg_x = sum(p[0] for p in cluster) / len(cluster)
+        avg_y = sum(p[1] for p in cluster) / len(cluster)
+        merged.append([avg_x, avg_y])
+
+    # 3. Find two farthest points
+    max_dist = 0
+    farthest_pair = None
+
+    for i, pt1 in enumerate(merged):
+        for pt2 in merged[i+1:]:
+            dist = calculate_point_distance(pt1, pt2)
+            if dist > max_dist:
+                max_dist = dist
+                farthest_pair = (pt1, pt2)
+
+    if farthest_pair:
+        return {
+            'start': farthest_pair[0],
+            'end': farthest_pair[1],
+            'distance': max_dist,
+            'total_paths': len(cached_paths),
+            'merged_endpoints': len(merged)
+        }
+
+    return None
+
+
 def find_net_extreme_endpoints(edb, net_name, tolerance=1e-3):
     """
     Find the two farthest endpoints of a net.
@@ -330,6 +427,8 @@ def find_endpoint_pads_for_selected_nets(edb, cut_data):
     Find endpoint pads for user-selected signal nets.
     Uses network extreme endpoints to find the two farthest pads.
 
+    Optimized with caching: pre-loads all paths and padstacks to minimize EDB queries.
+
     Args:
         edb: Opened pyedb.Edb object
         cut_data: Cut data dictionary containing selected_nets and cut points
@@ -354,8 +453,6 @@ def find_endpoint_pads_for_selected_nets(edb, cut_data):
         logger.debug(f"Type of signal_nets: {type(signal_nets)}")
         logger.debug(f"Length of signal_nets: {len(signal_nets) if signal_nets else 0}")
 
-
-
         # Get cut polyline points
         cut_points = cut_data.get('points', [])
         if not cut_points or len(cut_points) < 2:
@@ -363,7 +460,51 @@ def find_endpoint_pads_for_selected_nets(edb, cut_data):
             cut_data['endpoint_pads'] = {}
             return True
 
-        # Find extreme endpoints and nearest pads for each net
+        if not signal_nets:
+            logger.info("[WARNING] No signal nets selected.")
+            cut_data['endpoint_pads'] = {}
+            return True
+
+        # ============================================================
+        # CACHING PHASE: Pre-load all data from EDB in batch
+        # ============================================================
+        logger.info("")
+        logger.info("Pre-loading data from EDB (caching)...")
+
+        # Cache for paths: {net_name: [center_line, ...]}
+        paths_cache = {}
+        # Cache for pads: {net_name: [(pad, position), ...]}
+        pads_cache = {}
+
+        # Pre-load all paths and pads for signal nets
+        for net_name in signal_nets:
+            # Load paths
+            paths = edb.modeler.get_primitives(net_name=net_name, prim_type="path")
+            paths_cache[net_name] = [p.center_line for p in paths if len(p.center_line) >= 2]
+
+            # Load padstacks and filter valid pins
+            padstacks = edb.padstacks.get_instances(net_name=net_name)
+            valid_pads = []
+            for pad in padstacks:
+                if pad.is_pin:
+                    try:
+                        if pad.padstack_def and pad.padstack_def.name == 'UnnamedODBPadstack':
+                            continue
+                    except (AttributeError, Exception):
+                        pass
+                    try:
+                        pos = pad.position
+                        valid_pads.append((pad, pos))
+                    except (AttributeError, Exception):
+                        continue
+            pads_cache[net_name] = valid_pads
+
+        logger.info(f"  Cached {len(paths_cache)} nets' paths and pads")
+        logger.info("")
+
+        # ============================================================
+        # PROCESSING PHASE: Use cached data (no EDB queries)
+        # ============================================================
         logger.info("=" * 70)
         logger.info("Finding Endpoint Pads Based on Net Extreme Points")
         logger.info("=" * 70)
@@ -376,8 +517,9 @@ def find_endpoint_pads_for_selected_nets(edb, cut_data):
         for idx, net_name in enumerate(signal_nets, 1):
             logger.info(f"[{idx}/{len(signal_nets)}] Processing net: {net_name}")
 
-            # Step 1: Find extreme endpoints of the net (tolerance 1e-3 for merging)
-            net_info = find_net_extreme_endpoints(edb, net_name, tolerance=1e-3)
+            # Step 1: Find extreme endpoints using cached paths
+            cached_paths = paths_cache.get(net_name, [])
+            net_info = _find_net_extreme_endpoints_from_cache(cached_paths, tolerance=1e-3)
 
             if not net_info:
                 logger.info(f"  [WARNING] Could not find endpoints for this net")
@@ -391,13 +533,12 @@ def find_endpoint_pads_for_selected_nets(edb, cut_data):
             logger.info(f"  Distance between extremes: {net_info['distance']:.6f} m")
             logger.info("")
 
-            # Step 2: Find nearest pads to each extreme endpoint
+            # Step 2: Find nearest pads using cached pads
+            cached_pads = pads_cache.get(net_name, [])
             endpoint_pads = []
 
             # Find pad near start point
-            start_pad, start_dist = find_nearest_pad_to_point(
-                edb, net_name, net_info['start']
-            )
+            start_pad, start_dist = _find_nearest_pad_from_cache(cached_pads, net_info['start'])
 
             if start_pad:
                 endpoint_pads.append(start_pad)
@@ -413,9 +554,7 @@ def find_endpoint_pads_for_selected_nets(edb, cut_data):
             logger.info("")
 
             # Find pad near end point
-            end_pad, end_dist = find_nearest_pad_to_point(
-                edb, net_name, net_info['end']
-            )
+            end_pad, end_dist = _find_nearest_pad_from_cache(cached_pads, net_info['end'])
 
             if end_pad:
                 # Check if it's the same pad as start (avoid duplicates)
