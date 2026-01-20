@@ -276,6 +276,30 @@ class AnalysisApi:
         except Exception:
             return {'running': False, 'elapsed': 0, 'timeout': 0}
 
+    def stop_analysis(self):
+        """
+        Request to stop the currently running HFSS analysis.
+        Creates a stop.txt file in the Analysis folder.
+        The hfss_analysis.py checks this file and calls hfss3dl.stop_simulations().
+
+        Returns:
+            dict: {'success': bool, 'error': str}
+        """
+        try:
+            analysis_folder = Path(self.results_folder_str) / "Analysis"
+            analysis_folder.mkdir(parents=True, exist_ok=True)
+
+            stop_file = analysis_folder / "stop.txt"
+            stop_file.write_text("stop")
+
+            logger.info(f"Stop signal created: {stop_file}")
+            return {'success': True}
+
+        except Exception as e:
+            error_msg = f"Failed to create stop signal: {str(e)}"
+            logger.error(error_msg)
+            return {'success': False, 'error': error_msg}
+
     def get_analysis_results(self):
         """
         Get list of generated touchstone files in Analysis folder.

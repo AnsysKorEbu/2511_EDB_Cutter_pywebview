@@ -111,6 +111,12 @@ body {
     margin: 0;
 }
 
+.header-buttons {
+    display: flex;
+    gap: 10px;
+    align-items: center;
+}
+
 .btn-primary {
     background: #0e639c;
     color: #ffffff;
@@ -294,6 +300,29 @@ body {
     color: #cccccc;
     font-size: 13px;
     margin: 0;
+}
+
+/* Stop Analysis Button */
+.btn-stop {
+    background: #d32f2f;
+    color: #ffffff;
+    border: none;
+    padding: 8px 16px;
+    border-radius: 3px;
+    cursor: pointer;
+    font-size: 13px;
+    font-weight: 500;
+    transition: background 0.2s;
+}
+
+.btn-stop:hover:not(:disabled) {
+    background: #f44336;
+}
+
+.btn-stop:disabled {
+    background: #5c2d2d;
+    color: #999999;
+    cursor: not-allowed;
 }
 
 /* Results Section */

@@ -33,9 +33,14 @@
         <section class="file-list-section">
             <div class="section-header">
                 <h2>Design Files (.aedb)</h2>
-                <button class="btn-primary" id="analyzeAllBtn" onclick="analyzeAll()">
-                    Analyze All
-                </button>
+                <div class="header-buttons">
+                    <button class="btn-primary" id="analyzeAllBtn" onclick="analyzeAll()">
+                        Analyze All
+                    </button>
+                    <button class="btn-stop hidden" id="stopAnalysisBtn" onclick="stopAnalysis()">
+                        Stop
+                    </button>
+                </div>
             </div>
 
             <div id="fileList" class="file-list">
@@ -43,15 +48,6 @@
                     <span>Loading design files...</span>
                 </div>
             </div>
-        </section>
-
-        <!-- Progress Section -->
-        <section id="progressSection" class="progress-section hidden">
-            <h3>Analysis Progress</h3>
-            <div class="progress-bar-container">
-                <div id="progressBar" class="progress-fill"></div>
-            </div>
-            <p id="progressText">0 / 0 completed</p>
         </section>
 
         <!-- Results Section -->

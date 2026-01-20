@@ -26,6 +26,19 @@ def _delete_progress(analysis_folder):
         progress_file.unlink()
 
 
+def _check_stop_requested(analysis_folder):
+    """Check if stop was requested via stop.txt file."""
+    stop_file = Path(analysis_folder) / "stop.txt"
+    return stop_file.exists()
+
+
+def _delete_stop_file(analysis_folder):
+    """Delete stop file if exists."""
+    stop_file = Path(analysis_folder) / "stop.txt"
+    if stop_file.exists():
+        stop_file.unlink()
+
+
 def run_hfss_analysis(aedb_path, edb_version, output_path):
     """
     Run HFSS 3D Layout analysis on a single .aedb file.
@@ -108,18 +121,25 @@ def run_hfss_analysis(aedb_path, edb_version, output_path):
 
         # Run HFSS analysis (non-blocking)
         logger.info("Starting HFSS analysis...")
-        hfss3dl.analyze(blocking=False)
+        import psutil
+
+        num_cores = psutil.cpu_count(logical=False)
+        hfss3dl.analyze(cores=num_cores, blocking=False)
         logger.info("[OK] HFSS analysis started (non-blocking)")
 
         # Wait for simulation with optional timeout
         # timeout_seconds = 0 means no limit, otherwise stop after timeout
-        timeout_seconds = 180
+        timeout_seconds = 6000  # 180
         if timeout_seconds > 0:
             logger.info(f"Waiting up to {timeout_seconds} seconds...")
         else:
             logger.info("Waiting for simulation to complete (no time limit)...")
 
+        # Delete any existing stop file before starting wait loop
+        _delete_stop_file(analysis_folder)
+
         elapsed = 0
+        stopped_by_user = False
         while hfss3dl.are_there_simulations_running:
             time.sleep(1)
             elapsed += 1
@@ -129,13 +149,21 @@ def run_hfss_analysis(aedb_path, edb_version, output_path):
                     logger.info(f"  Elapsed: {elapsed}/{timeout_seconds} seconds")
                 else:
                     logger.info(f"  Elapsed: {elapsed} seconds")
+            # Check if user requested stop
+            if _check_stop_requested(analysis_folder):
+                logger.info("User requested stop. Stopping simulations...")
+                stopped_by_user = True
+                break
             # Stop if timeout reached (only when timeout > 0)
             if timeout_seconds > 0 and elapsed >= timeout_seconds:
                 break
 
-        # Stop simulations if still running (only when timeout was reached)
+        # Stop simulations if still running (timeout reached or user requested)
         if hfss3dl.are_there_simulations_running:
-            logger.info("Timeout reached. Stopping simulations...")
+            if stopped_by_user:
+                logger.info("Stopping simulations by user request...")
+            else:
+                logger.info("Timeout reached. Stopping simulations...")
             hfss3dl.stop_simulations()
 
             # Wait for simulations to fully stop
@@ -144,6 +172,9 @@ def run_hfss_analysis(aedb_path, edb_version, output_path):
             logger.info("[OK] Simulations stopped")
         else:
             logger.info("[OK] HFSS analysis completed")
+
+        # Clean up stop file
+        _delete_stop_file(analysis_folder)
 
         # Save project after analysis
         logger.info("Saving project after analysis...")
@@ -183,7 +214,10 @@ def run_hfss_analysis(aedb_path, edb_version, output_path):
         if touchstone_files:
             generated_file = touchstone_files[0]
             file_size = generated_file.stat().st_size
-            logger.info("\n[OK] Analysis complete!")
+            if stopped_by_user:
+                logger.info("\n[OK] Analysis stopped by user, saved and exported!")
+            else:
+                logger.info("\n[OK] Analysis complete!")
             logger.info(f"Touchstone file: {generated_file}")
             logger.info(f"File size: {file_size:,} bytes")
             logger.info("")
@@ -192,10 +226,16 @@ def run_hfss_analysis(aedb_path, edb_version, output_path):
                 "success": True,
                 "output_file": str(generated_file),
                 "file_size": file_size,
+                "stopped": stopped_by_user,
             }
         else:
             # Fallback to aedt file if no touchstone generated
-            logger.info("\n[OK] Analysis complete (no Touchstone generated)")
+            if stopped_by_user:
+                logger.info(
+                    "\n[OK] Analysis stopped by user and saved (no Touchstone generated)"
+                )
+            else:
+                logger.info("\n[OK] Analysis complete (no Touchstone generated)")
             logger.info(f"Output file: {aedt_output_path}")
             file_size = (
                 aedt_output_path.stat().st_size if aedt_output_path.exists() else 0
@@ -207,6 +247,7 @@ def run_hfss_analysis(aedb_path, edb_version, output_path):
                 "success": True,
                 "output_file": str(aedt_output_path),
                 "file_size": file_size,
+                "stopped": stopped_by_user,
             }
 
     except Exception as e:

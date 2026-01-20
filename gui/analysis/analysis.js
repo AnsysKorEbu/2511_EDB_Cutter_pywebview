@@ -9,6 +9,7 @@
 let analysisState = {
     aedbFiles: [],
     analyzing: false,
+    stopRequested: false,
     completed: 0,
     total: 0,
     results: []
@@ -129,9 +130,9 @@ function startProgressPolling(badge, analysisType) {
             const progress = await window.pywebview.api.get_analysis_progress();
             if (progress.running) {
                 if (progress.timeout > 0) {
-                    badge.textContent = `${progress.elapsed}/${progress.timeout}s`;
+                    badge.textContent = `${progress.elapsed}/${progress.timeout}`;
                 } else {
-                    badge.textContent = `${progress.elapsed}s`;
+                    badge.textContent = `${progress.elapsed}`;
                 }
             }
         } catch (e) {
@@ -167,6 +168,14 @@ async function analyzeSingle(aedbName) {
 
     console.log(`Starting ${analysisType.toUpperCase()} analysis for: ${aedbName}`);
 
+    // Show stop button for HFSS analysis
+    const stopBtn = document.getElementById('stopAnalysisBtn');
+    if (analysisType === 'hfss' && stopBtn) {
+        stopBtn.classList.remove('hidden');
+        stopBtn.disabled = false;
+        stopBtn.textContent = 'Stop';
+    }
+
     // Start progress polling for HFSS
     const pollingId = startProgressPolling(badge, analysisType);
 
@@ -177,12 +186,17 @@ async function analyzeSingle(aedbName) {
         // Stop polling
         if (pollingId) clearInterval(pollingId);
 
+        // Hide stop button
+        if (stopBtn) {
+            stopBtn.classList.add('hidden');
+        }
+
         console.log('Analysis result:', result);
 
         if (result.success) {
             // Success: Update badge and add to results
             badge.className = 'status-badge status-completed';
-            badge.textContent = 'Completed';
+            badge.textContent = result.stopped ? 'Stopped' : 'Completed';
             button.textContent = 'Done';
 
             // Add to results list
@@ -213,6 +227,11 @@ async function analyzeSingle(aedbName) {
         // Stop polling
         if (pollingId) clearInterval(pollingId);
 
+        // Hide stop button
+        if (stopBtn) {
+            stopBtn.classList.add('hidden');
+        }
+
         // Exception: Update badge with error state
         badge.className = 'status-badge status-error';
         badge.textContent = 'Error';
@@ -220,6 +239,35 @@ async function analyzeSingle(aedbName) {
 
         console.error('Analysis error:', error);
         badge.title = error.message || error;
+    }
+}
+
+/**
+ * Stop the currently running HFSS analysis
+ * Creates a stop flag file that the analysis process will check
+ */
+async function stopAnalysis() {
+    console.log('Stop analysis requested');
+
+    const stopBtn = document.getElementById('stopAnalysisBtn');
+    if (stopBtn) {
+        stopBtn.disabled = true;
+        stopBtn.textContent = 'Stopping...';
+    }
+
+    analysisState.stopRequested = true;
+
+    try {
+        const result = await window.pywebview.api.stop_analysis();
+        console.log('Stop analysis result:', result);
+
+        if (result.success) {
+            console.log('Stop signal sent successfully');
+        } else {
+            console.error('Failed to stop analysis:', result.error);
+        }
+    } catch (error) {
+        console.error('Error stopping analysis:', error);
     }
 }
 
@@ -238,10 +286,6 @@ async function analyzeAll() {
     }
 
     console.log(`Starting analysis for all ${analysisState.aedbFiles.length} files`);
-
-    // Show progress section
-    const progressSection = document.getElementById('progressSection');
-    progressSection.classList.remove('hidden');
 
     // Update state
     analysisState.analyzing = true;
@@ -325,15 +369,10 @@ async function launchSchematicGuiSilent() {
 }
 
 /**
- * Update the progress bar and text
+ * Update progress (console log only, no UI element)
  */
 function updateProgress() {
-    const progressBar = document.getElementById('progressBar');
-    const progressText = document.getElementById('progressText');
-
-    const percent = (analysisState.completed / analysisState.total) * 100;
-    progressBar.style.width = `${percent}%`;
-    progressText.textContent = `${analysisState.completed} / ${analysisState.total} completed`;
+    console.log(`Progress: ${analysisState.completed} / ${analysisState.total} completed`);
 }
 
 /**
@@ -424,8 +463,8 @@ async function browseFolder() {
             // Re-render file list
             renderFileList(loadResult.aedb_files);
 
-            // Hide progress and results sections (reset state)
-            document.getElementById('progressSection').classList.add('hidden');
+            // Hide stop button and results section (reset state)
+            document.getElementById('stopAnalysisBtn').classList.add('hidden');
             document.getElementById('resultsSection').classList.add('hidden');
 
         } else {
