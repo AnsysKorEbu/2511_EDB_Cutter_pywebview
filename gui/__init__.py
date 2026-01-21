@@ -1,15 +1,36 @@
 """
 GUI module for EDB Cutter using pywebview
 """
-import webview
+import json
+import re
+import subprocess
+import sys
+import time
+import tkinter as tk
+from datetime import datetime
 from pathlib import Path
+from tkinter import filedialog
+
+import webview
+
+from config import (
+    BATCH_FILE_PREFIX,
+    CUT_FILE_PATTERN,
+    CUT_ID_FORMAT,
+    DEFAULT_EDB_VERSION,
+    RESULTS_DIR,
+    SOURCE_DIR,
+    VALID_CUT_NAME_PATTERN,
+    error_response,
+    success_response,
+)
 from util.logger_module import logger
 
 
 class Api:
     """JavaScript API for pywebview"""
 
-    def __init__(self, edb_path, edb_version="2025.1", grpc=False):
+    def __init__(self, edb_path, edb_version=DEFAULT_EDB_VERSION, grpc=False):
         self.edb_path = edb_path
         self.edb_version = edb_version
         self.grpc = grpc
@@ -27,11 +48,23 @@ class Api:
             else:
                 self.edb_folder_name = edb_path_obj.name
 
-            self._edb_data_dir = Path('source') / self.edb_folder_name
+            self._edb_data_dir = SOURCE_DIR / self.edb_folder_name
         else:
             # Test mode - use default source folder
             self.edb_folder_name = "test_data"
-            self._edb_data_dir = Path('source')
+            self._edb_data_dir = SOURCE_DIR
+
+    def _ensure_data_loaded(self):
+        """
+        Helper method to ensure EDB data is loaded into cache.
+
+        This method is called by all data retrieval methods to lazily load
+        EDB data only when needed, avoiding redundant loads.
+        """
+        if self.data is None:
+            from edb.edb_saver import load_all_edb_data
+            logger.info(f"Loading EDB data from {self._edb_data_dir}...")
+            self.data = load_all_edb_data(str(self._edb_data_dir))
 
     def test_function(self):
         """Test function called from JavaScript"""
@@ -58,67 +91,48 @@ class Api:
     def get_planes_data(self):
         """Get planes data for rendering"""
         try:
-            if self.data is None or self.data.get('planes') is None:
-                from edb.edb_saver import load_all_edb_data
-                logger.info(f"Loading EDB data from {self._edb_data_dir}...")
-                self.data = load_all_edb_data(str(self._edb_data_dir))
-
+            self._ensure_data_loaded()
             return self.data.get('planes', [])
         except Exception as e:
-            logger.info(f"Error getting planes data: {e}")
+            logger.error(f"Error getting planes data: {e}")
             return []
 
     def get_vias_data(self):
         """Get vias data for rendering"""
         try:
-            if self.data is None or self.data.get('vias') is None:
-                from edb.edb_saver import load_all_edb_data
-                logger.info(f"Loading EDB data from {self._edb_data_dir}...")
-                self.data = load_all_edb_data(str(self._edb_data_dir))
-
+            self._ensure_data_loaded()
             return self.data.get('vias', [])
         except Exception as e:
-            logger.info(f"Error getting vias data: {e}")
+            logger.error(f"Error getting vias data: {e}")
             return []
 
     def get_traces_data(self):
         """Get traces data for rendering"""
         try:
-            if self.data is None or self.data.get('traces') is None:
-                from edb.edb_saver import load_all_edb_data
-                logger.info(f"Loading EDB data from {self._edb_data_dir}...")
-                self.data = load_all_edb_data(str(self._edb_data_dir))
-
+            self._ensure_data_loaded()
             return self.data.get('traces', [])
         except Exception as e:
-            logger.info(f"Error getting traces data: {e}")
+            logger.error(f"Error getting traces data: {e}")
             return []
 
     def get_nets_data(self):
         """Get nets data (signal and power/ground net names)"""
         try:
-            if self.data is None or self.data.get('nets') is None:
-                from edb.edb_saver import load_all_edb_data
-                logger.info(f"Loading EDB data from {self._edb_data_dir}...")
-                self.data = load_all_edb_data(str(self._edb_data_dir))
-
+            self._ensure_data_loaded()
             return self.data.get('nets', {'signal': [], 'power': []})
         except Exception as e:
-            logger.info(f"Error getting nets data: {e}")
+            logger.error(f"Error getting nets data: {e}")
             return {'signal': [], 'power': []}
 
     def save_cut_data(self, cut_data):
         """Save cut geometry data to EDB-specific cut folder"""
-        import json
-        from datetime import datetime
-
         try:
             cut_dir = self._edb_data_dir / 'cut'
             cut_dir.mkdir(parents=True, exist_ok=True)
 
             # Generate cut ID based on existing files
-            existing_files = list(cut_dir.glob('cut_*.json'))
-            cut_id = f"cut_{len(existing_files) + 1:03d}"
+            existing_files = list(cut_dir.glob(CUT_FILE_PATTERN))
+            cut_id = CUT_ID_FORMAT.format(len(existing_files) + 1)
 
             # Add metadata
             cut_data['id'] = cut_id
@@ -131,15 +145,13 @@ class Api:
                 json.dump(cut_data, f, indent=2)
 
             logger.info(f"Cut data saved: {cut_file}")
-            return {'success': True, 'id': cut_id, 'file': str(cut_file)}
+            return success_response(id=cut_id, file=str(cut_file))
         except Exception as e:
-            logger.info(f"Error saving cut data: {e}")
-            return {'success': False, 'error': str(e)}
+            logger.error(f"Error saving cut data: {e}")
+            return error_response(e)
 
     def get_cut_list(self):
         """Get list of saved cut files"""
-        import json
-
         try:
             cut_dir = self._edb_data_dir / 'cut'
             if not cut_dir.exists():
@@ -149,7 +161,7 @@ class Api:
             # Changed from 'cut_*.json' to '*.json' to support renamed cuts
             for cut_file in sorted(cut_dir.glob('*.json')):
                 # Skip batch files (temporary files used for execution)
-                if cut_file.name.startswith('_batch_'):
+                if cut_file.name.startswith(BATCH_FILE_PREFIX):
                     continue
 
                 try:
@@ -184,29 +196,23 @@ class Api:
             if cut_file.exists():
                 cut_file.unlink()
                 logger.info(f"Deleted cut: {cut_file}")
-                return {'success': True}
+                return success_response()
             else:
-                return {'success': False, 'error': 'File not found'}
+                return error_response('File not found')
         except Exception as e:
-            logger.info(f"Error deleting cut: {e}")
-            return {'success': False, 'error': str(e)}
+            logger.error(f"Error deleting cut: {e}")
+            return error_response(e)
 
     def rename_cut(self, old_id, new_id):
         """Rename a cut file"""
-        import json
-        import re
-
         try:
             # Validate new name format (alphanumeric + underscore only)
-            if not re.match(r'^[a-zA-Z0-9_]+$', new_id):
-                return {
-                    'success': False,
-                    'error': 'Invalid name format. Only letters, numbers, and underscores allowed.'
-                }
+            if not re.match(VALID_CUT_NAME_PATTERN, new_id):
+                return error_response('Invalid name format. Only letters, numbers, and underscores allowed.')
 
             # Check if old_id and new_id are the same
             if old_id == new_id:
-                return {'success': True, 'message': 'Name unchanged'}
+                return success_response(message='Name unchanged')
 
             cut_dir = self._edb_data_dir / 'cut'
             old_file = cut_dir / f"{old_id}.json"
@@ -214,11 +220,11 @@ class Api:
 
             # Check if old file exists
             if not old_file.exists():
-                return {'success': False, 'error': 'Original cut file not found'}
+                return error_response('Original cut file not found')
 
             # Check if new name already exists
             if new_file.exists():
-                return {'success': False, 'error': f'Cut name "{new_id}" already exists'}
+                return error_response(f'Cut name "{new_id}" already exists')
 
             # Load cut data
             with open(old_file, 'r', encoding='utf-8') as f:
@@ -235,16 +241,14 @@ class Api:
             old_file.unlink()
 
             logger.info(f"Renamed cut: {old_id} -> {new_id}")
-            return {'success': True, 'new_id': new_id}
+            return success_response(new_id=new_id)
 
         except Exception as e:
-            logger.info(f"Error renaming cut: {e}")
-            return {'success': False, 'error': str(e)}
+            logger.error(f"Error renaming cut: {e}")
+            return error_response(e)
 
     def get_cut_data(self, cut_id):
         """Get full data for a specific cut"""
-        import json
-
         try:
             cut_dir = self._edb_data_dir / 'cut'
             cut_file = cut_dir / f"{cut_id}.json"
@@ -275,17 +279,13 @@ class Api:
         Returns:
             dict: {'success': bool, 'error': str (if failed)}
         """
-        import subprocess
-        import json
-        import time
-
         try:
             # Ensure cut_ids is a list
             if isinstance(cut_ids, str):
                 cut_ids = [cut_ids]
 
             if not cut_ids:
-                return {'success': False, 'error': 'No cut IDs provided'}
+                return error_response('No cut IDs provided')
 
             # Get cut directory
             cut_dir = self._edb_data_dir / 'cut'
@@ -295,7 +295,7 @@ class Api:
             for cut_id in cut_ids:
                 cut_file = cut_dir / f"{cut_id}.json"
                 if not cut_file.exists():
-                    return {'success': False, 'error': f'Cut file not found: {cut_id}'}
+                    return error_response(f'Cut file not found: {cut_id}')
                 cut_files.append(str(cut_file.resolve()))
 
             logger.info(f"\n{'=' * 70}")
@@ -320,17 +320,15 @@ class Api:
             }
 
             # Create temporary batch file in source folder
-            source_dir = Path('source')
-            source_dir.mkdir(exist_ok=True)
-            batch_filename = f"_batch_{int(time.time() * 1000)}.json"
-            batch_file_path = source_dir / batch_filename
+            SOURCE_DIR.mkdir(exist_ok=True)
+            batch_filename = f"{BATCH_FILE_PREFIX}{int(time.time() * 1000)}.json"
+            batch_file_path = SOURCE_DIR / batch_filename
 
             with open(batch_file_path, 'w', encoding='utf-8') as batch_file:
                 json.dump(batch_data, batch_file, indent=2)
 
             try:
                 # Run edb.cut package as subprocess with batch file
-                import sys
                 grpc_str = "True" if self.grpc else "False"
                 result = subprocess.run(
                     [sys.executable, "-u", "-m", "edb.cut", self.edb_path, self.edb_version, batch_file_path, grpc_str],
@@ -342,7 +340,7 @@ class Api:
                 if return_code != 0:
                     error_msg = f"Cut execution failed with code {return_code}"
                     logger.error(f"{error_msg}")
-                    return {'success': False, 'error': error_msg}
+                    return error_response(error_msg)
 
                 count = len(cut_ids)
                 success_msg = f"{count} cut{'s' if count > 1 else ''} executed successfully!"
@@ -352,17 +350,16 @@ class Api:
                 # The subprocess creates Results/{edb_name}_{timestamp}/ folder
                 # Find the most recently modified folder in Results/
                 results_folder = None
-                results_base = Path('Results')
-                if results_base.exists():
+                if RESULTS_DIR.exists():
                     # Get all subdirectories in Results/
-                    result_dirs = [d for d in results_base.iterdir() if d.is_dir()]
+                    result_dirs = [d for d in RESULTS_DIR.iterdir() if d.is_dir()]
                     if result_dirs:
                         # Sort by modification time and get the most recent
                         latest_dir = max(result_dirs, key=lambda d: d.stat().st_mtime)
                         results_folder = str(latest_dir)
                         logger.debug(f"Results folder for analysis: {results_folder}")
 
-                return {'success': True, 'results_folder': results_folder}
+                return success_response(results_folder=results_folder)
 
             finally:
                 # Clean up temporary batch file
@@ -373,10 +370,10 @@ class Api:
 
         except Exception as e:
             error_msg = f"Failed to execute cuts: {str(e)}"
-            logger.info(f"\n[ERROR] {error_msg}")
+            logger.error(f"\n[ERROR] {error_msg}")
             import traceback
             traceback.print_exc()
-            return {'success': False, 'error': error_msg}
+            return error_response(e, error_msg)
 
     def browse_results_folder_for_analysis(self):
         """
@@ -386,15 +383,12 @@ class Api:
             dict: {'success': bool, 'folder': str, 'error': str}
         """
         try:
-            import tkinter as tk
-            from tkinter import filedialog
-
             root = tk.Tk()
             root.withdraw()
             root.attributes('-topmost', True)
 
             # Set initial directory to Results folder if it exists
-            initial_dir = Path('Results').resolve() if Path('Results').exists() else Path.cwd()
+            initial_dir = RESULTS_DIR.resolve() if RESULTS_DIR.exists() else Path.cwd()
 
             folder_path = filedialog.askdirectory(
                 title='Select Results Folder for Analysis',
@@ -431,9 +425,6 @@ class Api:
             dict: {'success': bool}
         """
         try:
-            import subprocess
-            import sys
-
             logger.info(f"\n[INFO] Launching Analysis GUI as subprocess")
             logger.info(f"Results folder: {results_folder}")
             logger.info(f"EDB Version: {self.edb_version}")
@@ -467,9 +458,6 @@ class Api:
             dict: {'success': bool, 'error': str}
         """
         try:
-            import subprocess
-            import sys
-
             logger.info(f"\n[INFO] Launching Schematic GUI as subprocess")
             if analysis_folder:
                 logger.info(f"Analysis folder: {analysis_folder}")
@@ -499,9 +487,6 @@ class Api:
             dict: {'success': bool, 'error': str}
         """
         try:
-            import subprocess
-            import sys
-
             logger.info(f"\n[INFO] Launching Circuit Generator GUI as subprocess")
             logger.info(f"EDB Version: {self.edb_version}")
 
@@ -574,8 +559,6 @@ class Api:
             }
         """
         try:
-            import tkinter as tk
-            from tkinter import filedialog
             from stackup.section_selector import extract_sections_from_excel
 
             # Create hidden tkinter root window
@@ -706,9 +689,6 @@ class Api:
             }
         """
         try:
-            import tkinter as tk
-            from tkinter import filedialog
-
             # Create hidden tkinter root window
             root = tk.Tk()
             root.withdraw()
