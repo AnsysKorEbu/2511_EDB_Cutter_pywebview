@@ -1,5 +1,0 @@
-colorama>=0.4.6
-openpyxl>=3.1.5
-pyaedt>=0.18
-pywin32>=306
-pyside6>=6.9.1
