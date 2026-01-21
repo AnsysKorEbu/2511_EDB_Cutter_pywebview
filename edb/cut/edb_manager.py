@@ -299,7 +299,7 @@ def calculate_point_distance(pt1, pt2):
     return (dx * dx + dy * dy) ** 0.5
 
 
-def execute_cuts_on_clone(edbpath, edbversion, cut_data_list, grpc=False, stackup_xml_path=None):
+def execute_cuts_on_clone(edbpath, edbversion, cut_data_list, grpc=False, stackup_xml_path=None, previous_cut_points=None):
     """
     Execute multiple cutting operations on a single EDB clone.
     Opens the EDB once, applies all cuts, then closes.
@@ -310,6 +310,7 @@ def execute_cuts_on_clone(edbpath, edbversion, cut_data_list, grpc=False, stacku
         cut_data_list: List of cut data dictionaries
         grpc: Use gRPC mode (default: False)
         stackup_xml_path: Optional path to stackup XML file to load
+        previous_cut_points: Polygon points from previous cut in the global sequence (for proximity-based port sorting)
 
     Returns:
         bool: True if all cuts successful, False otherwise
@@ -370,6 +371,9 @@ def execute_cuts_on_clone(edbpath, edbversion, cut_data_list, grpc=False, stacku
             logger.info("")
 
     # Process each cut
+    # Initialize with previous cut from global sequence (passed as parameter)
+    # Will be updated within loop for multi-cut clones (polyline mode)
+    prev_points = previous_cut_points
     for i, cut_data in enumerate(cut_data_list, 1):
         logger.info("-" * 50)
         logger.info(f"Processing Cut {i}/{len(cut_data_list)}: {cut_data.get('id', 'unknown')}")
@@ -396,7 +400,7 @@ def execute_cuts_on_clone(edbpath, edbversion, cut_data_list, grpc=False, stacku
 
         # 4. Create gap ports (only for endpoints inside polygon)
         logger.info("[4/5] Creating gap ports...")
-        create_gap_ports(edb, cut_data)
+        create_gap_ports(edb, cut_data, prev_points)
         logger.info("")
 
         # 5. Additional cut operations (future implementation)
@@ -409,6 +413,9 @@ def execute_cuts_on_clone(edbpath, edbversion, cut_data_list, grpc=False, stacku
         logger.info("")
         logger.info("[INFO] All cutting operations completed successfully.")
         logger.info("")
+
+        # Update prev_points for next iteration (for multi-cut clones)
+        prev_points = cut_data.get('points', [])
 
     # Close EDB once (after all cuts processed)
     try:

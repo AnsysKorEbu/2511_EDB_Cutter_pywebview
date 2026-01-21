@@ -290,8 +290,25 @@ if __name__ == "__main__":
                             logger.warning(f"Clone has {len(assigned_cut_files)} cuts, using {first_cut_id} stackup XML")
                             logger.warning("Future enhancement: Pass separate stackup XML for each cut")
 
+                    # Find previous cut in global sequence for proximity-based port sorting
+                    previous_cut_points = None
+                    if len(assigned_cut_files) > 0:
+                        # Get index of first cut in this clone within global cut_files list
+                        first_cut_path = assigned_cut_files[0]
+                        try:
+                            current_cut_index = cut_files.index(first_cut_path)
+                            if current_cut_index > 0:
+                                # Load previous cut's data to get polygon points
+                                prev_cut_path = cut_files[current_cut_index - 1]
+                                prev_cut_data = load_cut_data(prev_cut_path)
+                                previous_cut_points = prev_cut_data.get('points', [])
+                                logger.info(f"Found previous cut in sequence: {Path(prev_cut_path).stem}")
+                                logger.info(f"Previous cut has {len(previous_cut_points)} polygon points")
+                        except ValueError:
+                            logger.warning(f"Could not find {Path(first_cut_path).stem} in global cut sequence")
+
                     # Execute all cuts on this clone (opens EDB once, processes all cuts, closes EDB)
-                    success = execute_cuts_on_clone(clone_edb_path, edb_version, cut_data_list, grpc, clone_stackup_path)
+                    success = execute_cuts_on_clone(clone_edb_path, edb_version, cut_data_list, grpc, clone_stackup_path, previous_cut_points)
 
                     if success:
                         logger.info(f"All cuts completed successfully on clone {i}")

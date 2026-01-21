@@ -4,11 +4,13 @@ Network and Port Handler Module
 This module handles network analysis, endpoint finding, and port creation operations.
 Provides functions for cutout operations, endpoint detection, and port generation.
 """
+
 from util.logger_module import logger
+
 from .edb_manager import (
+    calculate_point_distance,
     find_cutout_edge_intersections,
     is_point_in_polygon,
-    calculate_point_distance
 )
 
 
@@ -29,7 +31,7 @@ def apply_cutout(edb, cut_data):
         logger.info("=" * 70)
 
         # Get polygon coordinates (custom extent)
-        polygon_points = cut_data.get('points', [])
+        polygon_points = cut_data.get("points", [])
         if not polygon_points or len(polygon_points) < 3:
             logger.info("[WARNING] No valid polygon found. Skipping cutout.")
             logger.info("")
@@ -41,17 +43,21 @@ def apply_cutout(edb, cut_data):
         logger.info("")
 
         # Get selected nets
-        selected_nets = cut_data.get('selected_nets', {})
-        signal_nets = selected_nets.get('signal', [])
-        power_nets = selected_nets.get('power', [])
+        selected_nets = cut_data.get("selected_nets", {})
+        signal_nets = selected_nets.get("signal", [])
+        power_nets = selected_nets.get("power", [])
 
         if not signal_nets and not power_nets:
             logger.info("[WARNING] No nets selected. Skipping cutout.")
             logger.info("")
             return True
 
-        logger.info(f"Signal nets: {len(signal_nets)} ({', '.join(signal_nets) if signal_nets else 'none'})")
-        logger.info(f"Reference nets (power): {len(power_nets)} ({', '.join(power_nets) if power_nets else 'none'})")
+        logger.info(
+            f"Signal nets: {len(signal_nets)} ({', '.join(signal_nets) if signal_nets else 'none'})"
+        )
+        logger.info(
+            f"Reference nets (power): {len(power_nets)} ({', '.join(power_nets) if power_nets else 'none'})"
+        )
         logger.info("")
 
         # Execute cutout
@@ -61,9 +67,14 @@ def apply_cutout(edb, cut_data):
 
         try:
             netlist = edb.nets.netlist
-            filtered_netlist = [n for n in netlist if not signal_nets or n not in signal_nets]
+            filtered_netlist = [
+                n for n in netlist if not signal_nets or n not in signal_nets
+            ]
 
-            from ansys.edb.core.geometry.polygon_data import PolygonData as GrpcPolygonData
+            from ansys.edb.core.geometry.polygon_data import (
+                PolygonData as GrpcPolygonData,
+            )
+
             extent_poly = GrpcPolygonData(points=polygon_points)
 
             edb.cutout(
@@ -71,65 +82,83 @@ def apply_cutout(edb, cut_data):
                 reference_nets=signal_nets if signal_nets else [],
                 custom_extent=polygon_points,
                 keep_lines_as_path=True,
-                custom_extent_units="meter"  # Coordinates are in meters
+                custom_extent_units="meter",  # Coordinates are in meters
             )
             logger.info("[OK] Cutout operation completed successfully")
 
             # Initialize gap_port_info for storing edge intersection data
-            cut_data['gap_port_info'] = []
+            cut_data["gap_port_info"] = []
 
             for prim in edb.modeler.primitives:
                 if prim.net_name in signal_nets:
                     int_type = extent_poly.intersection_type(prim.polygon_data).value
 
                     if int_type in [3]:
-                        clipped_polys = extent_poly.intersect([extent_poly], [prim.polygon_data])
+                        clipped_polys = extent_poly.intersect(
+                            [extent_poly], [prim.polygon_data]
+                        )
 
                         for clipped_poly in clipped_polys:
                             if clipped_poly.points:
-                                coords = [[pt.x.value, pt.y.value] for pt in clipped_poly.points]
-                                logger.info(f"Clipped coordinates ({len(coords)} points):")
+                                coords = [
+                                    [pt.x.value, pt.y.value]
+                                    for pt in clipped_poly.points
+                                ]
+                                logger.info(
+                                    f"Clipped coordinates ({len(coords)} points):"
+                                )
                                 for pt in coords:
                                     logger.info(f"  {pt}")
 
                                 # Find cutout edge intersections
-                                logger.info(f"\n=== Cutout Edge Analysis ===")
+                                logger.info("\n=== Cutout Edge Analysis ===")
                                 edge_intersections = find_cutout_edge_intersections(
-                                    coords,
-                                    polygon_points,
-                                    tolerance=1e-6
+                                    coords, polygon_points, tolerance=1e-6
                                 )
 
-                                logger.info(f"Found edge intersections: {len(edge_intersections)}")
-                                for idx, (edge, midpoint) in enumerate(edge_intersections, 1):
+                                logger.info(
+                                    f"Found edge intersections: {len(edge_intersections)}"
+                                )
+                                for idx, (edge, midpoint) in enumerate(
+                                    edge_intersections, 1
+                                ):
                                     logger.info(f"\n[{idx}] Edge:")
-                                    logger.info(f"  Start: [{edge[0][0]:.9f}, {edge[0][1]:.9f}] meters")
-                                    logger.info(f"  End:   [{edge[1][0]:.9f}, {edge[1][1]:.9f}] meters")
-                                    logger.info(f"  Center: [{midpoint[0]:.9f}, {midpoint[1]:.9f}] meters")
+                                    logger.info(
+                                        f"  Start: [{edge[0][0]:.9f}, {edge[0][1]:.9f}] meters"
+                                    )
+                                    logger.info(
+                                        f"  End:   [{edge[1][0]:.9f}, {edge[1][1]:.9f}] meters"
+                                    )
+                                    logger.info(
+                                        f"  Center: [{midpoint[0]:.9f}, {midpoint[1]:.9f}] meters"
+                                    )
                                 logger.info("=" * 50)
 
                                 # Store edge intersections info for gap port creation
                                 if edge_intersections:
                                     gap_info = {
-                                        'net_name': prim.net_name,
-                                        'prim_id': prim.id,
-                                        'edge_intersections': edge_intersections
+                                        "net_name": prim.net_name,
+                                        "prim_id": prim.id,
+                                        "edge_intersections": edge_intersections,
                                     }
-                                    cut_data['gap_port_info'].append(gap_info)
-                                    logger.debug(f"Stored gap port info for {prim.net_name}, primitive ID: {prim.id}")
-
+                                    cut_data["gap_port_info"].append(gap_info)
+                                    logger.debug(
+                                        f"Stored gap port info for {prim.net_name}, primitive ID: {prim.id}"
+                                    )
 
             return True
 
         except Exception as cutout_error:
             logger.error(f"Cutout operation failed: {cutout_error}")
             import traceback
+
             traceback.print_exc()
             return False
 
     except Exception as e:
         logger.error(f"Failed to apply cutout: {e}")
         import traceback
+
         traceback.print_exc()
         return False
 
@@ -173,9 +202,9 @@ def find_endpoint_pads(edb, net_name):
             same_net_connections = []
             for obj in connected:
                 # Check if object has net_name attribute and matches
-                if hasattr(obj, 'net_name') and obj.net_name == net_name:
+                if hasattr(obj, "net_name") and obj.net_name == net_name:
                     # Exclude self-reference
-                    if hasattr(obj, 'id') and obj.id != pad.id:
+                    if hasattr(obj, "id") and obj.id != pad.id:
                         same_net_connections.append(obj)
 
             # Endpoint criteria:
@@ -214,14 +243,17 @@ def find_nearest_pad_to_point(edb, net_name, point):
         padstacks = edb.padstacks.get_instances(net_name=net_name)
 
         nearest_pad = None
-        min_distance = float('inf')
+        min_distance = float("inf")
 
         for pad in padstacks:
             # Only consider component pins
             if pad.is_pin:
                 # Skip UnnamedODBPadstack (invalid/unnamed pads from ODB)
                 try:
-                    if pad.padstack_def and pad.padstack_def.name == 'UnnamedODBPadstack':
+                    if (
+                        pad.padstack_def
+                        and pad.padstack_def.name == "UnnamedODBPadstack"
+                    ):
                         continue
                 except (AttributeError, Exception):
                     pass  # If padstack_def is not accessible, continue anyway
@@ -237,7 +269,7 @@ def find_nearest_pad_to_point(edb, net_name, point):
 
     except Exception as e:
         logger.warning(f"Error finding nearest pad for net '{net_name}': {e}")
-        return None, float('inf')
+        return None, float("inf")
 
 
 def _find_nearest_pad_from_cache(cached_pads, point):
@@ -252,7 +284,7 @@ def _find_nearest_pad_from_cache(cached_pads, point):
         tuple: (PadstackInstance or None, distance in meters)
     """
     nearest_pad = None
-    min_distance = float('inf')
+    min_distance = float("inf")
 
     for pad, pos in cached_pads:
         dist = calculate_point_distance(point, pos)
@@ -287,7 +319,7 @@ def _find_net_extreme_endpoints_from_cache(cached_paths, tolerance=1e-3):
     endpoints = []
     for center_line in cached_paths:
         if len(center_line) >= 2:
-            endpoints.append(center_line[0])   # start
+            endpoints.append(center_line[0])  # start
             endpoints.append(center_line[-1])  # end
 
     if len(endpoints) < 2:
@@ -304,7 +336,7 @@ def _find_net_extreme_endpoints_from_cache(cached_paths, tolerance=1e-3):
         cluster = [pt]
         used[i] = True
 
-        for j in range(i+1, len(endpoints)):
+        for j in range(i + 1, len(endpoints)):
             if not used[j]:
                 if calculate_point_distance(pt, endpoints[j]) < tolerance:
                     cluster.append(endpoints[j])
@@ -319,7 +351,7 @@ def _find_net_extreme_endpoints_from_cache(cached_paths, tolerance=1e-3):
     farthest_pair = None
 
     for i, pt1 in enumerate(merged):
-        for pt2 in merged[i+1:]:
+        for pt2 in merged[i + 1 :]:
             dist = calculate_point_distance(pt1, pt2)
             if dist > max_dist:
                 max_dist = dist
@@ -327,11 +359,11 @@ def _find_net_extreme_endpoints_from_cache(cached_paths, tolerance=1e-3):
 
     if farthest_pair:
         return {
-            'start': farthest_pair[0],
-            'end': farthest_pair[1],
-            'distance': max_dist,
-            'total_paths': len(cached_paths),
-            'merged_endpoints': len(merged)
+            "start": farthest_pair[0],
+            "end": farthest_pair[1],
+            "distance": max_dist,
+            "total_paths": len(cached_paths),
+            "merged_endpoints": len(merged),
         }
 
     return None
@@ -370,7 +402,7 @@ def find_net_extreme_endpoints(edb, net_name, tolerance=1e-3):
     endpoints = []
     for path in paths:
         if len(path.center_line) >= 2:
-            endpoints.append(path.center_line[0])   # start
+            endpoints.append(path.center_line[0])  # start
             endpoints.append(path.center_line[-1])  # end
 
     if len(endpoints) < 2:
@@ -388,7 +420,7 @@ def find_net_extreme_endpoints(edb, net_name, tolerance=1e-3):
         cluster = [pt]
         used[i] = True
 
-        for j in range(i+1, len(endpoints)):
+        for j in range(i + 1, len(endpoints)):
             if not used[j]:
                 if calculate_point_distance(pt, endpoints[j]) < tolerance:
                     cluster.append(endpoints[j])
@@ -404,7 +436,7 @@ def find_net_extreme_endpoints(edb, net_name, tolerance=1e-3):
     farthest_pair = None
 
     for i, pt1 in enumerate(merged):
-        for pt2 in merged[i+1:]:
+        for pt2 in merged[i + 1 :]:
             dist = calculate_point_distance(pt1, pt2)
             if dist > max_dist:
                 max_dist = dist
@@ -412,11 +444,11 @@ def find_net_extreme_endpoints(edb, net_name, tolerance=1e-3):
 
     if farthest_pair:
         return {
-            'start': farthest_pair[0],
-            'end': farthest_pair[1],
-            'distance': max_dist,
-            'total_paths': len(paths),
-            'merged_endpoints': len(merged)
+            "start": farthest_pair[0],
+            "end": farthest_pair[1],
+            "distance": max_dist,
+            "total_paths": len(paths),
+            "merged_endpoints": len(merged),
         }
 
     return None
@@ -437,32 +469,33 @@ def find_endpoint_pads_for_selected_nets(edb, cut_data):
         bool: True if successful, False otherwise
     """
     try:
-
         logger.info("=" * 70)
         logger.info("EDB Cutter - Finding Endpoint Pads for Selected Nets")
         logger.info("=" * 70)
 
         # Get selected nets from cut_data
-        selected_nets = cut_data.get('selected_nets', {})
+        selected_nets = cut_data.get("selected_nets", {})
         logger.debug(f"cut_data keys: {list(cut_data.keys())}")
         logger.debug(f"selected_nets from cut_data: {selected_nets}")
-        logger.debug(f"Type of selected_nets: {type(selected_nets)}")
+        # logger.debug(f"Type of selected_nets: {type(selected_nets)}")
 
-        signal_nets = selected_nets.get('signal', [])
+        signal_nets = selected_nets.get("signal", [])
         logger.debug(f"signal_nets extracted: {signal_nets}")
-        logger.debug(f"Type of signal_nets: {type(signal_nets)}")
+        # logger.debug(f"Type of signal_nets: {type(signal_nets)}")
         logger.debug(f"Length of signal_nets: {len(signal_nets) if signal_nets else 0}")
 
         # Get cut polyline points
-        cut_points = cut_data.get('points', [])
+        cut_points = cut_data.get("points", [])
         if not cut_points or len(cut_points) < 2:
-            logger.info("[WARNING] No valid cut points found. Cannot determine farthest endpoints.")
-            cut_data['endpoint_pads'] = {}
+            logger.info(
+                "[WARNING] No valid cut points found. Cannot determine farthest endpoints."
+            )
+            cut_data["endpoint_pads"] = {}
             return True
 
         if not signal_nets:
             logger.info("[WARNING] No signal nets selected.")
-            cut_data['endpoint_pads'] = {}
+            cut_data["endpoint_pads"] = {}
             return True
 
         # ============================================================
@@ -480,7 +513,9 @@ def find_endpoint_pads_for_selected_nets(edb, cut_data):
         for net_name in signal_nets:
             # Load paths
             paths = edb.modeler.get_primitives(net_name=net_name, prim_type="path")
-            paths_cache[net_name] = [p.center_line for p in paths if len(p.center_line) >= 2]
+            paths_cache[net_name] = [
+                p.center_line for p in paths if len(p.center_line) >= 2
+            ]
 
             # Load padstacks and filter valid pins
             padstacks = edb.padstacks.get_instances(net_name=net_name)
@@ -488,7 +523,10 @@ def find_endpoint_pads_for_selected_nets(edb, cut_data):
             for pad in padstacks:
                 if pad.is_pin:
                     try:
-                        if pad.padstack_def and pad.padstack_def.name == 'UnnamedODBPadstack':
+                        if (
+                            pad.padstack_def
+                            and pad.padstack_def.name == "UnnamedODBPadstack"
+                        ):
                             continue
                     except (AttributeError, Exception):
                         pass
@@ -519,17 +557,25 @@ def find_endpoint_pads_for_selected_nets(edb, cut_data):
 
             # Step 1: Find extreme endpoints using cached paths
             cached_paths = paths_cache.get(net_name, [])
-            net_info = _find_net_extreme_endpoints_from_cache(cached_paths, tolerance=1e-3)
+            net_info = _find_net_extreme_endpoints_from_cache(
+                cached_paths, tolerance=1e-3
+            )
 
             if not net_info:
-                logger.info(f"  [WARNING] Could not find endpoints for this net")
+                logger.info("  [WARNING] Could not find endpoints for this net")
                 logger.info("")
                 continue
 
             logger.info(f"  Total paths: {net_info['total_paths']}")
-            logger.info(f"  Unique endpoints after merging: {net_info['merged_endpoints']}")
-            logger.info(f"  Start point: [{net_info['start'][0]:.6f}, {net_info['start'][1]:.6f}] m")
-            logger.info(f"  End point:   [{net_info['end'][0]:.6f}, {net_info['end'][1]:.6f}] m")
+            logger.info(
+                f"  Unique endpoints after merging: {net_info['merged_endpoints']}"
+            )
+            logger.info(
+                f"  Start point: [{net_info['start'][0]:.6f}, {net_info['start'][1]:.6f}] m"
+            )
+            logger.info(
+                f"  End point:   [{net_info['end'][0]:.6f}, {net_info['end'][1]:.6f}] m"
+            )
             logger.info(f"  Distance between extremes: {net_info['distance']:.6f} m")
             logger.info("")
 
@@ -538,7 +584,9 @@ def find_endpoint_pads_for_selected_nets(edb, cut_data):
             endpoint_pads = []
 
             # Find pad near start point
-            start_pad, start_dist = _find_nearest_pad_from_cache(cached_pads, net_info['start'])
+            start_pad, start_dist = _find_nearest_pad_from_cache(
+                cached_pads, net_info["start"]
+            )
 
             if start_pad:
                 endpoint_pads.append(start_pad)
@@ -549,12 +597,14 @@ def find_endpoint_pads_for_selected_nets(edb, cut_data):
                 logger.info(f"      Component: {comp_name}")
                 logger.info(f"      Distance from extreme point: {start_dist:.6f} m")
             else:
-                logger.info(f"  [START] No pin found on this net")
+                logger.info("  [START] No pin found on this net")
 
             logger.info("")
 
             # Find pad near end point
-            end_pad, end_dist = _find_nearest_pad_from_cache(cached_pads, net_info['end'])
+            end_pad, end_dist = _find_nearest_pad_from_cache(
+                cached_pads, net_info["end"]
+            )
 
             if end_pad:
                 # Check if it's the same pad as start (avoid duplicates)
@@ -567,9 +617,9 @@ def find_endpoint_pads_for_selected_nets(edb, cut_data):
                     logger.info(f"      Component: {comp_name}")
                     logger.info(f"      Distance from extreme point: {end_dist:.6f} m")
                 else:
-                    logger.info(f"  [END] Same pad as start point - skipped")
+                    logger.info("  [END] Same pad as start point - skipped")
             else:
-                logger.info(f"  [END] No pin found on this net")
+                logger.info("  [END] No pin found on this net")
 
             logger.info("")
 
@@ -577,9 +627,11 @@ def find_endpoint_pads_for_selected_nets(edb, cut_data):
             if endpoint_pads:
                 endpoint_results[net_name] = endpoint_pads
                 total_endpoints += len(endpoint_pads)
-                logger.info(f"  [OK] Found {len(endpoint_pads)} endpoint pad(s) for this net")
+                logger.info(
+                    f"  [OK] Found {len(endpoint_pads)} endpoint pad(s) for this net"
+                )
             else:
-                logger.info(f"  [WARNING] No endpoint pads found for this net")
+                logger.info("  [WARNING] No endpoint pads found for this net")
 
             logger.info("")
 
@@ -594,15 +646,16 @@ def find_endpoint_pads_for_selected_nets(edb, cut_data):
         logger.info("")
 
         # Store results in cut_data for later use (e.g., port creation)
-        cut_data['endpoint_pads'] = endpoint_results
+        cut_data["endpoint_pads"] = endpoint_results
 
         return True
 
     except Exception as e:
         logger.error(f"Failed to find endpoint pads: {e}")
         import traceback
+
         traceback.print_exc()
-        cut_data['endpoint_pads'] = {}
+        cut_data["endpoint_pads"] = {}
         return False
 
 
@@ -623,7 +676,7 @@ def is_valid_padstack(pad):
         _ = pad.id  # This will fail if underlying C++ object is null
 
         # Skip UnnamedODBPadstack (invalid/unnamed pads from ODB)
-        if pad.padstack_def and pad.padstack_def.name == 'UnnamedODBPadstack':
+        if pad.padstack_def and pad.padstack_def.name == "UnnamedODBPadstack":
             return False
 
         return True
@@ -648,7 +701,7 @@ def remove_and_create_ports(edb, cut_data):
         logger.info("=" * 70)
 
         # Get endpoint pads from cut_data
-        endpoint_pads = cut_data.get('endpoint_pads', {})
+        endpoint_pads = cut_data.get("endpoint_pads", {})
         if not endpoint_pads:
             logger.info("[WARNING] No endpoint pads found. Skipping port creation.")
             logger.info("")
@@ -657,28 +710,25 @@ def remove_and_create_ports(edb, cut_data):
         # Validate endpoints before processing (filter out pads deleted by cutout)
         logger.info("Validating endpoint pads after cutout...")
         valid_endpoint_pads = {}
-        stats = {
-            'total_nets': 0,
-            'nets_with_2': 0,
-            'nets_with_1': 0,
-            'nets_with_0': 0
-        }
+        stats = {"total_nets": 0, "nets_with_2": 0, "nets_with_1": 0, "nets_with_0": 0}
 
         for net_name, endpoints in endpoint_pads.items():
-            stats['total_nets'] += 1
+            stats["total_nets"] += 1
 
             # Filter valid endpoints (not deleted by cutout)
             valid_endpoints = [ep for ep in endpoints if is_valid_padstack(ep)]
 
             if len(valid_endpoints) == 2:
-                stats['nets_with_2'] += 1
+                stats["nets_with_2"] += 1
                 valid_endpoint_pads[net_name] = valid_endpoints
             elif len(valid_endpoints) == 1:
-                stats['nets_with_1'] += 1
+                stats["nets_with_1"] += 1
                 valid_endpoint_pads[net_name] = valid_endpoints
             else:
-                stats['nets_with_0'] += 1
-                logger.info(f"  [SKIP] Net '{net_name}': No valid endpoints (both deleted by cutout)")
+                stats["nets_with_0"] += 1
+                logger.info(
+                    f"  [SKIP] Net '{net_name}': No valid endpoints (both deleted by cutout)"
+                )
 
         logger.info(f"  Nets with 2 valid endpoints: {stats['nets_with_2']}")
         logger.info(f"  Nets with 1 valid endpoint: {stats['nets_with_1']}")
@@ -689,21 +739,27 @@ def remove_and_create_ports(edb, cut_data):
         endpoint_pads = valid_endpoint_pads
 
         if not endpoint_pads:
-            logger.info("[WARNING] No valid endpoint pads remaining after validation. Skipping port creation.")
+            logger.info(
+                "[WARNING] No valid endpoint pads remaining after validation. Skipping port creation."
+            )
             logger.info("")
             return True
 
         # Get selected power nets from cut_data
-        selected_nets = cut_data.get('selected_nets', {})
-        power_nets = selected_nets.get('power', [])
+        selected_nets = cut_data.get("selected_nets", {})
+        power_nets = selected_nets.get("power", [])
 
         if not power_nets:
-            logger.info("[WARNING] No power nets selected. Cannot create circuit ports without reference.")
+            logger.info(
+                "[WARNING] No power nets selected. Cannot create circuit ports without reference."
+            )
             logger.info("")
             return True
 
         logger.info(f"Signal nets with endpoints: {len(endpoint_pads)}")
-        logger.info(f"Power nets for reference: {len(power_nets)} ({', '.join(power_nets)})")
+        logger.info(
+            f"Power nets for reference: {len(power_nets)} ({', '.join(power_nets)})"
+        )
         logger.info("")
 
         # Collect all power net padstack instances (do this once, outside the loop)
@@ -723,9 +779,11 @@ def remove_and_create_ports(edb, cut_data):
         logger.info("")
 
         # Get polygon coordinates for region checking
-        polygon_points = cut_data.get('points', [])
+        polygon_points = cut_data.get("points", [])
         if not polygon_points or len(polygon_points) < 3:
-            logger.info("[WARNING] No valid polygon found in cut_data. Creating ports for all endpoints.")
+            logger.info(
+                "[WARNING] No valid polygon found in cut_data. Creating ports for all endpoints."
+            )
             use_polygon_filter = False
         else:
             use_polygon_filter = True
@@ -746,21 +804,27 @@ def remove_and_create_ports(edb, cut_data):
                 # Endpoints are pre-validated, safe to access properties
                 pin_name = signal_pin.name
                 pin_position = signal_pin.position
-                component_name = signal_pin.component.name if signal_pin.component else "None"
+                component_name = (
+                    signal_pin.component.name if signal_pin.component else "None"
+                )
 
                 logger.info(f"  [{idx}/{len(endpoints)}] Signal pin: {pin_name}")
-                logger.info(f"      Position: [{pin_position[0]:.6f}, {pin_position[1]:.6f}]")
+                logger.info(
+                    f"      Position: [{pin_position[0]:.6f}, {pin_position[1]:.6f}]"
+                )
                 logger.info(f"      Component: {component_name}")
 
                 # Check if endpoint is inside polygon region
                 if use_polygon_filter:
                     is_inside = is_point_in_polygon(pin_position, polygon_points)
                     if not is_inside:
-                        logger.info(f"      [SKIP] Endpoint outside polygon region - no port created")
+                        logger.info(
+                            "      [SKIP] Endpoint outside polygon region - no port created"
+                        )
                         logger.info("")
                         continue
                     else:
-                        logger.info(f"      [OK] Endpoint inside polygon region")
+                        logger.info("      [OK] Endpoint inside polygon region")
 
                 # Find reference power pins
                 reference_pins = []
@@ -779,11 +843,15 @@ def remove_and_create_ports(edb, cut_data):
 
                     if component_power_pins:
                         reference_pins = component_power_pins
-                        logger.info(f"      Found {len(reference_pins)} power pins in same component")
+                        logger.info(
+                            f"      Found {len(reference_pins)} power pins in same component"
+                        )
 
                 # Strategy 2: If no component power pins, find nearest power pins
                 if not reference_pins:
-                    logger.info(f"      No power pins in component, finding nearest pins...")
+                    logger.info(
+                        "      No power pins in component, finding nearest pins..."
+                    )
 
                     # Calculate distance to each power pin (skip invalid pins)
                     def calculate_distance(pin):
@@ -791,10 +859,10 @@ def remove_and_create_ports(edb, cut_data):
                             pos = pin.position
                             dx = pos[0] - pin_position[0]
                             dy = pos[1] - pin_position[1]
-                            return (dx*dx + dy*dy) ** 0.5
+                            return (dx * dx + dy * dy) ** 0.5
                         except (AttributeError, RuntimeError, Exception):
                             # Return infinite distance for invalid pins
-                            return float('inf')
+                            return float("inf")
 
                     # Filter out invalid power pins
                     valid_power_pins = []
@@ -807,16 +875,22 @@ def remove_and_create_ports(edb, cut_data):
 
                     if valid_power_pins:
                         # Sort power pins by distance
-                        sorted_power_pins = sorted(valid_power_pins, key=calculate_distance)
+                        sorted_power_pins = sorted(
+                            valid_power_pins, key=calculate_distance
+                        )
 
                         # Use closest 3 power pins as reference
                         reference_pins = sorted_power_pins[:3]
 
                         if reference_pins:
                             nearest_distance = calculate_distance(reference_pins[0])
-                            logger.info(f"      Using {len(reference_pins)} nearest power pins (closest: {nearest_distance:.6f}m)")
+                            logger.info(
+                                f"      Using {len(reference_pins)} nearest power pins (closest: {nearest_distance:.6f}m)"
+                            )
                     else:
-                        logger.info(f"      [WARNING] No valid power pins found (all deleted by cutout)")
+                        logger.info(
+                            "      [WARNING] No valid power pins found (all deleted by cutout)"
+                        )
 
                 # Create circuit port
                 if reference_pins:
@@ -827,7 +901,7 @@ def remove_and_create_ports(edb, cut_data):
                         port = signal_pin.create_port(
                             name=port_name,
                             reference=reference_pins,
-                            is_circuit_port=True
+                            is_circuit_port=True,
                         )
                         # Set positive terminal name explicitly
                         port.name = port_name
@@ -836,10 +910,12 @@ def remove_and_create_ports(edb, cut_data):
                         total_ports_created += 1
 
                     except Exception as port_error:
-                        logger.info(f"      [ERROR] Failed to create port: {port_error}")
+                        logger.info(
+                            f"      [ERROR] Failed to create port: {port_error}"
+                        )
                         failed_ports += 1
                 else:
-                    logger.info(f"      [ERROR] No reference pins found")
+                    logger.info("      [ERROR] No reference pins found")
                     failed_ports += 1
 
                 logger.info("")
@@ -859,17 +935,19 @@ def remove_and_create_ports(edb, cut_data):
     except Exception as e:
         logger.error(f"Failed to create ports: {e}")
         import traceback
+
         traceback.print_exc()
         return False
 
 
-def create_gap_ports(edb, cut_data):
+def create_gap_ports(edb, cut_data, previous_cut_points=None):
     """
     Create gap ports on cutout edges using stored edge intersection information.
 
     Args:
         edb: Opened pyedb.Edb object
         cut_data: Cut data dictionary containing gap_port_info and selected_nets
+        previous_cut_points: List of polygon points from previous cut region for proximity-based sorting
 
     Returns:
         bool: True if successful, False otherwise
@@ -880,19 +958,21 @@ def create_gap_ports(edb, cut_data):
         logger.info("=" * 70)
 
         # 1. Get gap port info from cut_data
-        gap_port_info = cut_data.get('gap_port_info', [])
+        gap_port_info = cut_data.get("gap_port_info", [])
         if not gap_port_info:
             logger.info("[WARNING] No gap port info found. Skipping gap port creation.")
             logger.info("")
             return True
 
         # 2. Get reference layer from selected_nets
-        selected_nets = cut_data.get('selected_nets', {})
-        reference_layer = selected_nets.get('reference_layer')
+        selected_nets = cut_data.get("selected_nets", {})
+        reference_layer = selected_nets.get("reference_layer")
 
         if not reference_layer:
             logger.info("[ERROR] No reference layer selected. Cannot create gap ports.")
-            logger.info("Please select a reference layer in the GUI (Nets tab -> Reference Layer for Gap Ports)")
+            logger.info(
+                "Please select a reference layer in the GUI (Nets tab -> Reference Layer for Gap Ports)"
+            )
             logger.info("")
             return False
 
@@ -905,9 +985,9 @@ def create_gap_ports(edb, cut_data):
         total_ports_failed = 0
 
         for gap_info in gap_port_info:
-            net_name = gap_info['net_name']
-            prim_id = gap_info['prim_id']
-            edge_intersections = gap_info['edge_intersections']
+            net_name = gap_info["net_name"]
+            prim_id = gap_info["prim_id"]
+            edge_intersections = gap_info["edge_intersections"]
 
             logger.info(f"Processing net: {net_name}")
             logger.info(f"  Primitive ID: {prim_id}")
@@ -925,31 +1005,73 @@ def create_gap_ports(edb, cut_data):
                 logger.info("")
                 continue
 
-            # 5. Create gap port for each edge intersection
+            # 5. Sort edge intersections by proximity to previous region (if available)
+            if previous_cut_points and len(previous_cut_points) > 0:
+                # Calculate reference point (centroid of previous region)
+                ref_x = sum(pt[0] for pt in previous_cut_points) / len(
+                    previous_cut_points
+                )
+                ref_y = sum(pt[1] for pt in previous_cut_points) / len(
+                    previous_cut_points
+                )
+                reference_point = [ref_x, ref_y]
+
+                logger.info(
+                    f"  Sorting {len(edge_intersections)} edge intersections by proximity to previous region"
+                )
+                logger.info(
+                    f"  Reference point (previous region centroid): [{ref_x:.9f}, {ref_y:.9f}]"
+                )
+
+                # Import distance calculation function
+                from .edb_manager import calculate_point_distance
+
+                # Sort by distance to reference point (ascending = closest first)
+                edge_intersections = sorted(
+                    edge_intersections,
+                    key=lambda item: calculate_point_distance(item[1], reference_point),
+                )
+
+                logger.info("  [OK] Edge intersections sorted by proximity")
+            else:
+                logger.info("  No previous region - using default edge traversal order")
+
+            logger.info("")
+
+            # 6. Create gap port for each edge intersection
             for idx, (edge, midpoint) in enumerate(edge_intersections):
                 try:
                     # Generate unique port name (0-based indexing: netname_0, netname_1, ...)
                     port_name = f"{idx}_{net_name}"
 
-                    logger.info(f"  [{idx+1}/{len(edge_intersections)}] Creating gap port: {port_name}")
-                    logger.info(f"      Edge: [{edge[0][0]:.9f}, {edge[0][1]:.9f}] -> [{edge[1][0]:.9f}, {edge[1][1]:.9f}]")
-                    logger.info(f"      Terminal point (midpoint): [{midpoint[0]:.9f}, {midpoint[1]:.9f}]")
+                    logger.info(
+                        f"  [{idx + 1}/{len(edge_intersections)}] Creating gap port: {port_name}"
+                    )
+                    logger.info(
+                        f"      Edge: [{edge[0][0]:.9f}, {edge[0][1]:.9f}] -> [{edge[1][0]:.9f}, {edge[1][1]:.9f}]"
+                    )
+                    logger.info(
+                        f"      Terminal point (midpoint): [{midpoint[0]:.9f}, {midpoint[1]:.9f}]"
+                    )
                     logger.info(f"      Reference layer: {reference_layer}")
 
                     # Create edge port on polygon
                     edb.source_excitation.create_edge_port_on_polygon(
-                        polygon=prim,               # Re-fetched primitive
-                        terminal_point=midpoint,    # Midpoint from edge_intersections
+                        polygon=prim,  # Re-fetched primitive
+                        terminal_point=midpoint,  # Midpoint from edge_intersections
                         reference_layer=reference_layer,  # From GUI selection
-                        port_name=port_name         # Use net name-based port name
+                        port_name=port_name,  # Use net name-based port name
                     )
 
-                    logger.info(f"      [OK] Gap port created successfully")
+                    logger.info("      [OK] Gap port created successfully")
                     total_ports_created += 1
 
                 except Exception as port_error:
-                    logger.info(f"      [ERROR] Failed to create gap port: {port_error}")
+                    logger.info(
+                        f"      [ERROR] Failed to create gap port: {port_error}"
+                    )
                     import traceback
+
                     traceback.print_exc()
                     total_ports_failed += 1
 
@@ -970,5 +1092,6 @@ def create_gap_ports(edb, cut_data):
     except Exception as e:
         logger.error(f"Failed to create gap ports: {e}")
         import traceback
+
         traceback.print_exc()
         return False
