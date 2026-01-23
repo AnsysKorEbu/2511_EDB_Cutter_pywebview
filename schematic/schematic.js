@@ -311,8 +311,8 @@ async function generateConfiguration() {
             // Ask user if they want to open Circuit GUI
             const shouldContinue = confirm('Configuration saved! Do you want to open HFSS Circuit Generator?');
             if (shouldContinue) {
-                console.log('User chose to open Circuit GUI');
-                await launchCircuitGuiSilent();
+                console.log('User chose to open Circuit GUI and close current window');
+                await launchCircuitGuiAndClose();
             }
         } else {
             showError(`Failed to save configuration: ${result.error}`);
@@ -387,6 +387,34 @@ async function launchCircuitGuiSilent() {
         if (result.success) {
             console.log('Circuit GUI launched successfully');
             // No alert on success - silent launch
+        } else {
+            console.error('Failed to launch Circuit GUI:', result.error);
+            alert(`Failed to launch Circuit GUI: ${result.error}`);
+        }
+    } catch (error) {
+        console.error('Error launching Circuit GUI:', error);
+        alert(`Error launching Circuit GUI: ${error.message || error}`);
+    }
+}
+
+/**
+ * Launch Circuit GUI and close current window
+ * Used when user confirms after configuration generation
+ */
+async function launchCircuitGuiAndClose() {
+    try {
+        console.log('Launching Circuit GUI and closing current window...');
+
+        const result = await window.pywebview.api.launch_circuit_gui(true);
+
+        if (result.success) {
+            console.log('Circuit GUI launched successfully');
+
+            // Close current window if requested
+            if (result.close_window) {
+                console.log('Closing current window...');
+                window.pywebview.api.close_window();
+            }
         } else {
             console.error('Failed to launch Circuit GUI:', result.error);
             alert(`Failed to launch Circuit GUI: ${result.error}`);

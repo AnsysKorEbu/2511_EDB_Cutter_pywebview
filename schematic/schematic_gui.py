@@ -201,12 +201,15 @@ class SchematicApi:
             traceback.print_exc()
             return {'success': False, 'error': error_msg}
 
-    def launch_circuit_gui(self):
+    def launch_circuit_gui(self, close_current_window=False):
         """
         Launch Circuit GUI (HFSS Circuit Generator) as subprocess.
 
+        Args:
+            close_current_window: If True, close the current window after launching
+
         Returns:
-            dict: {'success': bool, 'error': str}
+            dict: {'success': bool, 'error': str, 'close_window': bool}
         """
         try:
             import subprocess
@@ -218,11 +221,41 @@ class SchematicApi:
             subprocess.Popen(cmd_args, cwd=Path.cwd())
 
             logger.info("[OK] Circuit GUI subprocess launched")
-            return {'success': True}
+            if close_current_window:
+                logger.info("[INFO] Requesting current window to close")
+
+            return {
+                'success': True,
+                'close_window': close_current_window
+            }
 
         except Exception as e:
             error_msg = f"Failed to launch Circuit GUI: {str(e)}"
             logger.error(f"\n[ERROR] {error_msg}")
             import traceback
             traceback.print_exc()
+            return {'success': False, 'error': error_msg}
+
+    def close_window(self):
+        """
+        Close the current Schematic GUI window.
+
+        Returns:
+            dict: {'success': bool}
+        """
+        try:
+            import webview
+            # Get all active windows and close the first one (current window)
+            windows = webview.windows
+            if windows:
+                logger.info("Closing current window...")
+                windows[0].destroy()
+                return {'success': True}
+            else:
+                logger.warning("No active window found to close")
+                return {'success': False, 'error': 'No active window'}
+
+        except Exception as e:
+            error_msg = f"Failed to close window: {str(e)}"
+            logger.error(error_msg)
             return {'success': False, 'error': error_msg}

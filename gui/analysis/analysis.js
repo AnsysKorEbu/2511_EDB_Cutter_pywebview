@@ -319,7 +319,7 @@ async function analyzeAll() {
     const shouldContinue = confirm('Analysis complete! Do you want to generate circuit and run?');
     if (shouldContinue) {
         console.log('User chose to generate circuit and run');
-        await launchSchematicGuiSilent();
+        await launchSchematicGuiAndClose();
     }
 }
 
@@ -358,6 +358,34 @@ async function launchSchematicGuiSilent() {
         if (result.success) {
             console.log('Schematic GUI launched successfully');
             // No alert on success - silent launch
+        } else {
+            console.error('Failed to launch Schematic GUI:', result.error);
+            alert(`Failed to launch Schematic GUI: ${result.error}`);
+        }
+    } catch (error) {
+        console.error('Error launching Schematic GUI:', error);
+        alert(`Error launching Schematic GUI: ${error.message || error}`);
+    }
+}
+
+/**
+ * Launch Schematic GUI and close current window
+ * Used when user confirms after "Analyze All" completion
+ */
+async function launchSchematicGuiAndClose() {
+    try {
+        console.log('Launching Schematic GUI and closing current window...');
+
+        const result = await window.pywebview.api.launch_schematic_gui(true);
+
+        if (result.success) {
+            console.log('Schematic GUI launched successfully');
+
+            // Close current window if requested
+            if (result.close_window) {
+                console.log('Closing current window...');
+                window.pywebview.api.close_window();
+            }
         } else {
             console.error('Failed to launch Schematic GUI:', result.error);
             alert(`Failed to launch Schematic GUI: ${result.error}`);

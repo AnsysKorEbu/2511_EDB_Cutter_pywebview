@@ -729,6 +729,29 @@ class Api:
             traceback.print_exc()
             return {'success': False, 'error': error_msg}
 
+    def close_main_window(self):
+        """
+        Close the main EDB Cutter window.
+
+        Returns:
+            dict: {'success': bool}
+        """
+        try:
+            # Get all active windows and close the first one (current window)
+            windows = webview.windows
+            if windows:
+                logger.info("Closing main window...")
+                windows[0].destroy()
+                return {'success': True}
+            else:
+                logger.warning("No active window found to close")
+                return {'success': False, 'error': 'No active window'}
+
+        except Exception as e:
+            error_msg = f"Failed to close window: {str(e)}"
+            logger.error(error_msg)
+            return {'success': False, 'error': error_msg}
+
     def save_section_selection(self, excel_file, cut_section_mapping):
         """
         Save cut-section mapping and layer data to .sss files.
