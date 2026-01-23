@@ -460,9 +460,10 @@ class AnalysisApi:
 
             logger.info(f"\n[INFO] Launching Schematic GUI as subprocess")
             logger.info(f"Analysis folder: {analysis_folder}")
+            logger.info(f"EDB Version: {self.edb_version}")
 
-            # Build command args
-            cmd_args = [sys.executable, "-m", "schematic.gui_launcher", str(analysis_folder)]
+            # Build command args: [analysis_folder] [edb_version]
+            cmd_args = [sys.executable, "-m", "schematic.gui_launcher", str(analysis_folder), self.edb_version]
 
             subprocess.Popen(cmd_args, cwd=Path.cwd())
 

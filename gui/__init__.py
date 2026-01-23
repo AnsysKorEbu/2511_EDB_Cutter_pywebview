@@ -459,13 +459,15 @@ class Api:
         """
         try:
             logger.info(f"\n[INFO] Launching Schematic GUI as subprocess")
+            logger.info(f"EDB Version: {self.edb_version}")
             if analysis_folder:
                 logger.info(f"Analysis folder: {analysis_folder}")
 
-            # Build command args
+            # Build command args: [analysis_folder] [edb_version]
             cmd_args = [sys.executable, "-m", "schematic.gui_launcher"]
             if analysis_folder:
                 cmd_args.append(str(analysis_folder))
+            cmd_args.append(self.edb_version)
 
             subprocess.Popen(cmd_args, cwd=Path.cwd())
 

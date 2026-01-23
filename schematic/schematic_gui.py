@@ -12,19 +12,22 @@ from util.logger_module import logger
 class SchematicApi:
     """JavaScript API for Schematic GUI (Full Touchstone Generator)"""
     
-    def __init__(self, analysis_folder=None):
+    def __init__(self, analysis_folder=None, edb_version="2025.1"):
         """
         Initialize Schematic API.
-        
+
         Args:
             analysis_folder: Optional initial folder path containing .s*p files
+            edb_version: EDB version string (e.g., "2025.2")
         """
         self.analysis_folder_str = str(analysis_folder) if analysis_folder else None
+        self.edb_version = edb_version
         self.touchstone_files = []
-        
+
         if self.analysis_folder_str:
             self.touchstone_files = self._discover_touchstone_files()
             logger.info(f"Schematic GUI initialized with {len(self.touchstone_files)} touchstone files")
+            logger.info(f"EDB Version: {self.edb_version}")
     
     def _discover_touchstone_files(self):
         """
@@ -216,8 +219,9 @@ class SchematicApi:
             import sys
 
             logger.info(f"\n[INFO] Launching Circuit GUI as subprocess")
+            logger.info(f"EDB Version: {self.edb_version}")
 
-            cmd_args = [sys.executable, "-m", "gui.circuit_launcher"]
+            cmd_args = [sys.executable, "-m", "gui.circuit_launcher", self.edb_version]
             subprocess.Popen(cmd_args, cwd=Path.cwd())
 
             logger.info("[OK] Circuit GUI subprocess launched")
