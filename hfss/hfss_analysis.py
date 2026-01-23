@@ -129,7 +129,7 @@ def run_hfss_analysis(aedb_path, edb_version, output_path):
 
         # Wait for simulation with optional timeout
         # timeout_seconds = 0 means no limit, otherwise stop after timeout
-        timeout_seconds = 6000  # 180
+        timeout_seconds = 0  # 180
         if timeout_seconds > 0:
             logger.info(f"Waiting up to {timeout_seconds} seconds...")
         else:
@@ -190,6 +190,8 @@ def run_hfss_analysis(aedb_path, edb_version, output_path):
 
         try:
             exported_file = hfss3dl.export_touchstone(
+                setup="Setup1",
+                sweep="Sweep1",
                 output_file=str(touchstone_output_file),
                 renormalization=False,
                 impedance=50.0,
