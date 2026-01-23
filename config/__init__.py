@@ -14,6 +14,7 @@ from .config import (
     RESULTS_DIR,
     LOGS_DIR,
     CONFIG_DIR,
+    STACKUP_DIR,
 
     # Subdirectory Names
     CUT_SUBDIR,
@@ -77,6 +78,7 @@ __all__ = [
     'RESULTS_DIR',
     'LOGS_DIR',
     'CONFIG_DIR',
+    'STACKUP_DIR',
 
     # Subdirectory Names
     'CUT_SUBDIR',

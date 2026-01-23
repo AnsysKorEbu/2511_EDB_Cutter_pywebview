@@ -33,6 +33,9 @@ LOGS_DIR = Path('logs')
 CONFIG_DIR = Path('config')
 """Base directory for configuration files"""
 
+STACKUP_DIR = Path('stackup')
+"""Base directory for stackup Excel files"""
+
 # ============================================================================
 # SUBDIRECTORY NAMES
 # ============================================================================

@@ -20,6 +20,7 @@ from config import (
     DEFAULT_EDB_VERSION,
     RESULTS_DIR,
     SOURCE_DIR,
+    STACKUP_DIR,
     VALID_CUT_NAME_PATTERN,
     error_response,
     success_response,
@@ -568,9 +569,13 @@ class Api:
             root.withdraw()
             root.wm_attributes('-topmost', 1)
 
+            # Set initial directory to stackup folder if it exists
+            initial_dir = STACKUP_DIR if STACKUP_DIR.exists() else Path.cwd()
+
             # Open file dialog
             excel_file = filedialog.askopenfilename(
                 title="Select Excel File for Section Extraction",
+                initialdir=str(initial_dir),
                 filetypes=[
                     ("Excel Files", "*.xlsx"),
                     ("All Files", "*.*")
