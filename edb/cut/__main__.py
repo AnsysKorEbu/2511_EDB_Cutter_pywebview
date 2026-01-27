@@ -6,7 +6,6 @@ It loads cut data and calls the edb_cut_interface module.
 """
 import sys
 import json
-import shutil
 from pathlib import Path
 from .edb_cut_interface import clone_edbs_for_cuts, execute_cuts_on_clone
 from util.logger_module import logger
@@ -57,11 +56,8 @@ if __name__ == "__main__":
     input_file_path = sys.argv[3]
     grpc = sys.argv[4].lower() == 'true' if len(sys.argv) > 4 else False
 
-    # Use .aedb path directly (no need to append edb.def)
-    original_edb_path = edb_path
-
     logger.info("=" * 70)
-    logger.info("EDB Cutter Subprocess")
+    logger.info("EDB Cascade Subprocess")
     logger.info("=" * 70)
     logger.info(f"EDB Path: {edb_path}")
     logger.info(f"EDB Version: {edb_version}")
@@ -119,7 +115,7 @@ if __name__ == "__main__":
             logger.info("")
 
             try:
-                cloned_paths = clone_edbs_for_cuts(original_edb_path, num_clones, edb_version, grpc)
+                cloned_paths = clone_edbs_for_cuts(edb_path, num_clones, edb_version, grpc)
                 logger.info(f"Successfully created {len(cloned_paths)} EDB clones")
                 logger.info("")
 
@@ -146,8 +142,6 @@ if __name__ == "__main__":
                         edb_path_obj = Path(edb_path)
                         if edb_path_obj.name == 'edb.def':
                             edb_folder_name = edb_path_obj.parent.name
-                        elif edb_path_obj.suffix == '.aedb':
-                            edb_folder_name = edb_path_obj.name
                         else:
                             edb_folder_name = edb_path_obj.name
 
@@ -361,7 +355,7 @@ if __name__ == "__main__":
             logger.info("")
 
             try:
-                cloned_paths = clone_edbs_for_cuts(original_edb_path, num_clones, edb_version, grpc)
+                cloned_paths = clone_edbs_for_cuts(edb_path, num_clones, edb_version, grpc)
                 logger.info(f"Successfully created {len(cloned_paths)} EDB clones")
                 logger.info("")
 
@@ -372,8 +366,6 @@ if __name__ == "__main__":
                     edb_path_obj = Path(edb_path)
                     if edb_path_obj.name == 'edb.def':
                         edb_folder_name = edb_path_obj.parent.name
-                    elif edb_path_obj.suffix == '.aedb':
-                        edb_folder_name = edb_path_obj.name
                     else:
                         edb_folder_name = edb_path_obj.name
 

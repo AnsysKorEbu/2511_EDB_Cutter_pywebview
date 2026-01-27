@@ -1,5 +1,5 @@
 """
-GUI module for EDB Cutter using pywebview
+GUI module for EDB Cascade using pywebview
 """
 import json
 import re
@@ -738,7 +738,7 @@ class Api:
 
     def close_main_window(self):
         """
-        Close the main EDB Cutter window.
+        Close the main EDB Cascade window.
 
         Returns:
             dict: {'success': bool}
@@ -848,7 +848,7 @@ def start_gui(edb_path, edb_version="2025.1", grpc=False):
 
     # Create window
     window = webview.create_window(
-        'EDB Cutter - 2D Viewer',
+        'EDB Cascade - 2D Viewer - Beta v0.6',
         html_file.as_uri(),
         js_api=api,
         width=1200,

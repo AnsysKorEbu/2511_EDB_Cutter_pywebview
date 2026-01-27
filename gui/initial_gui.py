@@ -1,5 +1,5 @@
 """
-Initial GUI for EDB Cutter - Settings Configuration
+Initial GUI for EDB Cascade - Settings Configuration
 """
 import os
 import json
@@ -246,7 +246,7 @@ def start_initial_gui():
 
     # Create window
     window = webview.create_window(
-        'EDB Cutter - Initial Setup',
+        'EDB Cascade - Initial Setup - Beta v0.6',
         html_file.as_uri(),
         js_api=api,
         width=650,

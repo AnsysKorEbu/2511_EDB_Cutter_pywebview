@@ -27,7 +27,7 @@ def apply_cutout(edb, cut_data):
     """
     try:
         logger.info("=" * 70)
-        logger.info("EDB Cutter - Applying Cutout")
+        logger.info("EDB Cascade - Applying Cutout")
         logger.info("=" * 70)
 
         # Get polygon coordinates (custom extent)
@@ -470,7 +470,7 @@ def find_endpoint_pads_for_selected_nets(edb, cut_data):
     """
     try:
         logger.info("=" * 70)
-        logger.info("EDB Cutter - Finding Endpoint Pads for Selected Nets")
+        logger.info("EDB Cascade - Finding Endpoint Pads for Selected Nets")
         logger.info("=" * 70)
 
         # Get selected nets from cut_data
@@ -697,7 +697,7 @@ def remove_and_create_ports(edb, cut_data):
     """
     try:
         logger.info("=" * 70)
-        logger.info("EDB Cutter - Creating Circuit Ports for Endpoints")
+        logger.info("EDB Cascade - Creating Circuit Ports for Endpoints")
         logger.info("=" * 70)
 
         # Get endpoint pads from cut_data
@@ -954,7 +954,7 @@ def create_gap_ports(edb, cut_data, previous_cut_points=None):
     """
     try:
         logger.info("=" * 70)
-        logger.info("EDB Cutter - Creating Gap Ports")
+        logger.info("EDB Cascade - Creating Gap Ports")
         logger.info("=" * 70)
 
         # 1. Get gap port info from cut_data

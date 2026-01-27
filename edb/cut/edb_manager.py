@@ -27,7 +27,7 @@ def open_edb(edbpath, edbversion, grpc=False):
         Exception: If EDB opening fails
     """
     logger.info("=" * 70)
-    logger.info("EDB Cutter - Opening EDB")
+    logger.info("EDB Cascade - Opening EDB")
     logger.info("=" * 70)
     logger.info(f"EDB Path: {edbpath}")
     logger.info(f"EDB Version: {edbversion}")
@@ -64,7 +64,7 @@ def clone_edbs_for_cuts(original_edb_path, num_clones, edb_version, grpc):
         Exception: If cloning fails
     """
     logger.info("=" * 70)
-    logger.info("EDB Cutter - Cloning EDB Files")
+    logger.info("EDB Cascade - Cloning EDB Files")
     logger.info("=" * 70)
     logger.info(f"Original EDB: {original_edb_path}")
     logger.info(f"Number of clones: {num_clones}")
@@ -328,7 +328,7 @@ def execute_cuts_on_clone(edbpath, edbversion, cut_data_list, grpc=False, stacku
         return True
 
     logger.info("=" * 70)
-    logger.info(f"EDB Cutter - Execute {len(cut_data_list)} Cut(s) on Clone")
+    logger.info(f"EDB Cascade - Execute {len(cut_data_list)} Cut(s) on Clone")
     logger.info("=" * 70)
     logger.info(f"EDB Path: {edbpath}")
     logger.info(f"Number of Cuts: {len(cut_data_list)}")

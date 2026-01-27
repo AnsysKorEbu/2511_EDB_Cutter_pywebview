@@ -1,5 +1,5 @@
 """
-EDB Cutter - Main Entry Point
+EDB Cascade - Main Entry Point
 
 This application extracts EDB data using subprocess (avoiding pythonnet conflicts)
 and displays it in a GUI for region selection and cutting.
@@ -101,9 +101,9 @@ def extract_edb_data(edb_path, edb_version, grpc=True):
 
 
 def main():
-    """Start EDB Cutter application"""
+    """Start EDB Cascade application"""
     logger.info("=" * 70)
-    logger.info("EDB Cutter - GUI Application")
+    logger.info("EDB Cascade - GUI Application - Beta v0.6")
     logger.info("=" * 70)
 
     # Step 1: Always show Initial Setup GUI

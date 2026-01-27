@@ -1,5 +1,5 @@
 """
-Configuration package for EDB Cutter application.
+Configuration package for EDB Cascade application.
 
 Re-exports all configuration constants and helper functions for easy import.
 """

@@ -1,5 +1,5 @@
 """
-EDB Cutter Interface Module
+EDB Cascade Interface Module
 
 This module provides a unified interface for EDB cutting operations.
 It re-exports functions from edb_manager and net_port_handler for backward compatibility.

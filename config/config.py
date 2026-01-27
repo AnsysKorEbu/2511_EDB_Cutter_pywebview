@@ -1,5 +1,5 @@
 """
-Global configuration and constants for EDB Cutter application.
+Global configuration and constants for EDB Cascade application.
 
 This module centralizes all magic numbers, file patterns, and configuration constants
 used throughout the project to improve maintainability.
@@ -77,7 +77,7 @@ MIN_EDB_VERSION = 25.1
 # ============================================================================
 MAIN_WINDOW_WIDTH = 1200
 MAIN_WINDOW_HEIGHT = 800
-MAIN_WINDOW_TITLE = 'EDB Cutter - 2D Viewer'
+MAIN_WINDOW_TITLE = 'EDB Cascade - 2D Viewer - Beta v0.6'
 
 ANALYSIS_WINDOW_WIDTH = 900
 ANALYSIS_WINDOW_HEIGHT = 700
