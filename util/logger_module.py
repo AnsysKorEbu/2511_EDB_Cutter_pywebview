@@ -103,3 +103,43 @@ logger = setup_logger()
 
 # 환경 변수에 타임스탬프 설정 (subprocess에서 사용)
 os.environ['EDB_CUTTER_LOG_TIMESTAMP'] = _LOG_TIMESTAMP
+
+
+def log_empty_line():
+    """Log an empty line for spacing/readability"""
+    logger.info("")
+
+
+def log_separator(width=70, char="="):
+    """Log a separator line
+
+    Args:
+        width: Width of separator (default: 70)
+        char: Character to use (default: "=")
+    """
+    logger.info(char * width)
+
+
+def log_exception(context="Operation", error=None, level="error"):
+    """Log exception with traceback
+
+    Args:
+        context: Description of what operation failed (default: "Operation")
+        error: Exception object (optional)
+        level: Log level - "error" or "warning" (default: "error")
+
+    Example:
+        try:
+            risky_operation()
+        except Exception as e:
+            log_exception("Database connection", e, level="warning")
+    """
+    import traceback
+
+    if error:
+        if level == "warning":
+            logger.warning(f"Failed during {context}: {error}")
+        else:
+            logger.error(f"Failed during {context}: {error}")
+
+    traceback.print_exc()

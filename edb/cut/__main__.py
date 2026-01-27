@@ -6,10 +6,11 @@ It loads cut data and calls the edb_cut_interface module.
 """
 import sys
 import json
+import shutil
 from pathlib import Path
 from .edb_cut_interface import clone_edbs_for_cuts, execute_cuts_on_clone
 from .edb_manager import get_edb_folder_name, load_sss_files
-from util.logger_module import logger
+from util.logger_module import logger, log_exception
 
 
 def load_cut_data(cut_file_path):
@@ -190,18 +191,14 @@ if __name__ == "__main__":
                             logger.info("")
 
                     except Exception as stackup_error:
-                        logger.warning(f"Failed to generate stackup XMLs: {stackup_error}")
-                        import traceback
-                        traceback.print_exc()
+                        log_exception("stackup XML generation", stackup_error, level="warning")
                         logger.info("")
                 else:
                     logger.info("Stackup application disabled by user (SSS file selection cleared)")
                     logger.info("")
 
             except Exception as clone_error:
-                logger.error(f"Failed to clone EDB files: {clone_error}")
-                import traceback
-                traceback.print_exc()
+                log_exception("EDB cloning", clone_error)
                 sys.exit(1)
 
             # Build clone-to-cut mapping
@@ -392,15 +389,11 @@ if __name__ == "__main__":
                         logger.info("")
 
                 except Exception as stackup_error:
-                    logger.warning(f"Failed to generate stackup XML: {stackup_error}")
-                    import traceback
-                    traceback.print_exc()
+                    log_exception("stackup XML generation", stackup_error, level="warning")
                     logger.info("")
 
             except Exception as clone_error:
-                logger.error(f"Failed to clone EDB files: {clone_error}")
-                import traceback
-                traceback.print_exc()
+                log_exception("EDB cloning", clone_error)
                 sys.exit(1)
 
             # Both clones get the same cut (1 cut divides into 2 segments)
@@ -451,6 +444,5 @@ if __name__ == "__main__":
         sys.exit(1)
     except Exception as e:
         logger.info(f"\n[ERROR] Unexpected error: {e}")
-        import traceback
-        traceback.print_exc()
+        log_exception("Unexpected error in main")
         sys.exit(1)

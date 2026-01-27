@@ -7,7 +7,7 @@ Provides functions for opening, cloning, and basic geometric calculations.
 import pyedb
 from pathlib import Path
 from datetime import datetime
-from util.logger_module import logger
+from util.logger_module import logger, log_exception
 from edb.cut.stackup_loader import replace_stackup
 
 
@@ -130,9 +130,7 @@ def clone_edbs_for_cuts(original_edb_path, num_clones, edb_version, grpc):
         return cloned_paths
 
     except Exception as e:
-        logger.error(f"Failed to clone EDB files: {e}")
-        import traceback
-        traceback.print_exc()
+        log_exception("EDB cloning", e)
         raise
 
 
@@ -365,9 +363,7 @@ def execute_cuts_on_clone(edbpath, edbversion, cut_data_list, grpc=False, stacku
             logger.info("")
 
         except Exception as stackup_error:
-            logger.warning(f"Failed to replace stackup: {stackup_error}")
-            import traceback
-            traceback.print_exc()
+            log_exception("stackup replacement", stackup_error, level="warning")
             logger.info("")
 
     # Process each cut
