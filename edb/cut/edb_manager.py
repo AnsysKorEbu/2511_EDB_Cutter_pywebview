@@ -427,3 +427,87 @@ def execute_cuts_on_clone(edbpath, edbversion, cut_data_list, grpc=False, stacku
         all_success = False
 
     return all_success
+
+
+def get_edb_folder_name(edb_path):
+    """
+    Extract EDB folder name from either edb.def file path or .aedb folder path.
+
+    Args:
+        edb_path: Path to EDB file (edb.def) or folder (.aedb)
+
+    Returns:
+        str: EDB folder name (without extension)
+
+    Example:
+        get_edb_folder_name('/path/to/design.aedb/edb.def') -> 'design'
+        get_edb_folder_name('/path/to/design.aedb') -> 'design'
+    """
+    edb_path_obj = Path(edb_path)
+    if edb_path_obj.name == 'edb.def':
+        return edb_path_obj.parent.name
+    else:
+        return edb_path_obj.name
+
+
+def load_sss_files(sss_dir):
+    """
+    Find and load the latest SSS (sections and layers) files from a directory.
+
+    Args:
+        sss_dir: Path object to SSS directory
+
+    Returns:
+        dict: Dictionary with keys:
+            - 'success': bool - True if files loaded successfully
+            - 'sections_data': dict - Loaded sections JSON data (None if not found)
+            - 'layers_data': dict - Loaded layers JSON data (None if not found)
+            - 'sections_path': Path - Path to sections file (None if not found)
+            - 'layers_path': Path - Path to layers file (None if not found)
+    """
+    import json
+
+    result = {
+        'success': False,
+        'sections_data': None,
+        'layers_data': None,
+        'sections_path': None,
+        'layers_path': None
+    }
+
+    if not sss_dir.exists():
+        logger.info(f"SSS directory not found: {sss_dir}")
+        return result
+
+    # Find most recent *_sections_*.sss and *_layers_*.sss files
+    sections_files = list(sss_dir.glob('*_sections_*.sss'))
+    layers_files = list(sss_dir.glob('*_layers_*.sss'))
+
+    if not sections_files or not layers_files:
+        logger.info("Missing sss files (sections or layers), skipping stackup generation")
+        return result
+
+    # Sort by modification time and get the latest
+    latest_sections_sss = max(sections_files, key=lambda p: p.stat().st_mtime)
+    latest_layers_sss = max(layers_files, key=lambda p: p.stat().st_mtime)
+
+    logger.info(f"Found section selection file: {latest_sections_sss}")
+    logger.info(f"Found layer data file: {latest_layers_sss}")
+
+    try:
+        # Load sss data
+        with open(latest_sections_sss, 'r', encoding='utf-8') as f:
+            sections_data = json.load(f)
+        with open(latest_layers_sss, 'r', encoding='utf-8') as f:
+            layers_data = json.load(f)
+
+        result['success'] = True
+        result['sections_data'] = sections_data
+        result['layers_data'] = layers_data
+        result['sections_path'] = latest_sections_sss
+        result['layers_path'] = latest_layers_sss
+
+    except Exception as e:
+        logger.warning(f"Failed to load SSS files: {e}")
+
+    return result
