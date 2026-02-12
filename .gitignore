@@ -27,6 +27,7 @@ Results/
 *.bak
 *.xml
 *.stk
+*.json
 *tmpclaude*
 *test*
 nul
