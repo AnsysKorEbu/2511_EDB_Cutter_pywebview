@@ -5,14 +5,13 @@ This module provides integration between the FPCB-Extractor package
 and the EDB Cutter application for advanced stackup processing.
 """
 import json
-from datetime import datetime
 from pathlib import Path
 from typing import Dict, List, Optional, Tuple
 
 from util.logger_module import logger
 
 
-def process_stackup_with_extractor(excel_file: str, output_dir: Optional[str] = None, merge_copper: bool = True) -> Tuple[bool, Dict]:
+def process_stackup_with_extractor(excel_file: str, merge_copper: bool = True) -> Tuple[bool, Dict]:
     """
     Process stackup Excel file using FPCB-Extractor.
 
@@ -24,7 +23,6 @@ def process_stackup_with_extractor(excel_file: str, output_dir: Optional[str] = 
     Returns:
         Tuple of (success, result_dict) where result_dict contains:
             - output_file: Path to generated JSON file
-            - results_folder: Path to Results/{name}_{timestamp}/ folder (if created)
             - format_type: Detected format type (type0-type4)
             - layer_count: Number of layers extracted
             - section_count: Number of sections found
@@ -41,23 +39,10 @@ def process_stackup_with_extractor(excel_file: str, output_dir: Optional[str] = 
         logger.info(f"Merge copper: {merge_copper}")
         logger.info(f"{'=' * 70}")
 
-        # Set output directory with timestamp if not provided
-        results_folder_created = None
-        if output_dir is None:
-            # Create Results/{name}_{timestamp} folder structure
-            timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
-            excel_path = Path(excel_file)
-            folder_name = excel_path.stem
-            output_dir = Path('Results') / f"{folder_name}_{timestamp}"
-            results_folder_created = str(output_dir.resolve())
-        else:
-            output_dir = Path(output_dir)
-
-        output_dir.mkdir(parents=True, exist_ok=True)
-
-        # Generate output JSON filename
+        # Set output directory
+        # Generate output JSON filename next to the Excel file
         excel_path = Path(excel_file)
-        output_json = output_dir / f"{excel_path.stem}_extracted.json"
+        output_json = excel_path.parent / f"{excel_path.stem}_extracted.json"
 
         # Process with stackup_extractor
         logger.info(f"Running stackup_extractor...")
@@ -93,10 +78,6 @@ def process_stackup_with_extractor(excel_file: str, output_dir: Optional[str] = 
             'section_data': section_data,
             'summary': extracted_data.get('summary', {})
         }
-
-        # Add results_folder if it was created
-        if results_folder_created:
-            result['results_folder'] = results_folder_created
 
         logger.info(f"✓ Processing completed successfully:")
         logger.info(f"  - Format: {result['format_type']}")
