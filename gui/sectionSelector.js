@@ -6,7 +6,9 @@ let sectionSelector = {
     excelFile: null,
     sections: [],     // ['C/N 1', 'RIGID 5', ...]
     cuts: [],         // [{id, type, points}, ...]
-    mapping: {}       // {cut_001: 'RIGID 5', cut_002: 'C/N 1'} - 1:1 mapping
+    mapping: {},      // {cut_001: 'RIGID 5', cut_002: 'C/N 1'} - 1:1 mapping
+    extractorJson: null,  // Path to FPCB-Extractor JSON (if using extractor)
+    isExtractorBased: false  // Flag to indicate data source
 };
 
 /**
@@ -69,9 +71,11 @@ async function browseExcelForSectionSelection() {
             return;
         }
 
-        // Store sections data
+        // Store sections data (legacy mode)
         sectionSelector.excelFile = result.excel_file;
         sectionSelector.sections = result.sections;
+        sectionSelector.extractorJson = null;
+        sectionSelector.isExtractorBased = false;
 
         // Check if sections were extracted
         if (!sectionSelector.sections || sectionSelector.sections.length === 0) {
@@ -116,9 +120,11 @@ async function useStackupExtractor() {
             return;
         }
 
-        // Store extracted data
+        // Store extracted data (extractor mode)
         sectionSelector.excelFile = result.excel_file;
         sectionSelector.sections = result.sections;
+        sectionSelector.extractorJson = result.output_file;  // Store JSON path
+        sectionSelector.isExtractorBased = true;  // Mark as extractor-based
 
         // Check if sections were extracted
         if (!sectionSelector.sections || sectionSelector.sections.length === 0) {
@@ -308,10 +314,11 @@ async function saveSectionSelection() {
         saveBtn.disabled = true;
         saveBtn.innerHTML = '<span>⏳ Saving...</span>';
 
-        // Save to backend
+        // Save to backend (pass extractor JSON if using extractor-based workflow)
         const result = await window.pywebview.api.save_section_selection(
             sectionSelector.excelFile,
-            sectionSelector.mapping
+            sectionSelector.mapping,
+            sectionSelector.extractorJson  // Pass extractor JSON path or null
         );
 
         // Re-enable button
@@ -419,12 +426,18 @@ function closeSectionSelection() {
         modal.classList.add('hidden');
     }
 
-    // Reset state
+    // Reset state (preserve excel file and extractor json for potential reuse)
+    const preservedExcel = sectionSelector.excelFile;
+    const preservedJson = sectionSelector.extractorJson;
+    const preservedIsExtractor = sectionSelector.isExtractorBased;
+
     sectionSelector = {
-        excelFile: null,
+        excelFile: preservedExcel,
         sections: [],
         cuts: [],
-        mapping: {}
+        mapping: {},
+        extractorJson: preservedJson,
+        isExtractorBased: preservedIsExtractor
     };
 
     // Clear modal content

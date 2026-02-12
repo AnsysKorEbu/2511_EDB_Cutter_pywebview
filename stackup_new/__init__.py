@@ -8,9 +8,11 @@ from .extractor_integration import (
     extract_sections_from_json,
     get_layer_data_for_section
 )
+from .section_adapter import ExtractorSectionAdapter
 
 __all__ = [
     'process_stackup_with_extractor',
     'extract_sections_from_json',
-    'get_layer_data_for_section'
+    'get_layer_data_for_section',
+    'ExtractorSectionAdapter'
 ]

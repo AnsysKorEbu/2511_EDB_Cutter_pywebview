@@ -840,14 +840,18 @@ class Api:
             logger.error(error_msg)
             return {'success': False, 'error': error_msg}
 
-    def save_section_selection(self, excel_file, cut_section_mapping):
+    def save_section_selection(self, excel_file, cut_section_mapping, extractor_json=None):
         """
         Save cut-section mapping and layer data to .sss files.
+
+        Supports both traditional Excel-based and FPCB-Extractor-based workflows.
 
         Args:
             excel_file (str): Path to Excel file used
             cut_section_mapping (dict): Mapping of cut IDs to sections (1:1)
                 Example: {'cut_001': 'RIGID 5', 'cut_002': 'C/N 1'}
+            extractor_json (str, optional): Path to FPCB-Extractor JSON output.
+                If provided, uses ExtractorSectionAdapter instead of SectionSelector.
 
         Returns:
             dict: {
@@ -858,42 +862,88 @@ class Api:
             }
         """
         try:
-            from stackup.section_selector import SectionSelector, generate_sss_filename, generate_layer_filename
+            from stackup.section_selector import generate_sss_filename, generate_layer_filename
 
             logger.info(f"\n{'=' * 70}")
             logger.info("Saving section selection and layer data")
             logger.info(f"Excel file: {excel_file}")
+            logger.info(f"Extractor JSON: {extractor_json if extractor_json else 'N/A (using legacy)'}")
             logger.info(f"Cut-section mapping: {cut_section_mapping}")
             logger.info(f"{'=' * 70}")
 
-            # Create SectionSelector instance
-            selector = SectionSelector(excel_file)
+            # Determine which adapter to use
+            if extractor_json and Path(extractor_json).exists():
+                # Use FPCB-Extractor adapter
+                from stackup_new import ExtractorSectionAdapter
 
-            # Validate mapping
-            is_valid, errors = selector.validate_mapping(cut_section_mapping)
-            if not is_valid:
-                error_msg = f"Invalid mapping: {', '.join(errors)}"
-                logger.error(f"\n[ERROR] {error_msg}")
-                return {'success': False, 'error': error_msg}
+                logger.info("Using FPCB-Extractor adapter")
+                adapter = ExtractorSectionAdapter(extractor_json)
 
-            # Create output path in source/{edb_name}/sss/ directory
-            sss_dir = self._edb_data_dir / 'sss'
-            sss_dir.mkdir(parents=True, exist_ok=True)
+                # Validate mapping
+                is_valid, errors = adapter.validate_mapping(cut_section_mapping)
+                if not is_valid:
+                    error_msg = f"Invalid mapping: {', '.join(errors)}"
+                    logger.error(f"\n[ERROR] {error_msg}")
+                    return {'success': False, 'error': error_msg}
 
-            # Generate .sss filenames
-            sss_filename = generate_sss_filename(self.edb_folder_name)
-            layer_filename = generate_layer_filename(self.edb_folder_name)
+                # Create output path
+                sss_dir = self._edb_data_dir / 'sss'
+                sss_dir.mkdir(parents=True, exist_ok=True)
 
-            sss_file_path = sss_dir / sss_filename
-            layer_file_path = sss_dir / layer_filename
+                # Generate .sss filenames
+                sss_filename = generate_sss_filename(self.edb_folder_name)
+                layer_filename = generate_layer_filename(self.edb_folder_name)
 
-            # Save section mapping
-            selector.save_section_mapping(cut_section_mapping, str(sss_file_path))
-            logger.info(f"Section mapping saved: {sss_file_path}")
+                sss_file_path = sss_dir / sss_filename
+                layer_file_path = sss_dir / layer_filename
 
-            # Save layer data
-            selector.save_layer_data(cut_section_mapping, str(layer_file_path))
-            logger.info(f"Layer data saved: {layer_file_path}")
+                # Save using adapter
+                adapter.save_section_mapping_sss(
+                    cut_section_mapping,
+                    str(sss_file_path),
+                    original_excel_file=excel_file
+                )
+                logger.info(f"Section mapping saved: {sss_file_path}")
+
+                adapter.save_layer_data_sss(
+                    cut_section_mapping,
+                    str(layer_file_path),
+                    original_excel_file=excel_file
+                )
+                logger.info(f"Layer data saved: {layer_file_path}")
+
+            else:
+                # Use legacy SectionSelector
+                from stackup.section_selector import SectionSelector
+
+                logger.info("Using legacy SectionSelector")
+                selector = SectionSelector(excel_file)
+
+                # Validate mapping
+                is_valid, errors = selector.validate_mapping(cut_section_mapping)
+                if not is_valid:
+                    error_msg = f"Invalid mapping: {', '.join(errors)}"
+                    logger.error(f"\n[ERROR] {error_msg}")
+                    return {'success': False, 'error': error_msg}
+
+                # Create output path in source/{edb_name}/sss/ directory
+                sss_dir = self._edb_data_dir / 'sss'
+                sss_dir.mkdir(parents=True, exist_ok=True)
+
+                # Generate .sss filenames
+                sss_filename = generate_sss_filename(self.edb_folder_name)
+                layer_filename = generate_layer_filename(self.edb_folder_name)
+
+                sss_file_path = sss_dir / sss_filename
+                layer_file_path = sss_dir / layer_filename
+
+                # Save section mapping
+                selector.save_section_mapping(cut_section_mapping, str(sss_file_path))
+                logger.info(f"Section mapping saved: {sss_file_path}")
+
+                # Save layer data
+                selector.save_layer_data(cut_section_mapping, str(layer_file_path))
+                logger.info(f"Layer data saved: {layer_file_path}")
 
             logger.info(f"Section selection completed successfully:")
             logger.info(f"  - Section file: {sss_file_path}")
