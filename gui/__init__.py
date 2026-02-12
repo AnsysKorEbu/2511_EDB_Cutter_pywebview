@@ -619,12 +619,14 @@ class Api:
 
         Opens file dialog to select Excel file, processes it with stackup_extractor,
         and extracts sections from the generated JSON output.
+        Creates Results/{name}_{timestamp}/ folder with extracted JSON.
 
         Returns:
             dict: {
                 'success': bool,
                 'excel_file': str (original Excel file path),
                 'output_file': str (generated JSON file path),
+                'results_folder': str (Results/{name}_{timestamp}/ folder path),
                 'format_type': str (detected format type),
                 'layer_count': int,
                 'section_count': int,
@@ -660,11 +662,11 @@ class Api:
             if not excel_file:
                 return {'success': False, 'error': 'File selection canceled'}
 
-            # Process with FPCB-Extractor
+            # Process with FPCB-Extractor (creates Results/{timestamp}/ folder)
             logger.info(f"Processing with FPCB-Extractor: {excel_file}")
             success, result = process_stackup_with_extractor(
                 excel_file,
-                output_dir='stackup_new',
+                output_dir=None,
                 merge_copper=True
             )
 
@@ -672,7 +674,7 @@ class Api:
                 return {'success': False, 'error': result.get('error', 'Unknown error')}
 
             # Return success with all metadata
-            return {
+            response = {
                 'success': True,
                 'excel_file': excel_file,
                 'output_file': result['output_file'],
@@ -681,6 +683,12 @@ class Api:
                 'section_count': result['section_count'],
                 'sections': result['sections']
             }
+
+            # Add results_folder if it was created
+            if 'results_folder' in result:
+                response['results_folder'] = result['results_folder']
+
+            return response
 
         except ImportError as e:
             error_msg = f"FPCB-Extractor not installed: {str(e)}"

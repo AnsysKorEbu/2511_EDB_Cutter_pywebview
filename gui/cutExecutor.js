@@ -259,6 +259,11 @@ async function executeSelectedCut() {
                 </div>
             `;
 
+            // Store results folder for stackup extractor processing
+            if (result.results_folder) {
+                sectionSelector.resultsFolder = result.results_folder;
+            }
+
             // Prompt to open analysis GUI if results folder is available
             if (result.results_folder) {
                 setTimeout(async () => {

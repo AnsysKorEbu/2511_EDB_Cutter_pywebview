@@ -8,7 +8,8 @@ let sectionSelector = {
     cuts: [],         // [{id, type, points}, ...]
     mapping: {},      // {cut_001: 'RIGID 5', cut_002: 'C/N 1'} - 1:1 mapping
     extractorJson: null,  // Path to FPCB-Extractor JSON (if using extractor)
-    isExtractorBased: false  // Flag to indicate data source
+    isExtractorBased: false,  // Flag to indicate data source
+    resultsFolder: null  // Path to Results/{name}_{timestamp}/ folder for output
 };
 
 /**
@@ -113,6 +114,7 @@ async function browseExcelForSectionSelection() {
 async function useStackupExtractor() {
     try {
         // Browse for Excel file and process with stackup_extractor
+        // This will create Results/{name}_{timestamp}/ folder with extracted JSON
         const result = await window.pywebview.api.use_stackup_extractor();
 
         if (!result.success) {
@@ -125,6 +127,11 @@ async function useStackupExtractor() {
         sectionSelector.sections = result.sections;
         sectionSelector.extractorJson = result.output_file;  // Store JSON path
         sectionSelector.isExtractorBased = true;  // Mark as extractor-based
+
+        // Store results folder if created
+        if (result.results_folder) {
+            sectionSelector.resultsFolder = result.results_folder;
+        }
 
         // Check if sections were extracted
         if (!sectionSelector.sections || sectionSelector.sections.length === 0) {
