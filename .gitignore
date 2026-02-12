@@ -37,3 +37,4 @@ stackup/Case9.xls
 stackup/1.json
 .gitignore
 standalone/example_output.json
+stackup_new/*.json

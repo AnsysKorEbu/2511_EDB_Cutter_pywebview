@@ -165,3 +165,109 @@ def get_layer_data_for_section(json_file: str, section_name: str) -> List[Dict]:
     except Exception as e:
         logger.error(f"Failed to get layer data for section: {e}")
         return []
+
+
+def get_edb_conductor_layer_count(edb_data: Dict) -> int:
+    """
+    Get conductor layer count from already-loaded EDB data.
+
+    Collects unique layer names from planes, traces, vias
+    (same as layersMap in canvas.js).
+    """
+    layers = set()
+
+    for plane in edb_data.get('planes', []) or []:
+        layer = plane.get('layer')
+        if layer:
+            layers.add(layer)
+
+    for trace in edb_data.get('traces', []) or []:
+        layer = trace.get('layer')
+        if layer:
+            layers.add(layer)
+
+    for via in edb_data.get('vias', []) or []:
+        for layer_name in via.get('layer_range_names', []) or []:
+            if layer_name:
+                layers.add(layer_name)
+
+    return len(layers)
+
+
+def get_sss_copper_count_per_section(layer_sss_path: str) -> Dict:
+    """
+    Count COPPER layers per cut/section from SSS layer file.
+
+    Args:
+        layer_sss_path: Path to the _layers_*.sss file
+
+    Returns:
+        Dict with per-cut results:
+        {
+            'cut_001': {'section': 'Section A', 'copper_count': 4},
+            ...
+        }
+    """
+    with open(layer_sss_path, 'r', encoding='utf-8') as f:
+        sss_data = json.load(f)
+
+    cut_layer_data = sss_data.get('cut_layer_data', {})
+    results = {}
+
+    for cut_id, cut_info in cut_layer_data.items():
+        section_name = cut_info.get('section', cut_id)
+        layers = cut_info.get('layers', [])
+        copper_count = sum(
+            1 for layer in layers
+            if layer.get('spec_name', '').upper() == 'COPPER'
+        )
+        results[cut_id] = {
+            'section': section_name,
+            'copper_count': copper_count,
+        }
+
+    return results
+
+
+def validate_layer_count_from_sss(edb_data: Dict, layer_sss_path: str) -> List[Dict]:
+    """
+    Validate EDB conductor layer count against each section's COPPER count in SSS.
+
+    Args:
+        edb_data: self.data dict from GUI (planes/traces/vias)
+        layer_sss_path: Path to _layers_*.sss file
+
+    Returns:
+        List of per-section validation results:
+        [
+            {
+                'cut_id': 'cut_001',
+                'section': 'Section A',
+                'copper_count': 4,
+                'edb_count': 4,
+                'match': True
+            },
+            ...
+        ]
+    """
+    edb_count = get_edb_conductor_layer_count(edb_data)
+    section_counts = get_sss_copper_count_per_section(layer_sss_path)
+
+    results = []
+    for cut_id, info in section_counts.items():
+        match = (info['copper_count'] == edb_count)
+        results.append({
+            'cut_id': cut_id,
+            'section': info['section'],
+            'copper_count': info['copper_count'],
+            'edb_count': edb_count,
+            'match': match,
+        })
+
+        status = "OK" if match else "FAIL"
+        logger.info(
+            f"  [{status}] {cut_id} ({info['section']}): "
+            f"SSS COPPER={info['copper_count']}, EDB conductor={edb_count}"
+        )
+
+    return results

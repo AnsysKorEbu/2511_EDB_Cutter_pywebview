@@ -334,29 +334,71 @@ async function saveSectionSelection() {
                 sssPathElement.title = result.sss_file;
             }
 
-            // Show success message
+            // Show success message + validation results
             const statusDiv = document.getElementById('sectionStatus');
             const sectionFilename = result.sss_file.split(/[/\\]/).pop();
             const layerFilename = result.layer_file.split(/[/\\]/).pop();
 
-            statusDiv.innerHTML = `
-                <div class="status-success">
-                    <span class="status-icon">✓</span>
-                    <div>
-                        <div><strong>Configuration saved successfully!</strong></div>
-                        <div style="margin-top: 4px; font-size: 0.9em;">
-                            <div>Section file: ${escapeHtml(sectionFilename)}</div>
-                            <div>Layer file: ${escapeHtml(layerFilename)}</div>
+            // Build validation results HTML
+            let validationHtml = '';
+            const validation = result.validation || [];
+            const allMatch = validation.length > 0 && validation.every(v => v.match);
+            const hasFailure = validation.some(v => !v.match);
+
+            if (validation.length > 0) {
+                const validationLines = validation.map(v => {
+                    if (v.match) {
+                        return `<div style="color: #4ec9b0;">&#10003; ${escapeHtml(v.cut_id)} (${escapeHtml(v.section)}): ${v.copper_count} layers - Validated</div>`;
+                    } else {
+                        return `<div style="color: #f44747;">&#10007; ${escapeHtml(v.cut_id)} (${escapeHtml(v.section)}): COPPER ${v.copper_count} != EDB ${v.edb_count}</div>`;
+                    }
+                }).join('');
+
+                validationHtml = `
+                    <div style="margin-top: 8px; padding: 6px 8px; background: #1e1e1e; border-radius: 4px; font-size: 0.85em; font-family: monospace;">
+                        <div style="margin-bottom: 4px; color: #ccc;"><strong>Layer Validation (EDB: ${validation[0]?.edb_count} conductor layers)</strong></div>
+                        ${validationLines}
+                    </div>
+                `;
+            }
+
+            if (hasFailure) {
+                // Validation failed - show warning, don't auto-close
+                statusDiv.innerHTML = `
+                    <div class="status-success" style="border-left: 3px solid #f44747;">
+                        <span class="status-icon" style="color: #f44747;">!</span>
+                        <div>
+                            <div><strong>Saved, but layer count mismatch detected</strong></div>
+                            <div style="margin-top: 4px; font-size: 0.9em;">
+                                <div>Section file: ${escapeHtml(sectionFilename)}</div>
+                                <div>Layer file: ${escapeHtml(layerFilename)}</div>
+                            </div>
+                            ${validationHtml}
                         </div>
                     </div>
-                </div>
-            `;
-            statusDiv.classList.remove('hidden');
+                `;
+            } else {
+                statusDiv.innerHTML = `
+                    <div class="status-success">
+                        <span class="status-icon">✓</span>
+                        <div>
+                            <div><strong>Configuration saved successfully!</strong></div>
+                            <div style="margin-top: 4px; font-size: 0.9em;">
+                                <div>Section file: ${escapeHtml(sectionFilename)}</div>
+                                <div>Layer file: ${escapeHtml(layerFilename)}</div>
+                            </div>
+                            ${validationHtml}
+                        </div>
+                    </div>
+                `;
 
-            // Close modal after delay
-            setTimeout(() => {
-                closeSectionSelection();
-            }, 2500);
+                // Auto-close only when all validated
+                setTimeout(() => {
+                    closeSectionSelection();
+                }, 2500);
+            }
+
+            statusDiv.classList.remove('hidden');
 
         } else {
             await customAlert('Failed to save: ' + (result.error || 'Unknown error'));

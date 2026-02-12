@@ -949,12 +949,19 @@ class Api:
             logger.info(f"  - Section file: {sss_file_path}")
             logger.info(f"  - Layer file: {layer_file_path}")
             logger.info(f"  - Cuts: {len(cut_section_mapping)}")
+
+            # Validate layer counts per section against EDB
+            from stackup_new.extractor_integration import validate_layer_count_from_sss
+            self._ensure_data_loaded()
+            validation = validate_layer_count_from_sss(self.data, str(layer_file_path))
+
             logger.info(f"{'=' * 70}\n")
 
             return {
                 'success': True,
                 'sss_file': str(sss_file_path),
-                'layer_file': str(layer_file_path)
+                'layer_file': str(layer_file_path),
+                'validation': validation,
             }
 
         except ValueError as e:
