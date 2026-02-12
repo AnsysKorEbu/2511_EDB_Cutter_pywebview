@@ -613,6 +613,87 @@ class Api:
             traceback.print_exc()
             return {'success': False, 'error': error_msg}
 
+    def use_stackup_extractor(self):
+        """
+        Use FPCB-Extractor to process stackup Excel file.
+
+        Opens file dialog to select Excel file, processes it with stackup_extractor,
+        and extracts sections from the generated JSON output.
+
+        Returns:
+            dict: {
+                'success': bool,
+                'excel_file': str (original Excel file path),
+                'output_file': str (generated JSON file path),
+                'format_type': str (detected format type),
+                'layer_count': int,
+                'section_count': int,
+                'sections': list of str (section names),
+                'error': str (if failed)
+            }
+        """
+        try:
+            from stackup_new import process_stackup_with_extractor
+
+            # Create hidden tkinter root window
+            root = tk.Tk()
+            root.withdraw()
+            root.wm_attributes('-topmost', 1)
+
+            # Set initial directory to stackup folder if it exists
+            initial_dir = STACKUP_DIR if STACKUP_DIR.exists() else Path.cwd()
+
+            # Open file dialog
+            excel_file = filedialog.askopenfilename(
+                title="Select Excel File for FPCB-Extractor",
+                initialdir=str(initial_dir),
+                filetypes=[
+                    ("Excel Files", "*.xlsx *.xls"),
+                    ("All Files", "*.*")
+                ]
+            )
+
+            # Clean up tkinter
+            root.destroy()
+
+            # Check if user canceled
+            if not excel_file:
+                return {'success': False, 'error': 'File selection canceled'}
+
+            # Process with FPCB-Extractor
+            logger.info(f"Processing with FPCB-Extractor: {excel_file}")
+            success, result = process_stackup_with_extractor(
+                excel_file,
+                output_dir='stackup_new',
+                merge_copper=True
+            )
+
+            if not success:
+                return {'success': False, 'error': result.get('error', 'Unknown error')}
+
+            # Return success with all metadata
+            return {
+                'success': True,
+                'excel_file': excel_file,
+                'output_file': result['output_file'],
+                'format_type': result['format_type'],
+                'layer_count': result['layer_count'],
+                'section_count': result['section_count'],
+                'sections': result['sections']
+            }
+
+        except ImportError as e:
+            error_msg = f"FPCB-Extractor not installed: {str(e)}"
+            logger.error(f"\n[ERROR] {error_msg}")
+            return {'success': False, 'error': error_msg}
+
+        except Exception as e:
+            error_msg = f"Failed to process with stackup_extractor: {str(e)}"
+            logger.error(f"\n[ERROR] {error_msg}")
+            import traceback
+            traceback.print_exc()
+            return {'success': False, 'error': error_msg}
+
     def get_cuts_for_section_selection(self):
         """
         Get list of available cuts for current EDB.

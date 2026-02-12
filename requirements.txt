@@ -3,3 +3,4 @@ pyaedt
 pywebview
 numpy
 openpyxl
+FPCB-Extractor @ git+https://github.com/AnsysKorEbu/FPCB_Extractor.git

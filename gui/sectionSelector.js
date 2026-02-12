@@ -104,6 +104,57 @@ async function browseExcelForSectionSelection() {
 }
 
 /**
+ * Use FPCB-Extractor to process stackup Excel file
+ */
+async function useStackupExtractor() {
+    try {
+        // Browse for Excel file and process with stackup_extractor
+        const result = await window.pywebview.api.use_stackup_extractor();
+
+        if (!result.success) {
+            await customAlert(result.error || 'Failed to process with stackup_extractor');
+            return;
+        }
+
+        // Store extracted data
+        sectionSelector.excelFile = result.excel_file;
+        sectionSelector.sections = result.sections;
+
+        // Check if sections were extracted
+        if (!sectionSelector.sections || sectionSelector.sections.length === 0) {
+            await customAlert('No sections found in the processed Excel file');
+            return;
+        }
+
+        // Update Excel file path display in Cut Executor modal
+        const excelPathElement = document.getElementById('excelFilePath');
+        if (excelPathElement) {
+            excelPathElement.textContent = result.excel_file;
+            excelPathElement.title = result.excel_file;
+        }
+
+        // Enable Section Selection button
+        const sectionBtn = document.getElementById('processSectionSelectionBtn');
+        if (sectionBtn) {
+            sectionBtn.disabled = false;
+        }
+
+        // Show success message with extraction details
+        let message = `✓ FPCB-Extractor processed successfully!\n\n`;
+        message += `Format: ${result.format_type}\n`;
+        message += `Layers: ${result.layer_count}\n`;
+        message += `Sections: ${result.section_count}\n`;
+        message += `Output: ${result.output_file}`;
+
+        await customAlert(message);
+
+    } catch (error) {
+        console.error('Error in useStackupExtractor:', error);
+        await customAlert(`Unexpected error: ${error.message}`);
+    }
+}
+
+/**
  * Open section selection modal and render content
  */
 async function openSectionSelectionModal() {
