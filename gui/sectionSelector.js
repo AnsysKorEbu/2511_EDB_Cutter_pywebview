@@ -69,6 +69,76 @@ async function useStackupExtractor() {
 }
 
 /**
+ * Launch stackup editor GUI for editing extracted data
+ * Opens tkinter-based editor that allows cell-by-cell editing
+ */
+async function editStackupWithEditor() {
+    try {
+        // Call API to launch editor GUI (this will block until user completes or cancels)
+        const result = await window.pywebview.api.edit_stackup_with_editor();
+
+        if (!result.success) {
+            if (result.error !== 'Edit cancelled by user' && result.error !== 'File selection canceled') {
+                await customAlert(result.error || 'Failed to edit stackup');
+            }
+            return;
+        }
+
+        // Store edited data (same structure as extractor mode)
+        sectionSelector.excelFile = result.excel_file;
+        sectionSelector.extractorJson = result.output_file;  // Store edited JSON path
+        sectionSelector.isExtractorBased = true;  // Mark as extractor-based
+
+        // Load sections from edited JSON
+        try {
+            const sectionsResult = await window.pywebview.api.get_sections_from_json(result.output_file);
+
+            if (!sectionsResult.success) {
+                await customAlert('Failed to load sections from edited JSON');
+                return;
+            }
+
+            sectionSelector.sections = sectionsResult.sections;
+
+            if (!sectionSelector.sections || sectionSelector.sections.length === 0) {
+                await customAlert('No sections found in the edited JSON file');
+                return;
+            }
+
+        } catch (error) {
+            console.error('Error loading sections from edited JSON:', error);
+            await customAlert(`Failed to load sections: ${error.message}`);
+            return;
+        }
+
+        // Update Excel file path display
+        const excelPathElement = document.getElementById('excelFilePath');
+        if (excelPathElement) {
+            excelPathElement.textContent = result.excel_file + ' (edited)';
+            excelPathElement.title = result.output_file;
+        }
+
+        // Enable Section Selection button
+        const sectionBtn = document.getElementById('processSectionSelectionBtn');
+        if (sectionBtn) {
+            sectionBtn.disabled = false;
+        }
+
+        // Show success message
+        let message = `✓ Stackup edited successfully!\n\n`;
+        message += `Excel: ${result.excel_file}\n`;
+        message += `Output JSON: ${result.output_file}\n`;
+        message += `Sections: ${sectionSelector.sections.length}`;
+
+        await customAlert(message);
+
+    } catch (error) {
+        console.error('Error in editStackupWithEditor:', error);
+        await customAlert(`Unexpected error: ${error.message}`);
+    }
+}
+
+/**
  * Open section selection modal and render content
  */
 async function openSectionSelectionModal() {

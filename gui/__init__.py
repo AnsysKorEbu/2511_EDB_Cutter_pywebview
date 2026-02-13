@@ -835,6 +835,127 @@ class Api:
             traceback.print_exc()
             return {'success': False, 'error': error_msg}
 
+    def edit_stackup_with_editor(self, excel_file=None):
+        """
+        Launch stackup_extractor editor GUI for editing extracted data.
+
+        This method:
+        1. Opens file dialog if excel_file not provided
+        2. Calls edit_and_export() which opens the editor GUI
+        3. Returns the path to the exported JSON file
+
+        Args:
+            excel_file: Optional path to Excel file. If None, opens file dialog.
+
+        Returns:
+            dict: {
+                'success': bool,
+                'excel_file': str (path to Excel file),
+                'output_file': str (path to exported JSON),
+                'error': str (if failed)
+            }
+        """
+        try:
+            # If no excel_file provided, open file dialog
+            if not excel_file:
+                root = tk.Tk()
+                root.withdraw()
+                excel_file = filedialog.askopenfilename(
+                    title="Select Excel file to edit",
+                    filetypes=[
+                        ("Excel files", "*.xlsx *.xls"),
+                        ("All files", "*.*")
+                    ]
+                )
+                root.destroy()
+
+                if not excel_file:
+                    return {'success': False, 'error': 'File selection canceled'}
+
+            # Determine output JSON path
+            excel_path = Path(excel_file)
+            output_json = excel_path.parent / f"{excel_path.stem}_edited.json"
+
+            logger.info(f"\n{'=' * 70}")
+            logger.info("Launching stackup editor GUI")
+            logger.info(f"Excel file: {excel_file}")
+            logger.info(f"Output JSON: {output_json}")
+            logger.info(f"{'=' * 70}")
+
+            # Import and call edit_and_export
+            from stackup_extractor.editor import edit_and_export
+
+            # This will block until user clicks Complete or Cancel
+            success = edit_and_export(str(excel_file), str(output_json))
+
+            if not success:
+                logger.info("Edit cancelled by user")
+                return {'success': False, 'error': 'Edit cancelled by user'}
+
+            # Verify JSON was created
+            if not output_json.exists():
+                error_msg = f"Expected output file not found: {output_json}"
+                logger.error(error_msg)
+                return {'success': False, 'error': error_msg}
+
+            logger.info(f"✓ Edit completed successfully: {output_json}")
+            logger.info(f"{'=' * 70}\n")
+
+            return {
+                'success': True,
+                'excel_file': str(excel_file),
+                'output_file': str(output_json)
+            }
+
+        except ImportError as e:
+            error_msg = f"stackup_extractor.editor not available: {str(e)}"
+            logger.error(f"\n[ERROR] {error_msg}")
+            return {'success': False, 'error': error_msg}
+
+        except Exception as e:
+            error_msg = f"Failed to edit stackup: {str(e)}"
+            logger.error(f"\n[ERROR] {error_msg}")
+            import traceback
+            traceback.print_exc()
+            return {'success': False, 'error': error_msg}
+
+    def get_sections_from_json(self, json_file):
+        """
+        Extract section names from an extracted/edited JSON file.
+
+        Args:
+            json_file: Path to JSON file
+
+        Returns:
+            dict: {
+                'success': bool,
+                'sections': list of section names,
+                'error': str (if failed)
+            }
+        """
+        try:
+            from stackup import extract_sections_from_json
+
+            sections = extract_sections_from_json(json_file)
+
+            if not sections:
+                logger.warning(f"No sections found in JSON: {json_file}")
+                return {'success': False, 'error': 'No sections found in JSON file'}
+
+            logger.info(f"Loaded {len(sections)} sections from JSON: {json_file}")
+
+            return {
+                'success': True,
+                'sections': sections
+            }
+
+        except Exception as e:
+            error_msg = f"Failed to load sections from JSON: {str(e)}"
+            logger.error(f"\n[ERROR] {error_msg}")
+            import traceback
+            traceback.print_exc()
+            return {'success': False, 'error': error_msg}
+
     def get_cuts_for_section_selection(self):
         """
         Get list of available cuts for current EDB.
