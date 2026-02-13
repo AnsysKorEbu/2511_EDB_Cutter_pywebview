@@ -752,7 +752,7 @@ class Api:
             }
         """
         try:
-            from stackup_new import process_stackup_with_extractor
+            from stackup import process_stackup_with_extractor
 
             # Create hidden tkinter root window
             root = tk.Tk()
@@ -980,7 +980,7 @@ class Api:
             }
         """
         try:
-            from stackup_new.sss_utils import generate_sss_filename, generate_layer_filename
+            from stackup.sss_utils import generate_sss_filename, generate_layer_filename
 
             logger.info(f"\n{'=' * 70}")
             logger.info("Saving section selection and layer data")
@@ -996,7 +996,7 @@ class Api:
                 return {'success': False, 'error': error_msg}
 
             # Use FPCB-Extractor adapter
-            from stackup_new import ExtractorSectionAdapter
+            from stackup import ExtractorSectionAdapter
 
             logger.info("Using FPCB-Extractor adapter")
             adapter = ExtractorSectionAdapter(extractor_json)
@@ -1040,7 +1040,7 @@ class Api:
             logger.info(f"  - Cuts: {len(cut_section_mapping)}")
 
             # Validate layer counts per section against EDB
-            from stackup_new.extractor_integration import validate_layer_count_from_sss
+            from stackup.extractor_integration import validate_layer_count_from_sss
             self._ensure_data_loaded()
             validation = validate_layer_count_from_sss(self.data, str(layer_file_path))
 
