@@ -269,15 +269,15 @@ function updateGenerateButton() {
 
     if (selectedCount === 0) {
         generateBtn.disabled = true;
-        generateBtn.textContent = 'Generate Config';
+        generateBtn.textContent = 'Generate Circuit';
     } else {
         generateBtn.disabled = false;
-        generateBtn.textContent = `Generate Config (${selectedCount} files)`;
+        generateBtn.textContent = `Generate Circuit (${selectedCount} files)`;
     }
 }
 
 /**
- * Generate configuration JSON file
+ * Generate configuration JSON file and run HFSS Circuit automatically
  */
 async function generateConfiguration() {
     if (schematicState.selectedFilenames.length === 0) {
@@ -301,26 +301,79 @@ async function generateConfiguration() {
             };
         }).filter(item => item !== null);
 
-        console.log('Generating configuration with files:', configItems);
+        console.log('Generating configuration and HFSS Circuit with files:', configItems);
 
-        const result = await window.pywebview.api.save_merge_configuration(configItems);
+        // Show initial progress
+        const statusSection = document.getElementById('statusSection');
+        const statusMessage = document.getElementById('statusMessage');
+        statusMessage.innerHTML = `
+            <div class="status-info">
+                <span class="status-icon">⏳</span>
+                <span>Saving configuration...</span>
+            </div>
+        `;
+        statusSection.classList.remove('hidden');
 
-        if (result.success) {
-            showSuccess(`Configuration saved successfully!\nFile: ${result.config_file}\nSelected files: ${result.total_enabled}`);
+        // Step 1: Save configuration
+        const configResult = await window.pywebview.api.save_merge_configuration(configItems);
 
-            // Ask user if they want to open Circuit GUI
-            const shouldContinue = confirm('Configuration saved! Do you want to open HFSS Circuit Generator?');
-            if (shouldContinue) {
-                console.log('User chose to open Circuit GUI and close current window');
-                await launchCircuitGuiAndClose();
-            }
-        } else {
-            showError(`Failed to save configuration: ${result.error}`);
+        if (!configResult.success) {
+            showError(`Failed to save configuration: ${configResult.error}`);
+            return;
         }
+
+        console.log('Configuration saved:', configResult.config_file);
+
+        // Step 2: Automatically run HFSS Circuit generation
+        console.log('Starting HFSS Circuit generation...');
+        await runHfssCircuitGeneration();
 
     } catch (error) {
         console.error('Generate configuration error:', error);
         showError(`Error generating configuration: ${error.message || error}`);
+    }
+}
+
+/**
+ * Run HFSS Circuit generation directly (no separate GUI)
+ */
+async function runHfssCircuitGeneration() {
+    try {
+        console.log('Running HFSS Circuit generation...');
+
+        // Update UI to show progress
+        const statusSection = document.getElementById('statusSection');
+        const statusMessage = document.getElementById('statusMessage');
+        statusMessage.innerHTML = `
+            <div class="status-info">
+                <span class="status-icon">⏳</span>
+                <span>Generating HFSS Circuit project...</span>
+            </div>
+        `;
+        statusSection.classList.remove('hidden');
+
+        // Call API to create HFSS Circuit
+        const result = await window.pywebview.api.create_hfss_circuit();
+
+        if (result.success) {
+            console.log('HFSS Circuit created successfully:', result.aedt_file);
+
+            // Show brief success message
+            showSuccess(result.message || `HFSS Circuit project created successfully!\n\nFile: ${result.aedt_file}`);
+
+            // Close window after 1 second
+            setTimeout(() => {
+                console.log('Closing Schematic GUI window...');
+                window.pywebview.api.close_window();
+            }, 1000);
+        } else {
+            console.error('Failed to create HFSS Circuit:', result.error);
+            showError(`Failed to create HFSS Circuit:\n\n${result.error}`);
+        }
+
+    } catch (error) {
+        console.error('Error during HFSS Circuit generation:', error);
+        showError(`Error during HFSS Circuit generation:\n\n${error.message || error}`);
     }
 }
 
@@ -372,55 +425,4 @@ function formatFileSize(bytes) {
     const i = Math.floor(Math.log(bytes) / Math.log(k));
 
     return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
-}
-
-/**
- * Launch Circuit GUI silently (no success alert)
- * Used when launching after generate config completion
- */
-async function launchCircuitGuiSilent() {
-    try {
-        console.log('Launching Circuit GUI...');
-
-        const result = await window.pywebview.api.launch_circuit_gui();
-
-        if (result.success) {
-            console.log('Circuit GUI launched successfully');
-            // No alert on success - silent launch
-        } else {
-            console.error('Failed to launch Circuit GUI:', result.error);
-            alert(`Failed to launch Circuit GUI: ${result.error}`);
-        }
-    } catch (error) {
-        console.error('Error launching Circuit GUI:', error);
-        alert(`Error launching Circuit GUI: ${error.message || error}`);
-    }
-}
-
-/**
- * Launch Circuit GUI and close current window
- * Used when user confirms after configuration generation
- */
-async function launchCircuitGuiAndClose() {
-    try {
-        console.log('Launching Circuit GUI and closing current window...');
-
-        const result = await window.pywebview.api.launch_circuit_gui(true);
-
-        if (result.success) {
-            console.log('Circuit GUI launched successfully');
-
-            // Close current window if requested
-            if (result.close_window) {
-                console.log('Closing current window...');
-                window.pywebview.api.close_window();
-            }
-        } else {
-            console.error('Failed to launch Circuit GUI:', result.error);
-            alert(`Failed to launch Circuit GUI: ${result.error}`);
-        }
-    } catch (error) {
-        console.error('Error launching Circuit GUI:', error);
-        alert(`Error launching Circuit GUI: ${error.message || error}`);
-    }
 }

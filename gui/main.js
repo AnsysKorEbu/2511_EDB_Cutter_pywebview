@@ -257,8 +257,12 @@ async function openAnalysisGui() {
     }
 }
 
+// ============================================================================
+// Schematic GUI Launcher (Generate & Run)
+// ============================================================================
+
 /**
- * Open Schematic GUI (Full Touchstone Generator)
+ * Open Schematic GUI (Full Touchstone Generator with HFSS integration)
  */
 async function openSchematicGui() {
     try {
@@ -271,24 +275,6 @@ async function openSchematicGui() {
         }
     } catch (error) {
         console.error('Error launching Schematic GUI:', error);
-        await customAlert(`Error: ${error.message || error}`);
-    }
-}
-
-/**
- * Open Circuit GUI (HFSS Circuit Generator)
- */
-async function openCircuitGui() {
-    try {
-        console.log('Launching Circuit Generator GUI...');
-        const result = await window.pywebview.api.launch_circuit_gui_window();
-
-        if (!result.success) {
-            console.error('Failed to launch Circuit GUI:', result.error);
-            await customAlert(`Failed to launch Circuit GUI: ${result.error || 'Unknown error'}`);
-        }
-    } catch (error) {
-        console.error('Error launching Circuit GUI:', error);
         await customAlert(`Error: ${error.message || error}`);
     }
 }

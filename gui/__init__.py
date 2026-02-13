@@ -459,16 +459,34 @@ class Api:
             dict: {'success': bool, 'error': str}
         """
         try:
+            # If no analysis folder provided, show folder browser
+            if not analysis_folder:
+                import tkinter as tk
+                from tkinter import filedialog
+
+                root = tk.Tk()
+                root.withdraw()
+                root.wm_attributes('-topmost', 1)
+
+                logger.info("Please select an Analysis folder...")
+
+                analysis_folder = filedialog.askdirectory(
+                    title='Select Analysis Folder (containing cut results)',
+                    initialdir=str(Path('Results').resolve()) if Path('Results').exists() else str(Path.cwd())
+                )
+
+                root.destroy()
+
+                if not analysis_folder:
+                    logger.info("No folder selected. Cancelled.")
+                    return {'success': False, 'error': 'No folder selected'}
+
             logger.info(f"\n[INFO] Launching Schematic GUI as subprocess")
             logger.info(f"EDB Version: {self.edb_version}")
-            if analysis_folder:
-                logger.info(f"Analysis folder: {analysis_folder}")
+            logger.info(f"Analysis folder: {analysis_folder}")
 
             # Build command args: [analysis_folder] [edb_version]
-            cmd_args = [sys.executable, "-m", "schematic.gui_launcher"]
-            if analysis_folder:
-                cmd_args.append(str(analysis_folder))
-            cmd_args.append(self.edb_version)
+            cmd_args = [sys.executable, "-m", "schematic.gui_launcher", str(analysis_folder), self.edb_version]
 
             subprocess.Popen(cmd_args, cwd=Path.cwd())
 
@@ -504,6 +522,207 @@ class Api:
 
         except Exception as e:
             error_msg = f"Failed to launch Circuit Generator GUI: {str(e)}"
+            logger.error(f"\n[ERROR] {error_msg}")
+            import traceback
+            traceback.print_exc()
+            return {'success': False, 'error': error_msg}
+
+    def browse_analysis_folder(self):
+        """
+        Browse for Analysis folder.
+
+        Returns:
+            dict: {'success': bool, 'folder_path': str, 'error': str}
+        """
+        try:
+            root = tk.Tk()
+            root.withdraw()
+            root.wm_attributes('-topmost', 1)
+
+            folder_path = filedialog.askdirectory(
+                title="Select Analysis Folder",
+                initialdir=str(Path.cwd())
+            )
+
+            root.destroy()
+
+            if not folder_path:
+                return {'success': False, 'error': 'No folder selected'}
+
+            logger.info(f"Analysis folder selected: {folder_path}")
+            return {'success': True, 'folder_path': folder_path}
+
+        except Exception as e:
+            error_msg = f"Failed to browse folder: {str(e)}"
+            logger.error(f"\n[ERROR] {error_msg}")
+            return {'success': False, 'error': error_msg}
+
+    def generate_and_run_unified(self, analysis_folder):
+        """
+        Unified workflow: Generate Touchstone + Create Config + Run HFSS Circuit.
+
+        This is a streamlined single-call API that:
+        1. Generates Full Touchstone files from Analysis folder
+        2. Auto-generates circuit config from the Touchstone files
+        3. Launches HFSS Circuit generation and runs it
+
+        Args:
+            analysis_folder: Path to Analysis folder containing cut results
+
+        Returns:
+            dict: {'success': bool, 'message': str, 'error': str}
+        """
+        try:
+            logger.info(f"\n[INFO] Starting unified Generate & Run workflow")
+            logger.info(f"Analysis folder: {analysis_folder}")
+            logger.info(f"EDB Version: {self.edb_version}")
+
+            # Step 1: Generate Full Touchstone (via schematic module)
+            logger.info("[Step 1/2] Generating Full Touchstone files...")
+            touchstone_cmd = [
+                sys.executable, "-m", "schematic.gui_launcher",
+                str(analysis_folder), self.edb_version
+            ]
+
+            # Run and wait for completion
+            touchstone_process = subprocess.Popen(
+                touchstone_cmd,
+                cwd=Path.cwd(),
+                stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE
+            )
+
+            # Wait for touchstone generation to complete
+            touchstone_process.wait()
+
+            if touchstone_process.returncode != 0:
+                error_msg = "Touchstone generation failed"
+                logger.error(f"[ERROR] {error_msg}")
+                return {'success': False, 'error': error_msg}
+
+            logger.info("[OK] Touchstone generation completed")
+
+            # Step 2: Auto-generate config and launch Circuit
+            logger.info("[Step 2/2] Generating Circuit config and launching HFSS...")
+
+            # Launch circuit generation (circuit module will auto-find latest config)
+            circuit_cmd = [
+                sys.executable, "-m", "gui.circuit_launcher",
+                self.edb_version,
+                str(analysis_folder)  # Pass analysis folder for auto-config
+            ]
+
+            subprocess.Popen(circuit_cmd, cwd=Path.cwd())
+
+            logger.info("[OK] Unified workflow completed successfully")
+            return {
+                'success': True,
+                'message': 'Touchstone generated and HFSS Circuit started successfully'
+            }
+
+        except Exception as e:
+            error_msg = f"Failed during unified workflow: {str(e)}"
+            logger.error(f"\n[ERROR] {error_msg}")
+            import traceback
+            traceback.print_exc()
+            return {'success': False, 'error': error_msg}
+
+    def generate_full_touchstone(self, analysis_folder):
+        """
+        Generate Full Touchstone files from Analysis folder.
+
+        Args:
+            analysis_folder: Path to Analysis folder
+
+        Returns:
+            dict: {'success': bool, 'message': str, 'error': str}
+        """
+        try:
+            logger.info(f"\n[INFO] Generating Full Touchstone")
+            logger.info(f"Analysis folder: {analysis_folder}")
+
+            # Launch schematic GUI subprocess to generate Touchstone
+            cmd_args = [sys.executable, "-m", "schematic.gui_launcher",
+                       str(analysis_folder), self.edb_version]
+
+            subprocess.Popen(cmd_args, cwd=Path.cwd())
+
+            logger.info("[OK] Full Touchstone generation started")
+            return {
+                'success': True,
+                'message': 'Touchstone generation started in subprocess'
+            }
+
+        except Exception as e:
+            error_msg = f"Failed to generate Touchstone: {str(e)}"
+            logger.error(f"\n[ERROR] {error_msg}")
+            import traceback
+            traceback.print_exc()
+            return {'success': False, 'error': error_msg}
+
+    def browse_circuit_config_file(self):
+        """
+        Browse for Circuit config JSON file.
+
+        Returns:
+            dict: {'success': bool, 'config_path': str, 'error': str}
+        """
+        try:
+            root = tk.Tk()
+            root.withdraw()
+            root.wm_attributes('-topmost', 1)
+
+            config_path = filedialog.askopenfilename(
+                title="Select Circuit Config File",
+                initialdir=str(Path.cwd()),
+                filetypes=[
+                    ("JSON Files", "*.json"),
+                    ("All Files", "*.*")
+                ]
+            )
+
+            root.destroy()
+
+            if not config_path:
+                return {'success': False, 'error': 'No file selected'}
+
+            logger.info(f"Config file selected: {config_path}")
+            return {'success': True, 'config_path': config_path}
+
+        except Exception as e:
+            error_msg = f"Failed to browse file: {str(e)}"
+            logger.error(f"\n[ERROR] {error_msg}")
+            return {'success': False, 'error': error_msg}
+
+    def generate_circuit_and_run(self, config_path):
+        """
+        Generate HFSS Circuit project and run from config file.
+
+        Args:
+            config_path: Path to config JSON file
+
+        Returns:
+            dict: {'success': bool, 'message': str, 'error': str}
+        """
+        try:
+            logger.info(f"\n[INFO] Generating Circuit and running HFSS")
+            logger.info(f"Config file: {config_path}")
+
+            # Launch circuit GUI subprocess
+            subprocess.Popen(
+                [sys.executable, "-m", "gui.circuit_launcher",
+                 self.edb_version, str(config_path)],
+                cwd=Path.cwd()
+            )
+
+            logger.info("[OK] Circuit generation started in subprocess")
+            return {
+                'success': True,
+                'message': 'HFSS Circuit generation started in subprocess'
+            }
+
+        except Exception as e:
+            error_msg = f"Failed to generate Circuit: {str(e)}"
             logger.error(f"\n[ERROR] {error_msg}")
             import traceback
             traceback.print_exc()

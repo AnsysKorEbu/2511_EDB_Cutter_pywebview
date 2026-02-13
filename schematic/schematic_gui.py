@@ -240,6 +240,70 @@ class SchematicApi:
             traceback.print_exc()
             return {'success': False, 'error': error_msg}
 
+    def create_hfss_circuit(self):
+        """
+        Create HFSS Circuit project from the most recent config in Analysis folder.
+
+        This method:
+        1. Finds the most recent full_touchstone_config.json in the analysis folder
+        2. Calls HFSS Circuit generation with that config
+        3. Returns result with .aedt file path
+
+        Returns:
+            dict: {
+                'success': bool,
+                'aedt_file': str,
+                'message': str,
+                'error': str
+            }
+        """
+        try:
+            if not self.analysis_folder_str:
+                return {
+                    'success': False,
+                    'error': 'No analysis folder loaded. Please select an Analysis folder first.'
+                }
+
+            analysis_folder = Path(self.analysis_folder_str)
+
+            # Find config file
+            config_filename = "full_touchstone_config.json"
+            config_path = analysis_folder / config_filename
+
+            if not config_path.exists():
+                return {
+                    'success': False,
+                    'error': f'Config file not found: {config_filename}\n\nPlease generate configuration first.'
+                }
+
+            logger.info(f"\n[Schematic GUI] Creating HFSS Circuit project...")
+            logger.info(f"  Config: {config_path}")
+            logger.info(f"  Version: {self.edb_version}")
+
+            # Call HFSS module to generate circuit
+            from hfss.generate_circuit import generate_circuit
+
+            result = generate_circuit(str(config_path), self.edb_version)
+
+            if result['success']:
+                aedt_file = Path(result['aedt_file'])
+                logger.info(f"[OK] HFSS Circuit created: {aedt_file.name}")
+                return {
+                    'success': True,
+                    'aedt_file': result['aedt_file'],
+                    'message': f'HFSS Circuit project created!\n\nFile: {aedt_file.name}\nLocation: {aedt_file.parent}\n\nVersion: {self.edb_version}'
+                }
+            else:
+                logger.error(f"[ERROR] Circuit generation failed: {result.get('error', 'Unknown error')}")
+                return result
+
+        except Exception as e:
+            error_msg = f"Failed to create HFSS Circuit: {str(e)}"
+            logger.error(f"\n[ERROR] {error_msg}")
+            import traceback
+            traceback.print_exc()
+            return {'success': False, 'error': error_msg}
+
     def close_window(self):
         """
         Close the current Schematic GUI window.
