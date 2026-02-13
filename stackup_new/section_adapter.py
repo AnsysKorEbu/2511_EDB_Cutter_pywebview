@@ -125,7 +125,9 @@ class ExtractorSectionAdapter:
             converted.append({
                 'width': float(thickness),
                 'material': material_type,
-                'spec_name': material_name
+                'spec_name': material_name,
+                'dk': layer.get('dk'),      # Extractor JSON의 Dk 값 보존 (null 가능)
+                'df': layer.get('df')       # Extractor JSON의 Df 값 보존 (null 가능)
             })
 
         return converted

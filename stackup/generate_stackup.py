@@ -83,6 +83,29 @@ def parse_dk_df(dk_df_str):
     return None, None
 
 
+def extract_dk_df_from_layer(layer_dict):
+    """
+    SSS v2.0 layer dict에서 Dk/Df 추출.
+
+    Args:
+        layer_dict: SSS 레이어 딕셔너리 ('dk'/'df' 필드 옵션)
+
+    Returns:
+        tuple: (permittivity, loss_tangent) 또는 (None, None)
+    """
+    dk = layer_dict.get('dk')
+    df = layer_dict.get('df')
+
+    # dk와 df가 모두 있고 None이 아닌지 확인
+    if dk is not None and df is not None:
+        try:
+            return float(dk), float(df)
+        except (ValueError, TypeError):
+            return None, None
+
+    return None, None
+
+
 def load_cut_layer_data(sss_layers_file, cut_id):
     """
     Load layer data for a specific cut from sss file.
@@ -335,17 +358,27 @@ def collect_unique_materials_from_sss(sss_layer_data, excel_file=None):
         if base_material == 'air':
             continue
 
-        # Try to find Dk/Df from Excel using base_material
+        # Initialize Dk/Df values
         permittivity = None
         loss_tangent = None
 
-        if excel_materials:
+        # PRIORITY 1: Try to get Dk/Df directly from SSS layer (v2.0 extractor data)
+        if material_type == 'dielectric':  # Only for dielectrics
+            sss_dk, sss_df = extract_dk_df_from_layer(layer)
+            if sss_dk is not None:
+                permittivity = sss_dk
+                loss_tangent = sss_df
+                logger.info(f"Using Dk/Df from SSS v2.0 for '{material_name}': {permittivity}/{loss_tangent}")
+
+        # PRIORITY 2: Try to find Dk/Df from Excel (legacy fallback)
+        if permittivity is None and excel_materials:
             # Look for matching material in Excel data
             for excel_mat_name, excel_mat_props in excel_materials.items():
                 if base_material in excel_mat_name.lower() or excel_mat_name.lower() in base_material:
                     if excel_mat_props.get('type') == 'dielectric':
                         permittivity = excel_mat_props.get('permittivity')
                         loss_tangent = excel_mat_props.get('loss_tangent')
+                        logger.info(f"Using Dk/Df from Excel for '{material_name}': {permittivity}/{loss_tangent}")
                         break
 
         # Create material entry
