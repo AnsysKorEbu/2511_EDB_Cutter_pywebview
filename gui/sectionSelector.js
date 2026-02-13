@@ -7,105 +7,13 @@ let sectionSelector = {
     sections: [],     // ['C/N 1', 'RIGID 5', ...]
     cuts: [],         // [{id, type, points}, ...]
     mapping: {},      // {cut_001: 'RIGID 5', cut_002: 'C/N 1'} - 1:1 mapping
-    extractorJson: null,  // Path to FPCB-Extractor JSON (if using extractor)
-    isExtractorBased: false  // Flag to indicate data source
+    extractorJson: null,  // Path to FPCB-Extractor JSON (required - legacy removed)
+    isExtractorBased: true  // Always true (legacy workflow removed)
 };
 
-/**
- * Browse for Excel file and load sections
- */
-async function browseSectionExcel() {
-    try {
-        // Browse for Excel file and extract sections
-        const result = await window.pywebview.api.browse_excel_for_sections();
-
-        if (!result.success) {
-            await customAlert(result.error || 'Failed to browse Excel file');
-            return;
-        }
-
-        // Store sections data
-        sectionSelector.excelFile = result.excel_file;
-        sectionSelector.sections = result.sections;
-
-        // Check if sections were extracted
-        if (!sectionSelector.sections || sectionSelector.sections.length === 0) {
-            await customAlert('No sections found in Excel file row 8');
-            return;
-        }
-
-        // Update Excel file path display
-        const excelPathElement = document.getElementById('sectionExcelPath');
-        if (excelPathElement) {
-            excelPathElement.textContent = result.excel_file;
-            excelPathElement.title = result.excel_file;
-        }
-
-        // Update section count and render tags
-        const sectionCountElement = document.getElementById('sectionCount');
-        if (sectionCountElement) {
-            sectionCountElement.textContent = sectionSelector.sections.length;
-        }
-
-        renderSectionTags();
-        renderCutSectionMapping();
-
-        await customAlert(`Loaded ${sectionSelector.sections.length} sections from Excel file`);
-
-    } catch (error) {
-        console.error('Error in browseSectionExcel:', error);
-        await customAlert(`Unexpected error: ${error.message}`);
-    }
-}
-
-/**
- * Browse for Excel file in Cut Executor modal
- */
-async function browseExcelForSectionSelection() {
-    try {
-        // Browse for Excel file and extract sections
-        const result = await window.pywebview.api.browse_excel_for_sections();
-
-        if (!result.success) {
-            await customAlert(result.error || 'Failed to browse Excel file');
-            return;
-        }
-
-        // Store sections data (legacy mode)
-        sectionSelector.excelFile = result.excel_file;
-        sectionSelector.sections = result.sections;
-        sectionSelector.extractorJson = null;
-        sectionSelector.isExtractorBased = false;
-
-        // Check if sections were extracted
-        if (!sectionSelector.sections || sectionSelector.sections.length === 0) {
-            await customAlert('No sections found in Excel file row 8');
-            return;
-        }
-
-        // Update Excel file path display in Cut Executor modal
-        const excelPathElement = document.getElementById('excelFilePath');
-        if (excelPathElement) {
-            excelPathElement.textContent = result.excel_file;
-            excelPathElement.title = result.excel_file;
-        }
-
-        // Enable Section Selection button
-        const sectionBtn = document.getElementById('processSectionSelectionBtn');
-        if (sectionBtn) {
-            sectionBtn.disabled = false;
-        }
-
-        // Save Excel file path to localStorage for next time
-        localStorage.setItem('lastSectionExcelFile', sectionSelector.excelFile);
-
-        await customAlert(`Loaded ${sectionSelector.sections.length} sections from Excel file`);
-
-    } catch (error) {
-        console.error('Error in browseExcelForSectionSelection:', error);
-        await customAlert(`Unexpected error: ${error.message}`);
-    }
-}
+// Legacy functions removed - use useStackupExtractor() instead
+// - browseSectionExcel() → useStackupExtractor()
+// - browseExcelForSectionSelection() → useStackupExtractor()
 
 /**
  * Use FPCB-Extractor to process stackup Excel file

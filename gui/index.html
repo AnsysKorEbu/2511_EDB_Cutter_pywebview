@@ -180,10 +180,7 @@
                     <div class="section-selection-area" style="margin-bottom: 15px; padding: 8px; background: #252526; border-radius: 4px;">
                         <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 6px;">
                             <span style="font-size: 11px; color: #858585; font-weight: bold;">Excel File:</span>
-                            <button class="btn-icon" onclick="browseExcelForSectionSelection()" title="Browse Excel File" style="padding: 2px 8px; font-size: 11px; background: #3e3e42;">
-                                📂 Browse...
-                            </button>
-                            <button class="btn-icon" onclick="useStackupExtractor()" title="Use FPCB-Extractor" style="padding: 2px 8px; font-size: 11px; background: #0e639c; color: #ffffff;">
+                            <button class="btn-icon" onclick="useStackupExtractor()" title="Use FPCB-Extractor to process Excel files" style="padding: 2px 8px; font-size: 11px; background: #0e639c; color: #ffffff;">
                                 🔧 Use stackup_extractor
                             </button>
                         </div>
@@ -236,9 +233,9 @@
                 <div class="section-excel-info">
                     <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 10px;">
                         <span class="info-label">Excel File:</span>
-                        <button class="btn-secondary" style="padding: 4px 12px; font-size: 12px;" onclick="browseSectionExcel()">
-                            Browse...
-                        </button>
+                        <span style="font-size: 11px; color: #858585; font-style: italic;">
+                            Use "Use stackup_extractor" button in Cut Executor
+                        </span>
                     </div>
                     <div id="sectionExcelPath" class="info-value" style="color: #9cdcfe; font-size: 12px; word-break: break-all; min-height: 16px;">
                         No file selected

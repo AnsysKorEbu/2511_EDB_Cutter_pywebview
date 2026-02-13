@@ -34,7 +34,7 @@ CONFIG_DIR = Path('config')
 """Base directory for configuration files"""
 
 STACKUP_DIR = Path('stackup')
-"""Base directory for stackup Excel files"""
+"""Base directory for stackup Excel files (used with stackup_new/FPCB-Extractor)"""
 
 # ============================================================================
 # SUBDIRECTORY NAMES

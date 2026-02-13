@@ -509,109 +509,9 @@ class Api:
             traceback.print_exc()
             return {'success': False, 'error': error_msg}
 
-    def process_stackup(self):
-        """
-        Process PCB stackup data from Excel file.
-
-        Extracts layer materials, heights, and Dk/Df values using the stackup module.
-
-        Returns:
-            dict: {'success': bool, 'summary': dict, 'error': str (if failed)}
-        """
-        try:
-            from stackup import StackupProcessor
-
-            logger.info(f"\n{'=' * 70}")
-            logger.info("Processing stackup data")
-            logger.info(f"{'=' * 70}")
-
-            # Create processor (uses default rawdata.xlsx in stackup folder)
-            processor = StackupProcessor()
-
-            # Get layer data and summary
-            summary = processor.get_stackup_summary()
-
-            logger.info(f"Stackup processed successfully:")
-            logger.info(f"  - Total layers: {summary['total_layers']}")
-            logger.info(f"  - Total height: {summary['total_height']}um")
-            logger.info(f"  - Materials: {', '.join(summary['materials'])}")
-            logger.info(f"{'=' * 70}\n")
-
-            return {
-                'success': True,
-                'summary': summary
-            }
-
-        except Exception as e:
-            error_msg = f"Failed to process stackup: {str(e)}"
-            logger.error(f"\n[ERROR] {error_msg}")
-            import traceback
-            traceback.print_exc()
-            return {'success': False, 'error': error_msg}
-
-    def browse_excel_for_sections(self):
-        """
-        Open file dialog to select Excel file and extract sections.
-
-        Returns:
-            dict: {
-                'success': bool,
-                'excel_file': str (absolute path),
-                'sections': list of str,
-                'error': str (if failed)
-            }
-        """
-        try:
-            from stackup.section_selector import extract_sections_from_excel
-
-            # Create hidden tkinter root window
-            root = tk.Tk()
-            root.withdraw()
-            root.wm_attributes('-topmost', 1)
-
-            # Set initial directory to stackup folder if it exists
-            initial_dir = STACKUP_DIR if STACKUP_DIR.exists() else Path.cwd()
-
-            # Open file dialog
-            excel_file = filedialog.askopenfilename(
-                title="Select Excel File for Section Extraction",
-                initialdir=str(initial_dir),
-                filetypes=[
-                    ("Excel Files", "*.xlsx"),
-                    ("All Files", "*.*")
-                ]
-            )
-
-            # Clean up tkinter
-            root.destroy()
-
-            # Check if user canceled
-            if not excel_file:
-                return {'success': False, 'error': 'File selection canceled'}
-
-            # Extract sections
-            logger.info(f"Extracting sections from: {excel_file}")
-            sections = extract_sections_from_excel(excel_file)
-
-            logger.info(f"Extracted {len(sections)} sections: {sections}")
-
-            return {
-                'success': True,
-                'excel_file': excel_file,
-                'sections': sections
-            }
-
-        except FileNotFoundError as e:
-            error_msg = f"Excel file not found: {str(e)}"
-            logger.error(f"\n[ERROR] {error_msg}")
-            return {'success': False, 'error': error_msg}
-
-        except Exception as e:
-            error_msg = f"Failed to browse/extract sections: {str(e)}"
-            logger.error(f"\n[ERROR] {error_msg}")
-            import traceback
-            traceback.print_exc()
-            return {'success': False, 'error': error_msg}
+    # Legacy functions removed - use stackup_new workflow instead
+    # - process_stackup() → use_stackup_extractor()
+    # - browse_excel_for_sections() → use_stackup_extractor()
 
     def use_stackup_extractor(self):
         """
@@ -861,7 +761,7 @@ class Api:
             }
         """
         try:
-            from stackup.section_selector import generate_sss_filename, generate_layer_filename
+            from stackup_new.sss_utils import generate_sss_filename, generate_layer_filename
 
             logger.info(f"\n{'=' * 70}")
             logger.info("Saving section selection and layer data")
@@ -870,79 +770,50 @@ class Api:
             logger.info(f"Cut-section mapping: {cut_section_mapping}")
             logger.info(f"{'=' * 70}")
 
-            # Determine which adapter to use
-            if extractor_json and Path(extractor_json).exists():
-                # Use FPCB-Extractor adapter
-                from stackup_new import ExtractorSectionAdapter
+            # Require FPCB-Extractor JSON (legacy workflow removed)
+            if not extractor_json or not Path(extractor_json).exists():
+                error_msg = "Extractor JSON is required. Please use 'Use stackup_extractor' button first."
+                logger.error(f"\n[ERROR] {error_msg}")
+                return {'success': False, 'error': error_msg}
 
-                logger.info("Using FPCB-Extractor adapter")
-                adapter = ExtractorSectionAdapter(extractor_json)
+            # Use FPCB-Extractor adapter
+            from stackup_new import ExtractorSectionAdapter
 
-                # Validate mapping
-                is_valid, errors = adapter.validate_mapping(cut_section_mapping)
-                if not is_valid:
-                    error_msg = f"Invalid mapping: {', '.join(errors)}"
-                    logger.error(f"\n[ERROR] {error_msg}")
-                    return {'success': False, 'error': error_msg}
+            logger.info("Using FPCB-Extractor adapter")
+            adapter = ExtractorSectionAdapter(extractor_json)
 
-                # Create output path
-                sss_dir = self._edb_data_dir / 'sss'
-                sss_dir.mkdir(parents=True, exist_ok=True)
+            # Validate mapping
+            is_valid, errors = adapter.validate_mapping(cut_section_mapping)
+            if not is_valid:
+                error_msg = f"Invalid mapping: {', '.join(errors)}"
+                logger.error(f"\n[ERROR] {error_msg}")
+                return {'success': False, 'error': error_msg}
 
-                # Generate .sss filenames
-                sss_filename = generate_sss_filename(self.edb_folder_name)
-                layer_filename = generate_layer_filename(self.edb_folder_name)
+            # Create output path
+            sss_dir = self._edb_data_dir / 'sss'
+            sss_dir.mkdir(parents=True, exist_ok=True)
 
-                sss_file_path = sss_dir / sss_filename
-                layer_file_path = sss_dir / layer_filename
+            # Generate .sss filenames
+            sss_filename = generate_sss_filename(self.edb_folder_name)
+            layer_filename = generate_layer_filename(self.edb_folder_name)
 
-                # Save using adapter
-                adapter.save_section_mapping_sss(
-                    cut_section_mapping,
-                    str(sss_file_path),
-                    original_excel_file=excel_file
-                )
-                logger.info(f"Section mapping saved: {sss_file_path}")
+            sss_file_path = sss_dir / sss_filename
+            layer_file_path = sss_dir / layer_filename
 
-                adapter.save_layer_data_sss(
-                    cut_section_mapping,
-                    str(layer_file_path),
-                    original_excel_file=excel_file
-                )
-                logger.info(f"Layer data saved: {layer_file_path}")
+            # Save using adapter
+            adapter.save_section_mapping_sss(
+                cut_section_mapping,
+                str(sss_file_path),
+                original_excel_file=excel_file
+            )
+            logger.info(f"Section mapping saved: {sss_file_path}")
 
-            else:
-                # Use legacy SectionSelector
-                from stackup.section_selector import SectionSelector
-
-                logger.info("Using legacy SectionSelector")
-                selector = SectionSelector(excel_file)
-
-                # Validate mapping
-                is_valid, errors = selector.validate_mapping(cut_section_mapping)
-                if not is_valid:
-                    error_msg = f"Invalid mapping: {', '.join(errors)}"
-                    logger.error(f"\n[ERROR] {error_msg}")
-                    return {'success': False, 'error': error_msg}
-
-                # Create output path in source/{edb_name}/sss/ directory
-                sss_dir = self._edb_data_dir / 'sss'
-                sss_dir.mkdir(parents=True, exist_ok=True)
-
-                # Generate .sss filenames
-                sss_filename = generate_sss_filename(self.edb_folder_name)
-                layer_filename = generate_layer_filename(self.edb_folder_name)
-
-                sss_file_path = sss_dir / sss_filename
-                layer_file_path = sss_dir / layer_filename
-
-                # Save section mapping
-                selector.save_section_mapping(cut_section_mapping, str(sss_file_path))
-                logger.info(f"Section mapping saved: {sss_file_path}")
-
-                # Save layer data
-                selector.save_layer_data(cut_section_mapping, str(layer_file_path))
-                logger.info(f"Layer data saved: {layer_file_path}")
+            adapter.save_layer_data_sss(
+                cut_section_mapping,
+                str(layer_file_path),
+                original_excel_file=excel_file
+            )
+            logger.info(f"Layer data saved: {layer_file_path}")
 
             logger.info(f"Section selection completed successfully:")
             logger.info(f"  - Section file: {sss_file_path}")

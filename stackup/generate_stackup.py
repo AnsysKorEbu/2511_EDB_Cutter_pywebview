@@ -1,21 +1,23 @@
 # generate_stackup.py
 """
-Generate stackup information and export to XML format.
-This module provides functionality to process Excel stackup files and generate ANSYS-compatible XML stackup files.
+Generate XML stackup files from SSS v2.0 data.
+
+This module provides XML generation for ANSYS-compatible stackup files.
+Legacy Excel-based functions have been removed - use stackup_new for processing.
 """
-from stackup.readers.excel_reader import (
-    read_layer_material,
-    read_material_properties,
-    extract_materials_specifications,
-    postprocess_materials_dict
-)
-from stackup.core.preprocessing import find_center_layer, swap_all_air_adhesive_pairs
 from util.logger_module import logger
-from openpyxl import load_workbook
 import re
 import json
 from pathlib import Path
 from collections import OrderedDict
+
+# Optional: Excel fallback support (requires legacy modules if used)
+try:
+    from openpyxl import load_workbook
+    EXCEL_SUPPORT = True
+except ImportError:
+    EXCEL_SUPPORT = False
+    logger.warning("openpyxl not available - Excel fallback disabled")
 
 # Pattern constants from excel_reader
 DK_DF_PATTERN = r'\(([\d\s\.]*\s*/\s*[\d\s\.]*)\)\s*10GHz?'
@@ -234,56 +236,23 @@ def sanitize_material_name(material_name):
 
 def collect_materials_from_excel(excel_file):
     """
-    Collect materials directly from Excel file using extract_materials_specifications.
-    This provides more accurate Dk/Df values than just reading from layer data.
+    DISABLED: Excel fallback removed with legacy stackup modules.
+
+    Use stackup_new/FPCB-Extractor to process Excel files instead.
+    SSS v2.0 files already contain dk/df values extracted by FPCB-Extractor.
 
     Args:
         excel_file (str): Path to Excel file
 
     Returns:
-        dict: Dictionary of materials with their properties
+        dict: Empty dict (function disabled)
     """
-    wb = load_workbook(excel_file, data_only=True)
-    ws = wb.worksheets[0]
-
-    # Extract material specifications from Excel
-    dk_df_dict = extract_materials_specifications(ws)
-    dk_df_list = postprocess_materials_dict(dk_df_dict)
-
-    materials = OrderedDict()
-
-    # Add default materials
-    materials['copper'] = {
-        'type': 'conductor',
-        'conductivity': 58000000,
-        'permeability': 0.999991
-    }
-
-    materials['air'] = {
-        'type': 'dielectric',
-        'permittivity': 1.0006,
-        'loss_tangent': 0
-    }
-
-    # Process materials from specifications
-    for mat_entry in dk_df_list:
-        material_name = mat_entry.get('material', '').lower()
-        dk_df_str = mat_entry.get('dk_df')
-
-        if not material_name or material_name in ['copper', 'air']:
-            continue
-
-        # Parse Dk/Df values
-        permittivity, loss_tangent = parse_dk_df(dk_df_str)
-
-        if permittivity is not None and material_name not in materials:
-            materials[material_name] = {
-                'type': 'dielectric',
-                'permittivity': permittivity,
-                'loss_tangent': loss_tangent
-            }
-
-    return materials
+    logger.warning(
+        "collect_materials_from_excel() is disabled. "
+        "Use stackup_new/FPCB-Extractor for Excel processing. "
+        "SSS v2.0 files contain dk/df values."
+    )
+    return {}
 
 
 def collect_unique_materials_from_sss(sss_layer_data, excel_file=None):
