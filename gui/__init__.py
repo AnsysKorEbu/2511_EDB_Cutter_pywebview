@@ -471,7 +471,7 @@ class Api:
                 logger.info("Please select an Analysis folder...")
 
                 analysis_folder = filedialog.askdirectory(
-                    title='Select Analysis Folder (containing cut results)',
+                    title='Select Analysis Folder (or Results timestamp folder)',
                     initialdir=str(Path('Results').resolve()) if Path('Results').exists() else str(Path.cwd())
                 )
 
@@ -480,6 +480,16 @@ class Api:
                 if not analysis_folder:
                     logger.info("No folder selected. Cancelled.")
                     return {'success': False, 'error': 'No folder selected'}
+
+                # Convert to Path object
+                selected_path = Path(analysis_folder)
+
+                # Check if selected folder is a timestamp folder (contains Analysis subfolder)
+                analysis_subfolder = selected_path / "Analysis"
+                if analysis_subfolder.exists() and analysis_subfolder.is_dir():
+                    logger.info(f"Timestamp folder selected: {analysis_folder}")
+                    logger.info(f"Using Analysis subfolder: {analysis_subfolder}")
+                    analysis_folder = str(analysis_subfolder)
 
             logger.info(f"\n[INFO] Launching Schematic GUI as subprocess")
             logger.info(f"EDB Version: {self.edb_version}")
@@ -531,6 +541,8 @@ class Api:
         """
         Browse for Analysis folder.
 
+        If a Results timestamp folder is selected, automatically finds the Analysis subfolder.
+
         Returns:
             dict: {'success': bool, 'folder_path': str, 'error': str}
         """
@@ -540,7 +552,7 @@ class Api:
             root.wm_attributes('-topmost', 1)
 
             folder_path = filedialog.askdirectory(
-                title="Select Analysis Folder",
+                title="Select Analysis Folder (or Results timestamp folder)",
                 initialdir=str(Path.cwd())
             )
 
@@ -549,6 +561,17 @@ class Api:
             if not folder_path:
                 return {'success': False, 'error': 'No folder selected'}
 
+            # Convert to Path object
+            selected_path = Path(folder_path)
+
+            # Check if selected folder is a timestamp folder (contains Analysis subfolder)
+            analysis_subfolder = selected_path / "Analysis"
+            if analysis_subfolder.exists() and analysis_subfolder.is_dir():
+                logger.info(f"Timestamp folder selected: {folder_path}")
+                logger.info(f"Using Analysis subfolder: {analysis_subfolder}")
+                return {'success': True, 'folder_path': str(analysis_subfolder)}
+
+            # Otherwise, use the selected folder as-is
             logger.info(f"Analysis folder selected: {folder_path}")
             return {'success': True, 'folder_path': folder_path}
 
