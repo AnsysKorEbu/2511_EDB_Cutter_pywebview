@@ -49,10 +49,6 @@ from .config import (
     ERROR_MESSAGES,
     SUCCESS_MESSAGES,
 
-    # Stackup Settings
-    STACKUP_HEIGHT_COLUMN,
-    STACKUP_RAWDATA_FILE,
-
     # Logging Settings
     LOG_FILE_FORMAT,
     LOG_MAX_LINE_LENGTH,
@@ -112,10 +108,6 @@ __all__ = [
     # Error & Success Messages
     'ERROR_MESSAGES',
     'SUCCESS_MESSAGES',
-
-    # Stackup Settings
-    'STACKUP_HEIGHT_COLUMN',
-    'STACKUP_RAWDATA_FILE',
 
     # Logging Settings
     'LOG_FILE_FORMAT',

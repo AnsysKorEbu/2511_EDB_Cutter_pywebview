@@ -112,15 +112,6 @@ SUCCESS_MESSAGES = {
 }
 
 # ============================================================================
-# STACKUP SETTINGS
-# ============================================================================
-STACKUP_HEIGHT_COLUMN = 94
-"""Default Excel column number for stackup height data"""
-
-STACKUP_RAWDATA_FILE = 'rawdata.xlsx'
-"""Default stackup Excel filename"""
-
-# ============================================================================
 # LOGGING SETTINGS
 # ============================================================================
 LOG_FILE_FORMAT = '{timestamp}.log'
