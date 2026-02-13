@@ -176,34 +176,34 @@
                         Process PCB stackup data from Excel file to extract layer materials and Dk/Df values.
                     </div>
 
-                    <!-- Section Selection -->
-                    <div class="section-selection-area" style="margin-bottom: 15px; padding: 8px; background: #252526; border-radius: 4px;">
-                        <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 6px;">
-                            <span style="font-size: 11px; color: #858585; font-weight: bold;">Excel File:</span>
-                            <button class="btn-icon" onclick="useStackupExtractor()" title="Use FPCB-Extractor to process Excel files" style="padding: 2px 8px; font-size: 11px; background: #0e639c; color: #ffffff;">
-                                🔧 Use stackup_extractor
+                    <!-- Excel File & Section Selection -->
+                    <div class="section-selection-area">
+                        <div class="stackup-field-row">
+                            <span class="stackup-field-label">Excel File</span>
+                            <button class="btn-icon btn-icon-primary" onclick="useStackupExtractor()" title="Use FPCB-Extractor to process Excel files">
+                                🔧 Extractor
+                            </button>
+                            <button id="processSectionSelectionBtn" class="btn-icon" onclick="openSectionSelectionModal()" disabled title="Open section selection">
+                                📊 Section Selection
                             </button>
                         </div>
-                        <div id="excelFilePath" style="font-size: 11px; color: #9cdcfe; word-break: break-all; min-height: 16px; margin-bottom: 8px;">
+                        <div id="excelFilePath" class="stackup-file-path">
                             No file selected
                         </div>
-                        <button id="processSectionSelectionBtn" class="btn-secondary" onclick="openSectionSelectionModal()" disabled>
-                            <span>📊 Section Selection</span>
-                        </button>
                     </div>
 
                     <!-- SSS File Path Display -->
-                    <div class="sss-file-section" style="margin-bottom: 10px; padding: 8px; background: #252526; border-radius: 4px;">
-                        <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 6px;">
-                            <span style="font-size: 11px; color: #858585;">SSS File:</span>
-                            <button class="btn-icon" onclick="loadSssFile()" title="Load SSS File" style="padding: 2px 8px; font-size: 11px; background: #3e3e42;">
+                    <div class="sss-file-section">
+                        <div class="stackup-field-row">
+                            <span class="stackup-field-label">SSS File</span>
+                            <button class="btn-icon" onclick="loadSssFile()" title="Load SSS File">
                                 📂 Load
                             </button>
-                            <button class="btn-icon" onclick="clearSssFileSelection()" title="Clear SSS File" style="padding: 2px 8px; font-size: 11px; background: #3e3e42; color: #f48771;" id="clearSssBtn">
+                            <button class="btn-icon btn-icon-danger" onclick="clearSssFileSelection()" title="Clear SSS File" id="clearSssBtn">
                                 ✕
                             </button>
                         </div>
-                        <div id="sssFilePath" style="font-size: 11px; color: #9cdcfe; word-break: break-all; min-height: 16px;">
+                        <div id="sssFilePath" class="stackup-file-path">
                             No file selected
                         </div>
                     </div>
